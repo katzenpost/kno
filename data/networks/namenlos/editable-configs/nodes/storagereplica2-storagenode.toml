@@ -1,0 +1,14 @@
+name = "storagereplica2"
+role = "storagenode"
+configName = "windfall-pq-storagenode-2"
+
+addresses = ["tcp://162.220.11.225:22002"]
+dataDir = "/var/lib/katzenpost/replica/windfall-pq-storagenode-2"
+replicaID = 2
+metricsAddress = "127.0.0.1:23004"
+identityKeyFile = "windfall_storage_replica_2.public.pem"
+identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
+y30wWXluToNF2Onc7fntu0+P1ATF6aDlbEEIOc5yDFn1V2/eKhbe7iC3ERPCAfdN
+gbwkv1dGaInf1q4jwgTTdQDMQe1LC7VUJjcYGX6k5YXlzqVSIZDKk9dsxbubaM+C
+-----END ED25519 SPHINCS+ PUBLIC KEY-----
+"""

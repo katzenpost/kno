@@ -1,0 +1,14 @@
+name = "storagereplica0"
+role = "storagenode"
+configName = "annares-pq-storagenode-0"
+
+addresses = ["tcp://192.87.90.45:1025"]
+dataDir = "/var/lib/katzenpost/replica/annares-pq-storagenode-0"
+replicaID = 0
+metricsAddress = "127.0.0.1:23002"
+identityKeyFile = "storage_replica_0.public.pem"
+identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
+5jNwiIYUK1V/NGMtNVhi7DPmcbU3bfh/cBRWPWszktFqPq3HbFeCnJayfoCto6to
+8pBwN6e/Kj7JwjWyryp7freRoaV52HVA8ChAaFecCwf2ZN29mTWFiwKTATwT9QCC
+-----END ED25519 SPHINCS+ PUBLIC KEY-----
+"""

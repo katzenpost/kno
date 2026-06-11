@@ -1,0 +1,4 @@
+operator = "luscus"
+arch = "arm64"
+os = "debian-13"
+lan = "luscus-oneeyedman"

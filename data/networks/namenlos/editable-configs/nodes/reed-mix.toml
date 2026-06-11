@@ -1,0 +1,17 @@
+name = "reed"
+role = "mix"
+configName = "reed-pq-mixserver"
+
+addresses = ["tcp://185.193.125.85:443", "tcp://[2a0a:3840:1337:125:0:b9c1:7d55:1337]:443"]
+dataDir = "/var/lib/katzenpost/server/reed-pq-mixserver"
+identityKeyFile = "reed_mix_id_pub_key.pem"
+identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
+vWGBULIIZI7F5kR7Kr7Y1B60pWBtu8l2ND0DI7Ih+UFDwAofdkrYPAd/oFPVNv2Y
+BPokNbZO3sBF6LYCh2m86COveww+FHXqELCpJf8BZpU4JkggWjq7GmblKYZeg99y
+-----END ED25519 SPHINCS+ PUBLIC KEY-----
+"""
+
+[logging]
+disable = false
+file = ""
+level = "NOTICE"

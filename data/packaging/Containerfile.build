@@ -1,0 +1,28 @@
+ARG BASE
+FROM ${BASE}
+
+ARG GO_URL
+ARG GO_SHA256
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends apt-utils \
+	&& rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends ca-certificates curl git build-essential \
+		debhelper dpkg-dev fakeroot \
+	&& if [ "$(dpkg --print-architecture)" = amd64 ]; then \
+		apt-get install -y --no-install-recommends \
+			gcc-aarch64-linux-gnu libc6-dev-arm64-cross \
+			gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross; \
+	fi \
+	&& rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL -o /tmp/go.tar.gz "${GO_URL}" \
+	&& echo "${GO_SHA256}  /tmp/go.tar.gz" | sha256sum -c - \
+	&& tar -C /usr/local -xzf /tmp/go.tar.gz \
+	&& rm /tmp/go.tar.gz
+
+ENV PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV GOTOOLCHAIN=local

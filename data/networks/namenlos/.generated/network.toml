@@ -1,0 +1,88 @@
+default = "amd64"
+default_os = "debian-13"
+
+[arch]
+  allmixedup = "amd64"
+  annares = "ppc64el"
+  cryptonymity = "amd64"
+  gnunet = "amd64"
+  haywood = "amd64"
+  lilly = "amd64"
+  luscus = "amd64"
+  mixy = "amd64"
+  omelas = "amd64"
+  oneeyedman = "arm64"
+  reed = "amd64"
+  respectmy = "amd64"
+  wauland = "amd64"
+  wauland2 = "amd64"
+  windfall = "amd64"
+  windfallgw = "amd64"
+  windfallservice = "amd64"
+
+[os]
+  annares = "ubuntu-26.04"
+  gnunet = "debian-13"
+  haywood = "ubuntu-24.04"
+  lilly = "ubuntu-24.04"
+  luscus = "debian-13"
+  mixy = "ubuntu-25.04"
+  omelas = "debian-13"
+  oneeyedman = "debian-13"
+  reed = "ubuntu-24.04"
+  windfall = "debian-13"
+  windfallgw = "debian-13"
+  windfallservice = "debian-13"
+
+[operators]
+  [operators.allmixedup]
+    nodes = ["allmixedup", "respectmy"]
+  [operators.annares]
+    nodes = ["annares", "haywood", "lilly", "mixy", "reed"]
+  [operators.cryptonymity]
+    nodes = ["cryptonymity", "wauland", "wauland2"]
+  [operators.gnunet]
+    nodes = ["gnunet"]
+  [operators.luscus]
+    nodes = ["luscus", "oneeyedman"]
+  [operators.omelas]
+    nodes = ["omelas"]
+  [operators.windfall]
+    nodes = ["windfall"]
+
+[lan]
+
+  [[lan.group]]
+    nodes = ["allmixedup", "respectmy"]
+
+  [[lan.group]]
+    nodes = ["luscus", "oneeyedman"]
+
+[identity]
+  allmixedup-pq-gatewaynode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nNS5KsQ1YX1MRoRv+kBJnGT0O625ijNSp36vw/4u7tvgb/JAGrv1AWvELKJh4gGnW\nPv8kwhxSbAB+BWQHQCyJ6IW56axDQQGIS168ddtNELje0BYkXbA4Hy0phi6UfCqK\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  annares-pq-authority = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\n932/liFVC1u+d4EsMY0N9ia7Zyt4UfU6SzR1XgvZ4VfEldjNqXZKECh/QpD6fLcT\nwFaNH6vnHNTVbEJjGaFAKIA9F4Lqmi8Au9yrmvs1Xrp4Tz2otIzo27kGcYHQoHkb\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  annares-pq-servicenode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nRI5TtlqPVfVzhQVbuZIgC7Z7n219hjhBnJLqAcs1B7fTOtPrPCqLgdGMXqJYntP0\nCGFAofrV5RH/WP9r9yuZRo07ucPIhh8Pk+WqFbW3CcfJveZwawUOri87vJWK1lkn\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  annares-pq-storagenode-0 = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\n5jNwiIYUK1V/NGMtNVhi7DPmcbU3bfh/cBRWPWszktFqPq3HbFeCnJayfoCto6to\n8pBwN6e/Kj7JwjWyryp7freRoaV52HVA8ChAaFecCwf2ZN29mTWFiwKTATwT9QCC\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  annares-pq-storagenode-1 = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\ny5RtN+rUucxcaxIKfcwXUMUfDwnENyINpUpJYmFaO72CfLB50tvJpB6PGadNOUFW\n6u0HKuhyUIe5iUcec2jpCWNAY3bQfyzpkJ0vqV7+Pefjc4tf2x1QzZ0MqG92XuU8\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  cryptonymity-pq-mixserver = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\n10HR3ty6lANmkEKh62aaar7ZhwaKyW2NxHa8cmXk899eODBbW0GRnUc0B31LpzZ0\nhpxvIlKPxz8AfGbpUDcsx6LUL7HDiDQ5KZWAbt9rbYUEgCc23K+Dj+GVK6SjGcy5\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  gnunet-pq-authority = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nur8Z6vGOeMEwKONhWL1m0qXW1YEZ1yKXntMXETAwHbnPNsb0RuZBIB+bxOkVjVuQ\nqhy0RofQ/YUKoWXWfPIyZUwuryX5kN0tMlmL7J+tK5FfPgeyPxFkzLAoANehdYQ2\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  gnunet-pq-gatewaynode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nnxNe8uGXZxhoIYc6yN9IA30HsKrj36gEhtRqX8CveBlyzd+2yacjJWE5kjqHswRP\np6eeCEBnunewD4SJxZ0vUKPapQoDREia/hciTjbIgxwB9SF0qJsD+sscihKX4Bai\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  haywood-pq-gatewaynode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\n6knlBiD1z67iCHCbdtoRK55pFoXYBqVwsSqPf25FfE4BFKm4TTE07u2MFxcuDgn2\nCe4op3zubDpj4rjfXifVtq1WyWkWChAWdnsdz1ZQ0mLIIvujbabW/2YX+NqlONW2\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  lilly-pq-servicenode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\n3nl6DNoWPEc7yPkcNfiLIOoxLAiVWktEiMnqSwD3ZUHZrHS2e8KvWK6cfSl6PW6I\nEnBtaBZGZC7wK6x57uI3lXY/nZRi4P+mYU7bSNkhpHPyR4VTwWVDUowOaClM7dkl\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  luscus-pq-authority = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nWcuY2MH6l9GRQ+7KFou6RbeyVxQpfiCQzf0jhHtAf4hLKiLf3tU59/2/dxGXKuTi\nnbSrDyL1aVctmtOC+5euRCfdN004p8Uv4YlLsIEuImKPbO38WYpx+ja4oF6xJLME\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  mixy-pq-mixserver = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nMi9Q8dPkHTkSPRsckfapHsIRJrk0IkVUnDLURfE4/GmCl3oI3wyQLU7Q1JZG2N9x\n6AWQrx1Wi8SOuPuiIS09sZ196++yX1iv811yWDqZHsb6tyj4LcYX7vp7bMbHBIMM\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  omelas-pq-mixserver = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\njVAm8C97DXmyNwf+2AsMP21zvPl/NZ/vWblIGgPnE+hqgLPgR9ZSW6z6cV7lzeaP\nrwmDRRQUsNalk0aqy/Ewj4PTP1znqO0bLmokGu9QonItuJbvq5kedIqHC2n+EN5M\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  oneeyedman-pq-mixserver = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\n5KkkGDPBmxBQrjDVmfGhP1fHAV6HEqyID44qYSxoV+KhMOG2uObfgqyz3foit8nw\ntN51SJNs6OpLwCYyWRj+aVw+tTLJK44GYZqTMrv0JIUj+pIvhNYmzssE8fUqDzuu\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  reed-pq-mixserver = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nvWGBULIIZI7F5kR7Kr7Y1B60pWBtu8l2ND0DI7Ih+UFDwAofdkrYPAd/oFPVNv2Y\nBPokNbZO3sBF6LYCh2m86COveww+FHXqELCpJf8BZpU4JkggWjq7GmblKYZeg99y\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  respectmy-pq-authority = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\ndOZqjzKOSAVhc8242g0RcnDIEGFHxJuryxfb0FP8790D/C+vRkWN6ym+3qWCnRKI\n3Kzq9r5FKJ4mStpqwqWgu5w3Sc2mfJfDv4FoF8uCaOHWP1290ntg0LxNxowR/XBK\n-----END ED25519 SPHINCS+ PUBLIC KEY-----"
+  wauland-pq-authority = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nCjcWeh9A9EDIo/2EWYQc3VrwQvQMHUy37wOimNZKgN8zzibdM18gXWfUMb8aVLbx\n1SxpcgWGVH8+Y7JiJX+6Zvuh5WEBPeYhhyXkXSW/aWxI0Y0Q9/v4vaPLDWC24RF7\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  wauland-pq-gatewaynode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nT7iz8J/GZSEW/ElzCQc8lxnssdmo7XhdcftRQdb/PBDn3OmZHkYzl4zKKQR3r6MW\n+TwMZbEPeXWWCGGhX0JRakVKnSrdq05bsCP6jSAOk0lmpYiPy1A9seepX9EI16fk\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  wauland-pq-mixserver = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nFRy+wwzv41B6xye11pjne9i0uxtT0qILPNdFXiOL4e4hn6XyFpvWhiqU11AZFtZu\nECiBRxYs6V8uaUjR6cgOAwIUfmYxalUhr5xmzqXlbhWOutVHWb6wIwzeb2rrxp0j\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  wauland-pq-servicenode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nYMhp4mbl5FU9CRVsazSqUWhhR5N4er+YsGGesmClojrEK8dWBGc25ZmWy2arRAxv\n9VB7mi5knPvBPsTsFWkdsw0tilhv+qviwlhZJ/Xas9Gd/+VtUAsl1jrv8UijKr1b\n-----END ED25519 SPHINCS+ PUBLIC KEY-----"
+  wauland-pq-storagenode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nLQNgyDMATBGCIyBcURCFiIe6OQYphqOr3B6j0Yja8F1Zs2YPDhMNxdC3Bt6DX23v\n0sz9towmjK3M5sQKHItJBIymhwMJKjR27123vJp3Ev9s3TGfcmeiBRehtsp05QPi\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  wauland2-pq-mixserver = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nl+WaWZILp0Ng4kU8M45ph64lHjiaRXDIe2iuCaFzCPF5A5U4to7bodEIa5/E9oXe\n82CibZIaNxQaHF06Qi+eG9u4d9I9ot33ctjNn5FsPUwobLX/vcnDt5Djig690xAR\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  windfall-pq-authority = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\n+oxlrZurSc3JD/eJsRmSabtFVsbFB/N1fSZSHTEajndgX/rGGZTCiBqMDqXC/qTS\ndfvVb+yOmo+pnbnEeWuCecXFplODH92p83pp+nzmMadGUprzadL9smufJlb7+GkD\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  windfall-pq-gatewaynode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nWyyr5BwC3mDLFinozim6EHkBVP6SH+7atnwbTjY/GLVJTG+R2jVHBT61l6so8c9p\noma6r+eRKxzq+yyS8Timimw2X6HxW7DtwGmdCnWngBImmlF2hH2Ugf8cR08Lcs9h\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  windfall-pq-mixserver = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nXl42G/qq1SLkDy0dwecPlWuQxzFGcItuduAe1au5gtw/W7WZv5ShP4H5Ki2JOVhU\no9llxQqboQ+GS/RMB/sAX5xLbodHdzGwubrwuc7xt/SDpA2uCSy2dkkwfA35C9nI\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  windfall-pq-servicenode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nYXbiLFwAiD+WYDaEZGz9LK00ABYaFsxtp2pI0eHegfgRSSN94LfVp8GK08rpTLCG\nOt1nne6eFZcyvvCVWELfGXjgKbXQAxMwfCfdF0yfdDWOsDmC2iqP0APe8imt9ysz\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
+  windfall-pq-storagenode-2 = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\ny30wWXluToNF2Onc7fntu0+P1ATF6aDlbEEIOc5yDFn1V2/eKhbe7iC3ERPCAfdN\ngbwkv1dGaInf1q4jwgTTdQDMQe1LC7VUJjcYGX6k5YXlzqVSIZDKk9dsxbubaM+C\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"

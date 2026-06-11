@@ -1,0 +1,2 @@
+default = "amd64"
+default_os = "debian-13"

@@ -1,0 +1,26 @@
+#!/bin/sh
+# PROVIDE: kpclientd
+# REQUIRE: NETWORKING
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name=kpclientd
+rcvar=kpclientd_enable
+
+load_rc_config $name
+
+: "${kpclientd_enable:=NO}"
+: "${kpclientd_config:=/usr/local/etc/kpclientd/client.toml}"
+
+pidfile="/var/run/${name}.pid"
+command="/usr/sbin/daemon"
+command_args="-f -r -P ${pidfile} /usr/local/bin/kpclientd -c ${kpclientd_config}"
+start_precmd="kpclientd_prestart"
+
+kpclientd_prestart()
+{
+	install -d -m 0755 /var/run/kpclientd
+}
+
+run_rc_command "$1"

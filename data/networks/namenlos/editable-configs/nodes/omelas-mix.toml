@@ -1,0 +1,18 @@
+name = "omelas"
+role = "mix"
+configName = "omelas-pq-mixserver"
+
+addresses = ["tcp://91.194.60.56:40002"]
+bindAddresses = ["tcp://0.0.0.0:40002"]
+dataDir = "/var/lib/katzenpost/server/omelas-pq-mixserver"
+identityKeyFile = "omelas_mix_id_pub_key.pem"
+identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
+jVAm8C97DXmyNwf+2AsMP21zvPl/NZ/vWblIGgPnE+hqgLPgR9ZSW6z6cV7lzeaP
+rwmDRRQUsNalk0aqy/Ewj4PTP1znqO0bLmokGu9QonItuJbvq5kedIqHC2n+EN5M
+-----END ED25519 SPHINCS+ PUBLIC KEY-----
+"""
+
+[logging]
+disable = false
+file = ""
+level = "INFO"

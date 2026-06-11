@@ -1,0 +1,6 @@
+FROM docker.io/library/golang:1.26.3-trixie@sha256:0f6b034c99663ea8957e7dae99124e37374cbe7fcb5b5646f19b185f8f976279
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends clang-19=1:19.1.7-3+b1 lld-19=1:19.1.7-3+b1 \
+	&& ln -s /usr/bin/clang-19 /usr/local/bin/clang \
+	&& ln -s /usr/bin/ld.lld-19 /usr/local/bin/ld.lld \
+	&& rm -rf /var/lib/apt/lists/*

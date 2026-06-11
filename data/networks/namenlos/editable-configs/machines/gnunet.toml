@@ -1,0 +1,3 @@
+operator = "gnunet"
+arch = "amd64"
+os = "debian-13"

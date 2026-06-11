@@ -1,0 +1,17 @@
+name = "mixy"
+role = "mix"
+configName = "mixy-pq-mixserver"
+
+addresses = ["tcp://91.208.34.78:4242", "tcp://[2a02:898:246:64::34:78]:4242"]
+dataDir = "/var/lib/katzenpost/server/mixy-pq-mixserver"
+identityKeyFile = "mixy_mix_id_pub_key.pem"
+identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
+Mi9Q8dPkHTkSPRsckfapHsIRJrk0IkVUnDLURfE4/GmCl3oI3wyQLU7Q1JZG2N9x
+6AWQrx1Wi8SOuPuiIS09sZ196++yX1iv811yWDqZHsb6tyj4LcYX7vp7bMbHBIMM
+-----END ED25519 SPHINCS+ PUBLIC KEY-----
+"""
+
+[logging]
+disable = false
+file = ""
+level = "NOTICE"

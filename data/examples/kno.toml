@@ -1,0 +1,15 @@
+network = "namenlos"
+
+nodes = ["annares"]
+
+[update]
+policy = "simulate"            # off | simulate | apply
+require_signed_tag = true      # maps to VERIFY_TAG
+
+[push]
+mode = "full"                  # copy | install | full  (used by kno push)
+
+[hosts.annares]
+hostname = "annares"           # matches `hostname` on that box
+scheduler = "timer"
+

@@ -1,0 +1,3 @@
+operator = "annares"
+arch = "ppc64el"
+os = "ubuntu-26.04"

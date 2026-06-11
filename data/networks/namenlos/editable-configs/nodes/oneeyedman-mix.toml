@@ -1,0 +1,18 @@
+name = "oneeyedman"
+role = "mix"
+configName = "oneeyedman-pq-mixserver"
+
+addresses = ["tcp://64.187.167.230:49278"]
+bindAddresses = ["tcp://192.168.3.3:49278"]
+dataDir = "/var/lib/katzenpost/server/oneeyedman-pq-mixserver"
+identityKeyFile = "oneeyedman_mix_id_pub_key.pem"
+identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
+5KkkGDPBmxBQrjDVmfGhP1fHAV6HEqyID44qYSxoV+KhMOG2uObfgqyz3foit8nw
+tN51SJNs6OpLwCYyWRj+aVw+tTLJK44GYZqTMrv0JIUj+pIvhNYmzssE8fUqDzuu
+-----END ED25519 SPHINCS+ PUBLIC KEY-----
+"""
+
+[logging]
+disable = false
+file = ""
+level = "NOTICE"

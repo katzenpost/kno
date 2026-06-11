@@ -1,0 +1,19 @@
+name = "lilly"
+role = "servicenode"
+configName = "lilly-pq-servicenode"
+
+addresses = ["tcp://91.208.34.79:4242"]
+dataDir = "/var/lib/katzenpost/server/lilly-pq-servicenode"
+kaetzchen = ["echo"]
+courier = false
+identityKeyFile = "lilly_service_id_pub_key.pem"
+identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
+3nl6DNoWPEc7yPkcNfiLIOoxLAiVWktEiMnqSwD3ZUHZrHS2e8KvWK6cfSl6PW6I
+EnBtaBZGZC7wK6x57uI3lXY/nZRi4P+mYU7bSNkhpHPyR4VTwWVDUowOaClM7dkl
+-----END ED25519 SPHINCS+ PUBLIC KEY-----
+"""
+
+[logging]
+disable = false
+file = ""
+level = "NOTICE"

@@ -1,0 +1,188 @@
+[network]
+pkiSignatureScheme = "Ed25519 Sphincs+"
+wireKEMScheme = "KYBER768-X25519"
+replicaNIKEScheme = "CTIDH1024-X25519"
+
+  [network.parameters]
+  Mu = 0.001
+  LambdaP = 0.001
+  LambdaL = 0.0005
+  LambdaM = 0.0005
+  LambdaR = 0.02
+
+  [network.layout]
+  Layers = 3
+  MinNodesPerLayer = 1
+
+  [network.sphinx]
+  PacketLength = 3082
+  NrHops = 5
+  HeaderLength = 476
+  RoutingInfoLength = 410
+  PerHopRoutingInfoLength = 82
+  SURBLength = 572
+  SphinxPlaintextHeaderLength = 2
+  PayloadTagLength = 32
+  ForwardPayloadLength = 2574
+  UserForwardPayloadLength = 2000
+  NextNodeHopLength = 65
+  SPRPKeyMaterialLength = 64
+  NIKEName = "x25519"
+  KEMName = ""
+
+  [network.mixDebug]
+  SchedulerExternalMemoryQueue = false
+  SchedulerQueueSize = 100000
+  UnwrapDelay = 250
+  SchedulerSlack = 450
+  SendSlack = 50
+  DecoySlack = 15000
+  ConnectTimeout = 60000
+  HandshakeTimeout = 60000
+  ReauthInterval = 300000
+  SendDecoyTraffic = true
+  DisableRateLimit = false
+
+[[node]]
+name = "annares"
+role = "authority"
+config = "nodes/annares-authority.toml"
+
+[[node]]
+name = "gnunet"
+role = "authority"
+config = "nodes/gnunet-authority.toml"
+
+[[node]]
+name = "luscus"
+role = "authority"
+config = "nodes/luscus-authority.toml"
+
+[[node]]
+name = "respectmy"
+role = "authority"
+config = "nodes/respectmy-authority.toml"
+
+[[node]]
+name = "wauland"
+role = "authority"
+config = "nodes/wauland-authority.toml"
+
+[[node]]
+name = "windfall"
+role = "authority"
+config = "nodes/windfall-authority.toml"
+
+[[node]]
+name = "cryptonymity"
+role = "mix"
+config = "nodes/cryptonymity-mix.toml"
+
+[[node]]
+name = "mixy"
+role = "mix"
+config = "nodes/mixy-mix.toml"
+
+[[node]]
+name = "omelas"
+role = "mix"
+config = "nodes/omelas-mix.toml"
+
+[[node]]
+name = "oneeyedman"
+role = "mix"
+config = "nodes/oneeyedman-mix.toml"
+
+[[node]]
+name = "reed"
+role = "mix"
+config = "nodes/reed-mix.toml"
+
+[[node]]
+name = "wauland"
+role = "mix"
+config = "nodes/wauland-mix.toml"
+
+[[node]]
+name = "wauland2"
+role = "mix"
+config = "nodes/wauland2-mix.toml"
+
+[[node]]
+name = "windfall"
+role = "mix"
+config = "nodes/windfall-mix.toml"
+
+[[node]]
+name = "allmixedup"
+role = "gateway"
+config = "nodes/allmixedup-gateway.toml"
+
+[[node]]
+name = "gnunet"
+role = "gateway"
+config = "nodes/gnunet-gateway.toml"
+
+[[node]]
+name = "haywood"
+role = "gateway"
+config = "nodes/haywood-gateway.toml"
+
+[[node]]
+name = "waulandgateway"
+role = "gateway"
+config = "nodes/waulandgateway-gateway.toml"
+
+[[node]]
+name = "windfallgw"
+role = "gateway"
+config = "nodes/windfallgw-gateway.toml"
+
+[[node]]
+name = "annares"
+role = "servicenode"
+config = "nodes/annares-servicenode.toml"
+
+[[node]]
+name = "lilly"
+role = "servicenode"
+config = "nodes/lilly-servicenode.toml"
+
+[[node]]
+name = "waulandservice"
+role = "servicenode"
+config = "nodes/waulandservice-servicenode.toml"
+
+[[node]]
+name = "windfallservice"
+role = "servicenode"
+config = "nodes/windfallservice-servicenode.toml"
+
+[[node]]
+name = "storagereplica0"
+role = "storagenode"
+config = "nodes/storagereplica0-storagenode.toml"
+
+[[node]]
+name = "storagereplica1"
+role = "storagenode"
+config = "nodes/storagereplica1-storagenode.toml"
+
+[[node]]
+name = "storagereplica3"
+role = "storagenode"
+config = "nodes/storagereplica3-storagenode.toml"
+
+[[node]]
+name = "storagereplica2"
+role = "storagenode"
+config = "nodes/storagereplica2-storagenode.toml"
+
+[[topology.layer]]
+mixes = ["windfall", "cryptonymity"]
+
+[[topology.layer]]
+mixes = ["omelas", "mixy"]
+
+[[topology.layer]]
+mixes = ["oneeyedman", "reed", "wauland"]

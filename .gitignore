@@ -1,0 +1,7 @@
+/kno
+/dist/
+.gocache/
+.gomodcache/
+/.ci-local/
+/bin/
+.DS_Store

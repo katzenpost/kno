@@ -1,0 +1,3 @@
+operator = "omelas"
+arch = "amd64"
+os = "debian-13"

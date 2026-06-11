@@ -1,0 +1,36 @@
+#!/bin/sh
+# PROVIDE: katzenpost
+# REQUIRE: NETWORKING
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name=katzenpost
+rcvar=katzenpost_enable
+
+load_rc_config $name
+
+: "${katzenpost_enable:=NO}"
+: "${katzenpost_daemon:=/usr/local/sbin/kpdirauth}"
+: "${katzenpost_config:=/usr/local/etc/katzenpost/authority/config.toml}"
+: "${katzenpost_user:=root}"
+: "${katzenpost_prestart:=}"
+
+pidfile="/var/run/${name}.pid"
+command="/usr/sbin/daemon"
+command_args="-f -r -P ${pidfile} -u ${katzenpost_user} ${katzenpost_daemon} -f ${katzenpost_config}"
+
+start_precmd="katzenpost_prestart_cmd"
+
+katzenpost_prestart_cmd()
+{
+	if [ ! -r "${katzenpost_config}" ]; then
+		err 1 "no config at ${katzenpost_config}; install the namenlos-config package for this jail"
+	fi
+	if [ -n "${katzenpost_prestart}" ]; then
+		eval "${katzenpost_prestart}" || return 1
+	fi
+	return 0
+}
+
+run_rc_command "$1"

@@ -1,0 +1,46 @@
+name = "windfall"
+role = "authority"
+configName = "windfall-pq-authority"
+
+addresses = ["tcp://74.50.67.182:40002"]
+dataDir = "/var/lib/katzenpost/authority/windfall-pq-authority"
+metricsAddress = "127.0.0.1:41002"
+identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
++oxlrZurSc3JD/eJsRmSabtFVsbFB/N1fSZSHTEajndgX/rGGZTCiBqMDqXC/qTS
+dfvVb+yOmo+pnbnEeWuCecXFplODH92p83pp+nzmMadGUprzadL9smufJlb7+GkD
+-----END ED25519 SPHINCS+ PUBLIC KEY-----
+"""
+linkPublicKey = """-----BEGIN KYBER768-X25519 PUBLIC KEY-----
+MaoZ3OQXJXvoWu9v9Yq5aq+adWwzfAm8FYYXM0olCCXxTKnR/FPRoJKEGTtOU7VA
+VqgtGcFyFoxctB82pAapdjcn1FHxXMjUyMWUh4810MRiAVgU9F3/BKuv/HVholmX
+KLlRegvlhcf+VQlsAVDbXA3d87nHbG7gRqEARkRniTh4FlAok0eecZPmFkbt5EgT
+mcziKq75+HeF1hgvB7pd1jy+tBLlhTE6FoMcBZSWyEFO1jQLxsQVVmtJa6+G6WwM
+CJz0t1EVSlY9kC2Ze2y1FpS4ZlVFQC2gkxvu6q3/67T4ykzxc1pNuHSX+ClfJ2wu
+8TJnEJqL9D/xsIORS5/l7DmoMRwd1cl24cpN0lQ464Heur0Bg6nr5LwlcbM+eKFx
+Uik94wnW6JqI4r8eOTF/Qz6kuKUCqU3Yq3YKdqfwKo0apiogd4d1aIaTGBhxwbsn
+XAOs3LfohlpXnEMQGw5r9ExKZnFDWpXZAsXE4roKJ1/foVRfgMjPqnQ3S0LMOsMs
+44G83Hd+anUQ5lKXNB89NFIVZ479FoGApGgAtn7nAcPQAAbv83ElGQ7gpQjzkCOJ
+6sfyFzSNSSdzK4YXdbHwnIplMCBZuylm8QsYsa2IuhR811XJ5EiGQkmIpjsnwiNe
+tJBYhSczB5WiIVTkHJJPoKeAI6xEWDke+kxUR8EsdhVPZDBXEU6le2Ttiju0/J2v
++WLM81fV2h/+SxMOt0uhXJDWBX34IzU1loGZQlhEmBh04lCMhTXXmlzlpjBRF1+A
+YsHnAgYs5bjCRhZCYI5KSwrf5TZ/NTKzqK64eJlGjF8/1WSMJneXyE0QJmz2YQqm
+gFSvgFLyNXLecFxJiq0ml095cz5sopzBFg8D07mtgpWaGkWgbDY1F2YCc2kygwfu
+8bXIN7yX5llDPF5RAcDOekVvAln826/EuzDbpA9ek1a3DC4oaqvqKMos+cFlSaCF
+YExGaSpUhZVMMcHDQav7u0bhV5R4x55dJkzFciEpUwEb/Eb1I3qEAbb4CD5YQJGw
+uzgQ6hX7AwGSJKcnsbcMExs56LkoFZ9FYDaRLFwDh83qUJGBqi+BLF6ryU7/5zYo
+WH+Nt3dd4lryasggsYQkMym714XK95uF9Zv9esUUQhPK1ZdxCUI0U80zV1YFPIsf
+1l9D5K+zgGGpK6YZZwS8tsppFyvqRKA7sGBwopYCNcFANsiFNAIkRxAFgSVWWbVE
+RL3Zt6comB4PNszXHLbKVwjbs4NUxyrZ+pD2oALIBqGYC2aMTDk80CgdzF/Awg2J
+4XATEHmOJ5fwV7GepRy7XDxvFb9UAhD4o5oNB7za0FfahySEvLVeKYOl4WsTUIEJ
+TDIetFrfpJ2FeDAK+EaAOBGKaMvv9XSVSIPZxinC2yNYi3TQ53M3W33nemGtVcXQ
+yrq1kMVuC4EozLxgycOWpkr9XAdtyIzTB7uJhby7Fqem0L5BhBnhcqH9kF1rB1M7
+onmS01k6RBL2tB38AkcFpykFeVoQ1FT8tW22pTQFo88RIowRcT4YQmq2LKThpRHx
+EQQMNqHcB8Z61ya7aG6K9wHLlnNpF0ZPV8n4k0Sp1QmJGJYt7/HMTAIK/ZHtHoQf
+vkdQm1uuoKMh1qC6oRRsgQ==
+-----END KYBER768-X25519 PUBLIC KEY-----
+"""
+
+[logging]
+disable = false
+file = ""
+level = "NOTICE"

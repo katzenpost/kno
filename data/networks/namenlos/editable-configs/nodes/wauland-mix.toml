@@ -1,0 +1,18 @@
+name = "wauland"
+role = "mix"
+configName = "wauland-pq-mixserver"
+
+addresses = ["tcp://185.108.77.114:18181"]
+bindAddresses = ["tcp://0.0.0.0:8181"]
+dataDir = "/var/lib/katzenpost"
+identityKeyFile = "wauland_mix_id_pub.key.pem"
+identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
+FRy+wwzv41B6xye11pjne9i0uxtT0qILPNdFXiOL4e4hn6XyFpvWhiqU11AZFtZu
+ECiBRxYs6V8uaUjR6cgOAwIUfmYxalUhr5xmzqXlbhWOutVHWb6wIwzeb2rrxp0j
+-----END ED25519 SPHINCS+ PUBLIC KEY-----
+"""
+
+[logging]
+disable = false
+file = ""
+level = "NOTICE"

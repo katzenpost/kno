@@ -1,0 +1,15 @@
+name = "storagereplica3"
+role = "storagenode"
+configName = "wauland-pq-storagenode"
+
+addresses = ["tcp://185.108.77.114:28184"]
+bindAddresses = ["tcp://0.0.0.0:8181"]
+dataDir = "/var/lib/katzenpost"
+replicaID = 3
+metricsAddress = "127.0.0.1:23005"
+identityKeyFile = "wauland_storage_replica_3.public.pem"
+identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
+LQNgyDMATBGCIyBcURCFiIe6OQYphqOr3B6j0Yja8F1Zs2YPDhMNxdC3Bt6DX23v
+0sz9towmjK3M5sQKHItJBIymhwMJKjR27123vJp3Ev9s3TGfcmeiBRehtsp05QPi
+-----END ED25519 SPHINCS+ PUBLIC KEY-----
+"""

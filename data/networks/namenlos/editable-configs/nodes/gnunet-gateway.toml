@@ -1,0 +1,47 @@
+name = "gnunet"
+role = "gateway"
+configName = "gnunet-pq-gatewaynode"
+
+addresses = ["tcp://193.5.87.219:65534", "onion://6jcrz7jmczcsll4lad2uapetqlj5i6as74pig7s5ef3aroatcc6bolid.onion:65534"]
+bindAddresses = ["tcp://193.5.87.219:65534"]
+dataDir = "/var/lib/katzenpost/server/gnunet-pq-gatewaynode"
+identityKeyFile = "gnunet_provider_id_pub_key.pem"
+identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
+nxNe8uGXZxhoIYc6yN9IA30HsKrj36gEhtRqX8CveBlyzd+2yacjJWE5kjqHswRP
+p6eeCEBnunewD4SJxZ0vUKPapQoDREia/hciTjbIgxwB9SF0qJsD+sscihKX4Bai
+-----END ED25519 SPHINCS+ PUBLIC KEY-----
+"""
+linkPublicKey = """-----BEGIN KYBER768-X25519 PUBLIC KEY-----
+m015whdJBifg1RxZnj1w/g09Qu7byfPXF9bV9HsZbDuBWVmUolic1MMAuT1conwL
+FEmQx0WI2HWDgJO01QLFxkEZ2EOKZpsICWIt8olA4UQvM55KSk/A8FnJwctIEndE
+yMVIMY40Cz1K611P1JTU0pcI+wY0YY8WRCaZ1QbrM1+C1IwGoIYU9I1MPAt+w7J8
+QKagciLu9EBJmzTSdw70DMXHNTVaSRoY9X3+eg8n97CbKyjDlilIFmIfzMxziUB+
+GAAXsciZIcpO1B052BS8xIChlq5F9HRzZRp5mCDYm4l8m3KngDhma7sQbLc7JsQ7
+wZkgDJqnDMzKlTTqgjdSQ0rqOMudSVJAkiq/BBW1l8gIaGcYUIRaYSE5wGi3kbm8
+1JkEMZ3oIaIPsHh7rKELYUn05BP0627ldnvkUFR8mZvIVTt5Mr5cQB/zFz6TgldY
+1o3akyitF7jrK0LEuVpLJyrFSqJ506aoqGGLFSl6GL3ns6SLuBB+Fsgm/BbDtkjp
+sBDUaMWxY2J3WLdXlsFJegpfYs4nEVf+EqB6QbAYDC1L3GYSJEgHtAg5Y4Zqq6tu
+WpvQ2VR34bTtJDZOqR3A8n7qpEvoE1/V01kPgSV3VldxSxBDccRpwV66MWnAhYgM
+pBR0BScrWzS8g5zkeauQ98HwWDhrWZ8J1E3lwIG2O5IunDDokDZPeLexmMB1QAtm
+1iIG+F9Zu46Okk0w5VVyLDISCDyAeaCqEIgcqaytwBC9XEfMwsphWYBAM7wnWDa3
+Zhsi8idTZQJIoCxKSrqFq07ZXAzDGrG6CYK0a2JO1bowe1m5Ecp9gnG7pZPv8rbW
+IL62VFqDcaUGyLDRQwmFl2rPpKiv4xF1+Gv01kauAXS2bB817KxOA8fr91aYwKzB
+eWqiRkF8JB8uMiqneRl96sxeKTExHAogcZSlxjrR+gSeS6mMMnpyHMnJvABgfKsB
+IIpDrCsmoR3KFpHdKGbxNaH5OnVoJjAU8EnrRoWveKGGVMATGrh5hUOjS3JVY05B
+NcAd7IbNamiGebmJSIVt80qM2sdBgy/c9Z2rckjctXsdVUzXbIYx2K2BtWFso27j
+y4WWqyEGLAauws2zQUwzdTarE72ZSaAfYR+J7IRUwmNAKgHv+5ZSKJ3DApBNyny5
+IzV043k95mbW0p6ZpoH2m2stu2gA7b3I5gS4eSNZomkaO0+Eha3Ldw5yaUuJ6M/H
+oxgUsVTgrGYjVV2dEnccIj5PYafPVjPaK5dm2TM8+SGRERXyQVQjNAlTcAeWUBke
+k8rsonJiIDyDqHPIEV6DkkUKh2AyU44bNbgm+kvXirhJDEwiIaf8U5EOW6MdZEkp
+sbj1WHalNx2tsb01KwNzCDydoVhcYnNG0A6PupzrsUFkgx0owo6bS3xoMROwiZBY
+2DM6Z7JJ6xCsgLxhdzE5+Sffg3CcdsNvg4eIoUsF6bnCdGd+UBjTsIHnYSOks324
+uSxEPCTlurrrvMe9YXg5VIMho35daFSvOE7GlW5zQxIwxHvNSh+MkIfrbKz0CWBD
+XGmXNgzf8LlvlcqGGs9CwJXS0r/4Mr7XkBXx4jJ3QWMtYhF4WudjApo/iwVptkgX
+yOI8nTetqeDu+SnWnhY7eQ==
+-----END KYBER768-X25519 PUBLIC KEY-----
+"""
+
+[logging]
+disable = false
+file = ""
+level = "NOTICE"

@@ -1,0 +1,10 @@
+[Unit]
+Description=katzenpost network organizer: check for and apply updates
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=@KNO_USER@
+ExecStart=@KNO_BINDIR@/kno update
+Nice=10
