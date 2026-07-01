@@ -1,0 +1,133 @@
+package deb
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/katzenpost/kno/internal/knopath"
+)
+
+func stampRepo(t *testing.T) (top, repo string, commit func(date string, files map[string]string)) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	top = t.TempDir()
+	repo = filepath.Join(top, "data")
+	git := func(env []string, args ...string) {
+		t.Helper()
+		c := exec.Command("git", append([]string{"-C", top}, args...)...)
+		c.Env = append(os.Environ(), append([]string{
+			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@example",
+			"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@example",
+			"GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=core.hooksPath", "GIT_CONFIG_VALUE_0=/dev/null",
+		}, env...)...)
+		if b, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, b)
+		}
+	}
+	git(nil, "init", "-q", "-b", "main")
+	commit = func(date string, files map[string]string) {
+		t.Helper()
+		for p, body := range files {
+			full := filepath.Join(top, p)
+			if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		git(nil, "add", "-A")
+		git([]string{"GIT_AUTHOR_DATE=" + date, "GIT_COMMITTER_DATE=" + date}, "commit", "-qm", date)
+	}
+	return top, repo, commit
+}
+
+func TestConfigVersionMovesOnlyWithItsOwnConfig(t *testing.T) {
+	top, repo, commit := stampRepo(t)
+	rel := func(p string) string {
+		r, err := filepath.Rel(top, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	cfgs := knopath.ConfigsDir(repo, "n")
+	deps := knopath.DeploymentsDir(repo, "n")
+	commit("2026-10-01T10:00:00Z", map[string]string{
+		rel(filepath.Join(cfgs, "a-pq-mixserver.toml")): "a1\n",
+		rel(filepath.Join(cfgs, "b-pq-mixserver.toml")): "b1\n",
+	})
+	a1 := ConfigVersion(repo, "n", "a-pq-mixserver", "v0.0.107", "1")
+	b1 := ConfigVersion(repo, "n", "b-pq-mixserver", "v0.0.107", "1")
+	if a1 == "0.0.107-1" || b1 == "0.0.107-1" {
+		t.Fatalf("the versions carry no stamp: %s %s", a1, b1)
+	}
+
+	commit("2026-10-02T10:00:00Z", map[string]string{
+		rel(filepath.Join(deps, "a.toml")): "host = \"a\"\n",
+		"docs/notes.md":                    "notes\n",
+	})
+	if a := ConfigVersion(repo, "n", "a-pq-mixserver", "v0.0.107", "1"); a != a1 {
+		t.Errorf("a record-only commit moved a's version: %s -> %s", a1, a)
+	}
+	if b := ConfigVersion(repo, "n", "b-pq-mixserver", "v0.0.107", "1"); b != b1 {
+		t.Errorf("a record-only commit moved b's version: %s -> %s", b1, b)
+	}
+
+	commit("2026-10-03T10:00:00Z", map[string]string{
+		rel(filepath.Join(cfgs, "b-pq-mixserver.toml")): "b2\n",
+	})
+	if a := ConfigVersion(repo, "n", "a-pq-mixserver", "v0.0.107", "1"); a != a1 {
+		t.Errorf("b's config change moved a's version: %s -> %s", a1, a)
+	}
+	b2 := ConfigVersion(repo, "n", "b-pq-mixserver", "v0.0.107", "1")
+	if b2 == b1 {
+		t.Fatalf("b's config changed and its version did not: %s", b2)
+	}
+	if _, err := exec.LookPath("dpkg"); err == nil {
+		if err := exec.Command("dpkg", "--compare-versions", b2, "gt", b1).Run(); err != nil {
+			t.Errorf("dpkg does not order %s above %s", b2, b1)
+		}
+	}
+}
+
+func ConfigVersion(repo, network, svc, tag, rev string) string {
+	return Version(tag, strings.TrimSuffix(rev, "+dirty")) + ConfigStamp(repo, network, svc)
+}
+
+func TestARecordedConfigKeepsItsVersionUntilItsInputsChange(t *testing.T) {
+	top, repo, commit := stampRepo(t)
+	cfg, err := filepath.Rel(top, filepath.Join(knopath.ConfigsDir(repo, "n"), "s.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sums, err := filepath.Rel(top, filepath.Join(knopath.GeneratedIn(knopath.NetworkDir(repo, "n")),
+		"releases", "v0.0.107", "nodes", "s", "SHA256SUMS"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	commit("2026-10-15T22:14:08+0200", map[string]string{cfg: "a = 1\n"})
+	if got := ConfigStamp(repo, "n", "s"); !strings.HasPrefix(got, "+20261015221408.g") {
+		t.Fatalf("before a record: stamp %q, want the stamp of the commit", got)
+	}
+	commit("2026-10-20T19:22:06+0200", map[string]string{sums: "00  " + knopath.ConfigPkgPrefix +
+		"s_0.0.107-1+20260701154849.gdf160a9_amd64.deb\n"})
+	if got := ConfigStamp(repo, "n", "s"); got != "+20260701154849.gdf160a9" {
+		t.Errorf("a recorded config: stamp %q, want the recorded +20260701154849.gdf160a9", got)
+	}
+	commit("2026-10-21T10:00:00+0200", map[string]string{cfg: "a = 2\n"})
+	if got := ConfigStamp(repo, "n", "s"); !strings.HasPrefix(got, "+20261021100000.g") {
+		t.Errorf("a changed config: stamp %q, want the stamp of the change", got)
+	}
+	commit("2026-10-21T11:00:00+0200", map[string]string{sums: "00  " + knopath.ConfigPkgPrefix +
+		"s_0.0.107-1+20260701154849.gdf160a9_amd64.deb\n00  " + knopath.ConfigPkgPrefix +
+		"s_0.0.107-1+20261021100000.gabcdef0_amd64.deb\n"})
+	if got := ConfigStamp(repo, "n", "s"); got != "+20261021100000.gabcdef0" {
+		t.Errorf("a record of two configs of one tag: stamp %q, want the newer +20261021100000.gabcdef0", got)
+	}
+}

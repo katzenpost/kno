@@ -9,11 +9,14 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/katzenpost/kno/internal/build"
 	"github.com/katzenpost/kno/internal/buildjail"
+	"github.com/katzenpost/kno/internal/check"
 	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/compile"
 	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/peers"
+	"github.com/katzenpost/kno/internal/pkg/knodeb"
 	"github.com/katzenpost/kno/internal/render"
 	"github.com/katzenpost/kno/internal/sign"
 	"github.com/katzenpost/kno/internal/topology"
@@ -58,20 +61,33 @@ func newRootCommand() *cobra.Command {
 		sign.Command(),
 		config.Command(),
 		peers.Command(),
+		build.Command(),
 		track.Command(),
 		render.Command(),
+		fpkgCommand(),
 
 		topology.Command(),
+		check.Command(),
+		knodeb.Command(),
 	)
 
-	honoured := []string{}
+	honoured := []string{
+		"build", "build warped",
+	}
 	readOnly := []string{
-		"config", "peers",
+		"build compare", "build epoch", "build version", "config", "peers",
 		"release", "release signers", "release verify",
 		"track",
 	}
 
 	unsupported := []string{
+		"build pin",
+		"build record",
+		"build sysroot",
+		"build vmimage",
+		"check",
+		"fpkg",
+		"knodeb",
 		"release sign",
 		"render",
 		"topology-propose",

@@ -1,0 +1,269 @@
+package freebsd
+
+import (
+	"archive/tar"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/klauspost/compress/zstd"
+)
+
+func mkRelease(t *testing.T) string {
+	t.Helper()
+	rel := t.TempDir()
+	write := func(p, body string) {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(filepath.Join(rel, "configs", "x-pq-mixserver.toml"), "[Server]\nIdentifier = \"x\"\n")
+	write(filepath.Join(rel, "keys", "mix-id-keys", "identity.public.pem"), "PUBLIC\n")
+	return rel
+}
+
+func TestValidateAcceptsWhatTheBuilderWrites(t *testing.T) {
+	t.Setenv("SOURCE_DATE_EPOCH", "1600000000")
+	repo := t.TempDir()
+	tag := "v0.0.104"
+
+	bindir := filepath.Join(t.TempDir(), "bin")
+	fakeBins(t, bindir)
+	rel := mkRelease(t)
+
+	bin, err := Package(bindir, rel, tag, "", repo, DefaultABI)
+	if err != nil {
+		t.Fatalf("Package: %v", err)
+	}
+	rep, err := Validate(bin)
+	if err != nil {
+		t.Fatalf("the binary package this repo writes is not a valid .pkg: %v", err)
+	}
+	if rep.Name != pkgName || rep.Version != "0.0.104" || rep.Files != len(upstreamCmds) {
+		t.Errorf("report = %+v, want %s-0.0.104 with %d files", rep, pkgName, len(upstreamCmds))
+	}
+
+	cfg, err := PackageConfig(rel, tag, "", "x-pq-mixserver", Svc{
+		Build:        "server",
+		ConfigSrc:    "configs/x-pq-mixserver.toml",
+		ConfigDst:    "/usr/local/etc/katzenpost/x-pq-mixserver.toml",
+		StateDir:     "/var/lib/pq-katzenpost-mixserver",
+		KeysSrc:      []string{"keys/mix-id-keys"},
+		PrestartHook: "rm -f /var/lib/pq-katzenpost-mixserver/persistence.db",
+	}, repo, DefaultABI)
+	if err != nil {
+		t.Fatalf("PackageConfig: %v", err)
+	}
+	if _, err := Validate(cfg); err != nil {
+		t.Fatalf("the config package this repo writes is not a valid .pkg: %v", err)
+	}
+}
+
+type entry struct {
+	hdr  tar.Header
+	data []byte
+}
+
+func readPkg(t *testing.T, path string) []entry {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	zr, err := zstd.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer zr.Close()
+	var out []entry
+	tr := tar.NewReader(zr)
+	for {
+		h, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err := io.ReadAll(tr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, entry{*h, b})
+	}
+	return out
+}
+
+func writeEntries(t *testing.T, path string, es []entry) string {
+	t.Helper()
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	zw, err := zstd.NewWriter(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tw := tar.NewWriter(zw)
+	for _, e := range es {
+		h := e.hdr
+		h.Size = int64(len(e.data))
+		if err := tw.WriteHeader(&h); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write(e.data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func editManifest(t *testing.T, es []entry, name string, fn func(map[string]interface{})) {
+	t.Helper()
+	for i, e := range es {
+		if e.hdr.Name != name {
+			continue
+		}
+		var m map[string]interface{}
+		if err := json.Unmarshal(e.data, &m); err != nil {
+			t.Fatal(err)
+		}
+		fn(m)
+		b, err := json.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		es[i].data = b
+		return
+	}
+	t.Fatalf("no %s member", name)
+}
+
+func indexOf(t *testing.T, es []entry, suffix string) int {
+	t.Helper()
+	for i, e := range es {
+		if strings.HasSuffix(e.hdr.Name, suffix) {
+			return i
+		}
+	}
+	t.Fatalf("no archive member ending in %s", suffix)
+	return -1
+}
+
+func TestValidateRejectsABrokenPackage(t *testing.T) {
+	t.Setenv("SOURCE_DATE_EPOCH", "1600000000")
+	bindir := filepath.Join(t.TempDir(), "bin")
+	fakeBins(t, bindir)
+	good, err := Package(bindir, mkRelease(t), "v0.0.104", "", t.TempDir(), DefaultABI)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Validate(good); err != nil {
+		t.Fatalf("the unmodified package must validate first: %v", err)
+	}
+
+	cases := []struct {
+		name   string
+		mutate func(*testing.T, []entry) []entry
+		want   string
+	}{
+		{"payload does not match its checksum", func(t *testing.T, es []entry) []entry {
+			i := indexOf(t, es, "/kpdirauth")
+			es[i].data = append(es[i].data, 'X')
+			return es
+		}, "checksum"},
+		{"manifests are not first", func(t *testing.T, es []entry) []entry {
+			es[0], es[1] = es[1], es[0]
+			return es
+		}, "want +COMPACT_MANIFEST"},
+		{"a path escapes the install root", func(t *testing.T, es []entry) []entry {
+			i := indexOf(t, es, "/kpdirauth")
+			old, bad := es[i].hdr.Name, "/usr/local/sbin/../../../etc/rc"
+			es[i].hdr.Name = bad
+			for _, mf := range []string{"+MANIFEST"} {
+				editManifest(t, es, mf, func(m map[string]interface{}) {
+					files := m["files"].(map[string]interface{})
+					files[bad] = files[old]
+					delete(files, old)
+				})
+			}
+			return es
+		}, "escapes the install root"},
+		{"a symlink is smuggled in", func(t *testing.T, es []entry) []entry {
+			h := es[len(es)-1].hdr
+			h.Name, h.Typeflag, h.Linkname, h.Size = "/usr/local/sbin/evil", tar.TypeSymlink, "/etc/passwd", 0
+			return append(es, entry{h, nil})
+		}, "not a regular file"},
+		{"a file is in the archive but not the manifest", func(t *testing.T, es []entry) []entry {
+			i := indexOf(t, es, "/kpclientd")
+			editManifest(t, es, "+MANIFEST", func(m map[string]interface{}) {
+				delete(m["files"].(map[string]interface{}), es[i].hdr.Name)
+			})
+			return es
+		}, "files and archive payload differ"},
+		{"a recorded mode is not the archived mode", func(t *testing.T, es []entry) []entry {
+			i := indexOf(t, es, "/kpdirauth")
+			editManifest(t, es, "+MANIFEST", func(m map[string]interface{}) {
+				f := m["files"].(map[string]interface{})[es[i].hdr.Name].(map[string]interface{})
+				f["perm"] = "0644"
+			})
+			return es
+		}, "in the manifest"},
+		{"flatsize is wrong", func(t *testing.T, es []entry) []entry {
+			for _, mf := range []string{"+MANIFEST", "+COMPACT_MANIFEST"} {
+				editManifest(t, es, mf, func(m map[string]interface{}) { m["flatsize"] = 1 })
+			}
+			return es
+		}, "flatsize"},
+		{"arch disagrees with abi", func(t *testing.T, es []entry) []entry {
+			for _, mf := range []string{"+MANIFEST", "+COMPACT_MANIFEST"} {
+				editManifest(t, es, mf, func(m map[string]interface{}) { m["arch"] = "freebsd:13:x86:64" })
+			}
+			return es
+		}, "does not match abi"},
+		{"the index entry carries the file list", func(t *testing.T, es []entry) []entry {
+			var files interface{}
+			editManifest(t, es, "+MANIFEST", func(m map[string]interface{}) { files = m["files"] })
+			editManifest(t, es, "+COMPACT_MANIFEST", func(m map[string]interface{}) { m["files"] = files })
+			return es
+		}, "must not"},
+		{"a member appears twice", func(t *testing.T, es []entry) []entry {
+			i := indexOf(t, es, "/kpclientd")
+			return append(es, es[i])
+		}, "appears twice"},
+		{"a file is stamped with the build clock", func(t *testing.T, es []entry) []entry {
+			i := indexOf(t, es, "/kpclientd")
+			es[i].hdr.ModTime = es[i].hdr.ModTime.Add(24 * time.Hour)
+			return es
+		}, "package epoch"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			es := tc.mutate(t, readPkg(t, good))
+			out := writeEntries(t, filepath.Join(t.TempDir(), "broken.pkg"), es)
+			_, err := Validate(out)
+			if err == nil {
+				t.Fatalf("Validate accepted a package where %s", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("caught the wrong way:\n got: %v\nwant a %q failure", err, tc.want)
+			}
+		})
+	}
+}
