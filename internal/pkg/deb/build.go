@@ -21,7 +21,7 @@ import (
 const DefaultEpoch = "1600000000"
 
 var debImageDigests = map[string]string{
-	"amd64":   "sha256:b29f74a267526ae6ea104eed6c46133b0ca70ce812525df8cd5817698f0a624a",
+	"amd64":   "sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
 	"arm64":   "sha256:6bd27d44e6c32a66bbd72d7cb2b76a8ae3497ec2e5274a81abd1b37f6013fa1f",
 	"arm":     "sha256:09a5970b082d5d26587f315dd4751b0b534c2efe75f1fb6d55d84d790180efa5",
 	"386":     "sha256:829d25d5de8c8da7f7f9e343d09f11cb20ba4266460f9f7c92cd9f2ecb45a170",

@@ -29,17 +29,17 @@ func OSToken(osName string) string { return strings.ReplaceAll(osName, "-", "") 
 
 var baseImages = map[Platform]string{
 
-	{Arch: "amd64", OS: "ubuntu-24.04"}: "docker.io/library/ubuntu:24.04@sha256:023f8a753c22258c9fe2d0005a7d28258038da7d620e9f93e9ad78aa266f9f11",
+	{Arch: "amd64", OS: "ubuntu-24.04"}: "docker.io/library/ubuntu:24.04@sha256:a61567bd31828687156d735ea8eb01ba4e37636e225dd6a48ba94136a70d9d61",
 	{Arch: "amd64", OS: "ubuntu-25.04"}: "docker.io/library/ubuntu:25.04@sha256:34e8533bf27ac50f60bec267f6ce18c9aeb9556574e1ec1a8ce89926d32ea8f3",
-	{Arch: "amd64", OS: "ubuntu-26.04"}: "docker.io/library/ubuntu:26.04@sha256:6fee4abc5fe6a21f40022199b2d5063eb591743c80d3d2f5fadf620a98cbae0d",
-	{Arch: "amd64", OS: "debian-12"}:    "docker.io/library/debian:bookworm@sha256:221f7bfd4da390496435551e54f106d3d20463975cc14aa04f77bd30926e0000",
-	{Arch: "amd64", OS: "debian-13"}:    "docker.io/library/debian:trixie@sha256:ed49f2fa955a92dd859d7e2bdd101138b6db7ca855af572212d910d4e1445cc2",
+	{Arch: "amd64", OS: "ubuntu-26.04"}: "docker.io/library/ubuntu:26.04@sha256:e5a4d6262ab5dbc25a85e60550dd7c87fd41a74fe43881534ed8288b2a7a3f8d",
+	{Arch: "amd64", OS: "debian-12"}:    "docker.io/library/debian:bookworm@sha256:2f65600e1252c5649d2213e1d1ea4d74253d26514dc6530102a875e429245929",
+	{Arch: "amd64", OS: "debian-13"}:    "docker.io/library/debian:trixie@sha256:6788062a1b42ac281f053ac876170b79a3eaed5d61383b8ed7eaca6c6965f3b1",
 
-	{Arch: "arm64", OS: "debian-13"}: "docker.io/library/debian:trixie@sha256:b407d8d85413b48428f0fccb4349113d50b07ab20342d991f351e8679950fa8e",
-	{Arch: "arm64", OS: "debian-12"}: "docker.io/library/debian:bookworm@sha256:725710964b293a8a5082951c80d3b424a89df66b915effad8d578f5aca26e2e2",
+	{Arch: "arm64", OS: "debian-13"}: "docker.io/library/debian:trixie@sha256:0aa0908407cce3da2a90c1d80acc6ca5ca57401ed63eecfa8149b7ba3cc40829",
+	{Arch: "arm64", OS: "debian-12"}: "docker.io/library/debian:bookworm@sha256:5eac3978974cfa26a880057766c683e55c5763355d30a8beecbd263e0e1621d9",
 
-	{Arch: "ppc64le", OS: "ubuntu-26.04"}: "docker.io/library/ubuntu:26.04@sha256:f883664b609440e264b84810a80631fcc31a6f2a267fdf1a1477c1d9de051232",
-	{Arch: "ppc64le", OS: "debian-13"}:    "docker.io/library/debian:trixie@sha256:76b9aa62ea1601f1f8d7d84451cff3adc0a04155956ad2697d8f9aaea3301c47",
+	{Arch: "ppc64le", OS: "ubuntu-26.04"}: "docker.io/library/ubuntu:26.04@sha256:d88049f903b9659be5d3a46d5ae5e49ced96b12db1312c25984fb7eb07b849be",
+	{Arch: "ppc64le", OS: "debian-13"}:    "docker.io/library/debian:trixie@sha256:1319f7d87e5a1a0e1928cd279245ac53ca18d308fa48e413a5d9e2a9a8d6d56f",
 }
 
 const DefaultOS = "debian-12"
