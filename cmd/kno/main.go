@@ -9,18 +9,32 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/katzenpost/kno/internal/activate"
+	"github.com/katzenpost/kno/internal/backupkeys"
 	"github.com/katzenpost/kno/internal/build"
 	"github.com/katzenpost/kno/internal/buildjail"
 	"github.com/katzenpost/kno/internal/check"
+	"github.com/katzenpost/kno/internal/clean"
 	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/compile"
 	"github.com/katzenpost/kno/internal/config"
+	"github.com/katzenpost/kno/internal/doctor"
+	"github.com/katzenpost/kno/internal/hostsetup"
 	"github.com/katzenpost/kno/internal/peers"
 	"github.com/katzenpost/kno/internal/pkg/knodeb"
+	"github.com/katzenpost/kno/internal/preflight"
+	"github.com/katzenpost/kno/internal/probe"
+	"github.com/katzenpost/kno/internal/push"
+	"github.com/katzenpost/kno/internal/quarantine"
 	"github.com/katzenpost/kno/internal/render"
+	"github.com/katzenpost/kno/internal/schedule"
+	"github.com/katzenpost/kno/internal/setup"
 	"github.com/katzenpost/kno/internal/sign"
+	"github.com/katzenpost/kno/internal/status"
 	"github.com/katzenpost/kno/internal/topology"
 	"github.com/katzenpost/kno/internal/track"
+	"github.com/katzenpost/kno/internal/update"
+	"github.com/katzenpost/kno/internal/verify"
 )
 
 func newRootCommand() *cobra.Command {
@@ -62,22 +76,40 @@ func newRootCommand() *cobra.Command {
 		config.Command(),
 		peers.Command(),
 		build.Command(),
+		preflight.Command(),
+		status.Command(),
 		track.Command(),
 		render.Command(),
 		fpkgCommand(),
 
+		update.Command(),
+		quarantine.Command(),
+		activate.Command(),
 		topology.Command(),
+		push.Command(),
+		schedule.Command(),
+		verify.Command(),
+		probe.Command(),
 		check.Command(),
+		setup.Command(),
+		doctor.Command(),
+		clean.Command(),
+		backupkeys.Command(),
+		hostsetup.DepsCommand(),
+		hostsetup.BootstrapCommand(),
 		knodeb.Command(),
 	)
 
 	honoured := []string{
-		"build", "build warped",
+		"activate", "backup-keys", "bootstrap", "build", "build warped",
+		"clean", "deps", "doctor", "push",
+		"schedule",
+		"update",
 	}
 	readOnly := []string{
-		"build compare", "build epoch", "build version", "config", "peers",
-		"release", "release signers", "release verify",
-		"track",
+		"build compare", "build epoch", "build version", "config", "doctor package", "doctor tools", "peers",
+		"preflight", "probe", "release", "release signers", "release verify",
+		"status", "track", "verify",
 	}
 
 	unsupported := []string{
@@ -90,7 +122,9 @@ func newRootCommand() *cobra.Command {
 		"knodeb",
 		"release sign",
 		"render",
+		"setup",
 		"topology-propose",
+		"unquarantine",
 	}
 	if err := cli.Declare(root, honoured, readOnly, unsupported); err != nil {
 
