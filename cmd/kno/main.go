@@ -30,6 +30,7 @@ import (
 	"github.com/katzenpost/kno/internal/schedule"
 	"github.com/katzenpost/kno/internal/setup"
 	"github.com/katzenpost/kno/internal/sign"
+	"github.com/katzenpost/kno/internal/sim"
 	"github.com/katzenpost/kno/internal/status"
 	"github.com/katzenpost/kno/internal/topology"
 	"github.com/katzenpost/kno/internal/track"
@@ -76,6 +77,7 @@ func newRootCommand() *cobra.Command {
 		config.Command(),
 		peers.Command(),
 		build.Command(),
+		sim.Command(),
 		preflight.Command(),
 		status.Command(),
 		track.Command(),
@@ -109,7 +111,7 @@ func newRootCommand() *cobra.Command {
 	readOnly := []string{
 		"build compare", "build epoch", "build version", "config", "doctor package", "doctor tools", "peers",
 		"preflight", "probe", "release", "release signers", "release verify",
-		"status", "track", "verify",
+		"sim", "sim validate", "status", "track", "verify",
 	}
 
 	unsupported := []string{
@@ -123,6 +125,8 @@ func newRootCommand() *cobra.Command {
 		"release sign",
 		"render",
 		"setup",
+		"sim all", "sim configs", "sim down", "sim keys", "sim message",
+		"sim probe", "sim up", "sim upgrade", "sim verify",
 		"topology-propose",
 		"unquarantine",
 	}
