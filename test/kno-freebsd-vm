@@ -1,0 +1,299 @@
+#!/bin/sh
+set -eu
+
+SELF=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+REPO=$(CDPATH='' cd -- "$SELF/.." && pwd)
+FIX="$SELF/fixtures/freebsd-host"
+# shellcheck disable=SC1091
+. "$REPO/data/thirdparty/pins.env"
+
+S=/var/tmp/kno-fbsd-vm
+KEY="$S/id_ed25519"
+PORT=22022
+HTTPPORT=8014
+OPTS="-F /dev/null -o IdentityAgent=none -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$S/known_hosts -i $KEY"
+ovmf="${FREEBSD_OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}"
+ovmfvars="${FREEBSD_OVMF_VARS:-/usr/share/OVMF/OVMF_VARS_4M.fd}"
+smp="${KNO_VMTEST_SMP:-4}"
+mem="${KNO_VMTEST_MEM:-4096}"
+name="${KNO_FBSD_VM_HOSTNAME:-pietje}"
+rel="${KNO_FBSD_VM_RELEASE:-/var/tmp/kno-fbsd-art/releases/v0.0.107}"
+cfgs="$REPO/data/networks/namenlos/.generated/configs"
+statefiles="/usr/jails/respectmy/var/lib/pq-katzenpost-authority/*.pem /usr/jails/allmixedup/var/lib/pq-katzenpost-mixserver/*.pem"
+HTTP=""
+
+usage() {
+	cat >&2 <<EOF
+usage: kno-freebsd-vm prepare | start | stop | reset | status | keys | env | smoke | clean
+       kno-freebsd-vm ssh [command...]
+       kno-freebsd-vm scp <args...>     (vm:<path> names a path in the VM)
+EOF
+	exit 2
+}
+
+vssh() {
+	# shellcheck disable=SC2086
+	ssh $OPTS -p "$PORT" root@127.0.0.1 "$@"
+}
+
+vscp() {
+	n=$#
+	while [ "$n" -gt 0 ]; do
+		x="$1"
+		shift
+		case "$x" in vm:*) x="root@127.0.0.1:${x#vm:}" ;; esac
+		set -- "$@" "$x"
+		n=$((n - 1))
+	done
+	# shellcheck disable=SC2086
+	scp $OPTS -P "$PORT" "$@"
+}
+
+running() {
+	[ -f "$S/qemu.pid" ] && kill -0 "$(cat "$S/qemu.pid")" 2>/dev/null
+}
+
+agentcheck() {
+	grep -E 'Will attempt key|Offering public key|Authenticated to' "$1" >&2 || true
+	grep -q 'Authenticated to' "$1" || { echo "ssh did not authenticate; see $1" >&2; exit 1; }
+	if grep -E 'Will attempt key|Offering public key' "$1" | grep -qv "$KEY"; then
+		echo "ssh offered a key that is not $KEY; see $1" >&2
+		exit 1
+	fi
+	if grep -qE 'get_agent_identities: agent|from agent|SSH_AUTH_SOCK' "$1"; then
+		echo "ssh used an agent; see $1" >&2
+		exit 1
+	fi
+	echo "ssh offers only $KEY and uses no agent" >&2
+}
+
+boot() {
+	running && { echo "the VM already runs (pid $(cat "$S/qemu.pid"))" >&2; exit 1; }
+	: >"$S/console.log"
+	qemu-system-x86_64 -enable-kvm -cpu host -m "$mem" -smp "$smp" \
+		-drive "if=pflash,format=raw,unit=0,readonly=on,file=$ovmf" \
+		-drive "if=pflash,format=raw,unit=1,file=$2" \
+		-drive "file=$1,if=virtio,format=qcow2" \
+		-netdev "user,id=n0,hostfwd=tcp:127.0.0.1:$PORT-:22" \
+		-device virtio-net-pci,netdev=n0 \
+		-display none -monitor none -serial "file:$S/console.log" \
+		-daemonize -pidfile "$S/qemu.pid"
+	i=0
+	# shellcheck disable=SC2086
+	until ssh -v $OPTS -o ConnectTimeout=5 -p "$PORT" root@127.0.0.1 true 2>"$S/ssh-v.log"; do
+		i=$((i + 1))
+		running || { echo "qemu exited; see $S/console.log" >&2; exit 1; }
+		[ "$i" -lt 120 ] || { echo "no ssh on 127.0.0.1:$PORT after boot" >&2; exit 1; }
+		sleep 2
+	done
+	agentcheck "$S/ssh-v.log"
+	i=0
+	# shellcheck disable=SC2016
+	while ! vssh 'for j in /usr/local/etc/ezjail/*; do [ ! -f "$j" ] || [ -f "/var/run/jail_${j##*/}.id" ] || exit 1; done'; do
+		i=$((i + 1))
+		[ "$i" -lt 150 ] || { echo "the ezjail jails did not start" >&2; exit 1; }
+		sleep 2
+	done
+}
+
+halt() {
+	running || return 0
+	vssh 'shutdown -p now' >/dev/null 2>&1 || true
+	i=0
+	while running && [ "$i" -lt 180 ]; do
+		i=$((i + 1))
+		sleep 1
+	done
+	if running; then
+		echo "the VM did not power off; killing qemu" >&2
+		kill "$(cat "$S/qemu.pid")"
+	fi
+	rm -f "$S/qemu.pid"
+}
+
+wrappers() {
+	mkdir -p "$S/bin"
+	printf '#!/bin/sh\nexec ssh %s -o HostName=127.0.0.1 -o Port=%s -o User=root "$@"\n' "$OPTS" "$PORT" >"$S/bin/ssh"
+	printf '#!/bin/sh\nexec scp %s -o HostName=127.0.0.1 -P %s -o User=root "$@"\n' "$OPTS" "$PORT" >"$S/bin/scp"
+	chmod 755 "$S/bin/ssh" "$S/bin/scp"
+}
+
+serve() {
+	w="$S/www"
+	rm -rf "$w"
+	mkdir -p "$w/keys"
+	cp "$1" "$w/base.txz"
+	cp "$2" "$w/katzenpost.pkg"
+	cp "$cfgs/respectmy-pq-authority.toml" "$cfgs/allmixedup-pq-gatewaynode.toml" "$w/"
+	cp -R "$rel"/keys/* "$w/keys/"
+	tar -cf "$w/keys.tar" -C "$w/keys" .
+	for f in katzenpost.rc allmixedup.rc katzenpost-wrapper.respectmy katzenpost-wrapper.allmixedup \
+		update-mixes update-respectmy update-allmixedup autobuild pf.conf; do
+		cp "$FIX/$f" "$w/"
+	done
+	(cd "$w" && exec python3 -m http.server "$HTTPPORT" --bind 127.0.0.1 >/dev/null 2>&1) &
+	HTTP=$!
+	i=0
+	until curl -fsS -o /dev/null "http://127.0.0.1:$HTTPPORT/pf.conf" 2>/dev/null; do
+		i=$((i + 1))
+		[ "$i" -lt 50 ] || { echo "http server did not come up on $HTTPPORT" >&2; exit 1; }
+		sleep 0.2
+	done
+}
+
+cleanup() {
+	if [ -n "$HTTP" ]; then kill "$HTTP" 2>/dev/null || true; fi
+	halt
+}
+
+prepare() {
+	if [ -f "$S/prepared.qcow2" ]; then
+		echo "already prepared: $S/prepared.qcow2 (run clean to start over)"
+		return 0
+	fi
+	for t in qemu-system-x86_64 qemu-img expect curl python3 go ssh scp ssh-keygen; do
+		command -v "$t" >/dev/null 2>&1 || { echo "missing tool: $t" >&2; exit 1; }
+	done
+	[ -r "$ovmf" ] || { echo "OVMF firmware not found: $ovmf" >&2; exit 1; }
+	pkg=""
+	for f in "$rel"/pkgs/katzenpost-*.pkg; do [ -f "$f" ] && pkg="$f"; done
+	[ -n "$pkg" ] || { echo "no katzenpost-*.pkg in $rel/pkgs" >&2; exit 1; }
+	for f in respectmy-pq-authority allmixedup-pq-gatewaynode; do
+		[ -f "$cfgs/$f.toml" ] || { echo "missing $cfgs/$f.toml" >&2; exit 1; }
+	done
+
+	disk=$(cd "$REPO" && go run ./cmd/kno build vmimage)
+	base=$(cd "$REPO" && go run ./cmd/kno build sysroot)
+
+	mkdir -p "$S"
+	rm -f "$S/known_hosts" "$S/build.qcow2" "$S/fixture-keys.sha256"
+	[ -f "$KEY" ] || ssh-keygen -q -t ed25519 -N '' -C kno-fbsd-vm -f "$KEY"
+	wrappers
+	qemu-img create -q -f qcow2 -F qcow2 -b "$disk" "$S/build.qcow2" "${KNO_FBSD_VM_SIZE:-30G}"
+	cp "$ovmfvars" "$S/vars.fd"
+
+	echo "first boot: sshd, root key and hostname over the serial console" >&2
+	bytes=$(qemu-img info "$S/build.qcow2" | sed -n 's/^virtual size: .*(\([0-9]*\) bytes)$/\1/p')
+	[ -n "$bytes" ] || { echo "qemu-img gives no size for $S/build.qcow2" >&2; exit 1; }
+	expect "$SELF/kno-freebsd-vm.exp" "$S/build.qcow2" "$S/vars.fd" "$ovmf" "$name" "$(cat "$KEY.pub")" \
+		"$((bytes / 2048))" >"$S/firstboot.log"
+	for m in GROWFS_RC HOST_RC HOSTKEY_RC SSHDCFG_RC AUTHKEY_RC; do
+		tr -d '\r' <"$S/firstboot.log" | grep -qx "${m}=0" ||
+			{ echo "first boot: $m failed; see $S/firstboot.log" >&2; exit 1; }
+	done
+
+	trap cleanup EXIT
+	trap 'exit 1' INT TERM
+	serve "$base" "$pkg"
+	boot "$S/build.qcow2" "$S/vars.fd"
+	"$S/bin/ssh" -v root@kno-fbsd-vm true 2>"$S/wrapper-v.log"
+	agentcheck "$S/wrapper-v.log"
+	echo "building the fixture over ssh" >&2
+	vssh sh -s -- "http://10.0.2.2:$HTTPPORT" <"$FIX/setup.sh" 2>&1 | tee "$S/setup.log"
+	grep -q '^SETUP_RC=0$' "$S/setup.log" || { echo "fixture setup failed; see $S/setup.log" >&2; exit 1; }
+	vssh "sha256 -r $statefiles" >"$S/fixture-keys.sha256"
+	[ -s "$S/fixture-keys.sha256" ] || { echo "no state dir files to hash" >&2; exit 1; }
+	cleanup
+	trap - EXIT INT TERM
+	rm -rf "$S/www"
+	mv "$S/build.qcow2" "$S/prepared.qcow2"
+	mv "$S/vars.fd" "$S/prepared-vars.fd"
+	echo "prepared: $S/prepared.qcow2 ($(wc -l <"$S/fixture-keys.sha256") state files in $S/fixture-keys.sha256)"
+}
+
+start() {
+	[ -f "$S/prepared.qcow2" ] || { echo "not prepared: run kno-freebsd-vm prepare" >&2; exit 1; }
+	running && { echo "the VM already runs (pid $(cat "$S/qemu.pid"))" >&2; exit 1; }
+	rm -f "$S/run.qcow2"
+	qemu-img create -q -f qcow2 -F qcow2 -b "$S/prepared.qcow2" "$S/run.qcow2"
+	cp "$S/prepared-vars.fd" "$S/run-vars.fd"
+	boot "$S/run.qcow2" "$S/run-vars.fd"
+	echo "the VM runs: ssh on 127.0.0.1:$PORT"
+}
+
+keys() {
+	files=$(awk '{print $2}' "$S/fixture-keys.sha256" | tr '\n' ' ')
+	if vssh "sha256 -r $files" | diff -u "$S/fixture-keys.sha256" -; then
+		echo "fixture keys: unchanged ($(wc -l <"$S/fixture-keys.sha256") files)"
+	else
+		echo "fixture keys: CHANGED" >&2
+		return 1
+	fi
+}
+
+envout() {
+	cat <<EOF
+export SSH=$S/bin/ssh
+export SCP=$S/bin/scp
+export RSYNC_RSH=$S/bin/ssh
+export KNO_SSH_MULTIPLEX=0
+
+The wrappers send every host name to the VM. A kno.toml host can say:
+	ssh = "root@kno-fbsd-vm"
+
+EOF
+}
+
+step() {
+	echo "\$ $2" | tee -a "$log"
+	vssh "{ $2; } 2>&1; echo ${1}_RC=\$?" 2>&1 | tee -a "$log"
+}
+
+smoke() {
+	log="$S/smoke.log"
+	: >"$log"
+	running || start
+	step JLS "jls"
+	for j in respectmy allmixedup; do
+		step "START_$j" "ezjail-admin console -e 'service katzenpost start' $j >/tmp/start.log 2>&1; rc=\$?; grep -v '^ *\$' /tmp/start.log | head -3; (exit \$rc)"
+		step "STATUS_$j" "ezjail-admin console -e 'service katzenpost status' $j"
+	done
+	for j in respectmy allmixedup; do
+		step "DAEMON_$j" "jexec $j sh -c '/usr/sbin/daemon -f -r -p /var/run/katzenpost.child.pid -P /var/run/katzenpost.pid -u root \$(sysrc -n katzenpost_program) -f \$(sysrc -n katzenpost_config) && sleep 5 && kill -0 \$(cat /var/run/katzenpost.child.pid)'"
+	done
+	sleep 8
+	step PS "ps -axww -o pid,ppid,jid,command | grep -E 'PID|daemon:|katzenpost|server -f' | grep -v grep"
+	step LISTEN "sockstat -46l -j respectmy | grep ':1984 ' && sockstat -46l -j allmixedup | grep ':8443 '"
+	for j in respectmy allmixedup; do
+		step "PIDFILE_$j" "cat /usr/jails/$j/var/run/katzenpost.pid && echo"
+		step "STATUS2_$j" "ezjail-admin console -e 'service katzenpost status' $j"
+		vssh "jexec $j sh -x /usr/local/etc/rc.d/katzenpost status" >"$S/smoke-shx-$j.log" 2>&1 || true
+		step "SHX_$j" "jexec $j sh -x /usr/local/etc/rc.d/katzenpost status 2>&1 | grep -E '^\+ (command|_override_command|_procname|_procnamebn)=|^\+ /bin/ps|running'"
+	done
+	keys | tee -a "$log"
+	halt
+	start
+	step JLS2 "jls"
+	step CLEAN2 "ls /usr/jails/allmixedup/var/lib/pq-katzenpost-mixserver; ! ls /usr/jails/*/var/lib/pq-katzenpost-*/*.db 2>/dev/null"
+	keys | tee -a "$log"
+	halt
+	rc=0
+	for m in JLS DAEMON_respectmy DAEMON_allmixedup LISTEN JLS2 CLEAN2; do
+		if grep -q "^${m}_RC=0\$" "$log"; then echo "  $m: pass"; else echo "  $m: FAIL"; rc=1; fi
+	done
+	if [ "$(grep -c '^fixture keys: unchanged' "$log")" = 2 ]; then echo "  KEYS: pass"; else echo "  KEYS: FAIL"; rc=1; fi
+	for m in START_respectmy START_allmixedup STATUS2_respectmy STATUS2_allmixedup; do
+		echo "  $m: rc $(sed -n "s/^${m}_RC=//p" "$log") with the old rc.d script"
+	done
+	echo "smoke transcript: $log"
+	if [ "$rc" = 0 ]; then echo "freebsd fixture smoke test: PASS"; else echo "freebsd fixture smoke test: FAIL"; fi
+	return "$rc"
+}
+
+cmd="${1:-}"
+[ -n "$cmd" ] || usage
+shift
+case "$cmd" in
+prepare) prepare ;;
+start) start ;;
+stop) halt ;;
+reset) halt && start ;;
+status) if running; then echo "running (pid $(cat "$S/qemu.pid"))"; else echo "stopped"; fi ;;
+keys) keys ;;
+env) envout ;;
+smoke) smoke ;;
+ssh) vssh "$@" ;;
+scp) vscp "$@" ;;
+clean) halt && rm -rf "$S" ;;
+*) usage ;;
+esac

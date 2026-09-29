@@ -1,0 +1,118 @@
+name: simnet
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  KATZENPOST_REF: b8bbad9f1c1868beb9c376fdebaed7424dcd7705
+  GOFLAGS: -trimpath
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout namenlos
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Topology consistency (surfaces known gaps, fails on new ones)
+        run: sh updater/test/ci-topology-check.sh
+
+      - name: Checkout katzenpost
+        uses: actions/checkout@v4
+        with:
+          repository: katzenpost/katzenpost
+          ref: ${{ env.KATZENPOST_REF }}
+          path: katzenpost
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: katzenpost/go.mod
+
+      - name: Build kpconfig
+        run: go -C katzenpost build -o "$GITHUB_WORKSPACE/kpconfig" ./cmd/kpconfig
+
+      - name: Render configs from SSOT
+        run: make -C configs all
+
+      - name: Validate configs load (kpconfig)
+        run: |
+          cd configs
+          "$GITHUB_WORKSPACE/kpconfig" validate --type server \
+            *-pq-mixserver.toml *-pq-gatewaynode.toml *-pq-servicenode.toml
+          "$GITHUB_WORKSPACE/kpconfig" validate --type replica *-pq-storagenode*.toml
+          "$GITHUB_WORKSPACE/kpconfig" validate --type courier courier.toml
+          "$GITHUB_WORKSPACE/kpconfig" validate --type client client.toml
+          "$GITHUB_WORKSPACE/kpconfig" validate --type thin thinclient.toml
+          echo "kpconfig: all config types valid" >> "$GITHUB_STEP_SUMMARY"
+
+  simnet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout namenlos
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout katzenpost
+        uses: actions/checkout@v4
+        with:
+          repository: katzenpost/katzenpost
+          ref: ${{ env.KATZENPOST_REF }}
+          path: katzenpost
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: katzenpost/go.mod
+
+      - name: Ensure podman
+        run: command -v podman >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y podman; }
+
+      - name: Run full mixnet simulation
+        run: |
+          set -o pipefail
+          sh updater/test/namenlos-simnet all \
+            --src "$GITHUB_WORKSPACE/katzenpost" \
+            --workdir "$RUNNER_TEMP/simnet" \
+            --net nlsimci 2>&1 | tee "$RUNNER_TEMP/simnet.log"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## namenlos mixnet simulation"
+            echo ""
+            sed 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/simnet.log" 2>/dev/null \
+              | grep -aE 'signed by [0-9]+ directory|byte-identical|namenlos-verify PASSED|Success rate|cp-bench pigeonhole round-trip OK|duration=|ALL GREEN' \
+              | sed 's/^/- /' || echo "- (no results captured)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tear down
+        if: always()
+        run: sh updater/test/namenlos-simnet down --net nlsimci || true
+
+      - name: Upload logs
+        if: ${{ always() && !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: simnet-logs
+          path: |
+            ${{ runner.temp }}/simnet.log
+            ${{ runner.temp }}/simnet/*.txt
+            ${{ runner.temp }}/simnet/*.log
+            ${{ runner.temp }}/simnet/*.out
+            ${{ runner.temp }}/simnet/*.err
+          if-no-files-found: ignore

@@ -1,0 +1,129 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install the linters the gates run
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@v0.52.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Everything the pre-commit hook runs, and the rest
+        run: make test
+
+  install:
+    name: the packages install
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build kno's packages, and install them in a container
+        run: make install-test
+
+  sim:
+    name: configs load
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build the katzenpost package for this runner
+        run: go run ./cmd/kno build --binary-only
+
+      - name: Load every rendered config with its own daemon
+        run: go run ./cmd/kno sim validate
+
+  repro:
+    name: reproduces the release
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Register qemu, so a container can build each node's architecture
+        run: |
+          if ! ls /proc/sys/fs/binfmt_misc/qemu-aarch64 /proc/sys/fs/binfmt_misc/qemu-ppc64le >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y qemu-user-static
+          fi
+
+      - name: Build the release twice and compare every file
+        run: KNO_ARTIFACTS="$RUNNER_TEMP/artifacts" make repro
+
+  simnet:
+    name: the network runs
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Register qemu, so a container can run each node's architecture
+        run: |
+          if ! ls /proc/sys/fs/binfmt_misc/qemu-ppc64le >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y qemu-user-static
+          fi
+
+      - name: Build kno
+        run: go build -o "$RUNNER_TEMP/kno" ./cmd/kno
+
+      - name: Boot namenlos on each node's platform, with fresh keys
+        run: '"$RUNNER_TEMP/kno" sim all --emulate --epoch 2m --net cisim'
+
+      - name: A broken config fails the sim
+        run: |
+          KNO="$RUNNER_TEMP/kno" SIM_PKGS="/var/tmp/kno-sim-$(id -u)-cisim/pkgs" \
+            sh scripts/sim-mutation.sh

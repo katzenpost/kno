@@ -1,0 +1,74 @@
+#!/bin/sh
+#
+# PROVIDE: katzenpost
+# REQUIRE: NETWORKING
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="katzenpost"
+rcvar="katzenpost_enable"
+
+command="/usr/local/sbin/katzenpost-wrapper"
+procname="/usr/local/sbin/katzenpost-wrapper"
+pidfile="/var/run/${name}.pid"
+
+load_rc_config "$name"
+
+: ${katzenpost_enable:="NO"}
+: ${katzenpost_config:="/usr/local/etc/katzenpost.toml"}
+
+start_cmd="${name}_start"
+stop_cmd="${name}_stop"
+status_cmd="${name}_status"
+
+katzenpost_start()
+{
+	if [ ! -f "$katzenpost_config" ]; then
+		echo "config file $katzenpost_config not found"
+		return 1
+	fi
+    if [ -f "$pidfile" ] && check_pidfile "$pidfile" "$procname" >/dev/null 2>&1; then
+        echo "$name already running."
+        return 0
+    fi
+
+    echo "Starting $name."
+    "${command}" "${katzenpost_config}" &
+    echo $! > "$pidfile"
+}
+
+katzenpost_stop()
+{
+    if [ ! -f "$pidfile" ]; then
+        echo "$name not running?"
+        return 1
+    fi
+
+    pid=$(cat "$pidfile" 2>/dev/null || echo "")
+    if [ -z "$pid" ]; then
+        echo "$name: invalid pidfile."
+        rm -f "$pidfile"
+        return 1
+    fi
+
+    echo "Stopping $name."
+    kill "$pid" 2>/dev/null || true
+    killall -SIGINT server
+    sleep 15
+    killall -9 server
+    rm -f "$pidfile"
+}
+
+katzenpost_status()
+{
+    if [ -f "$pidfile" ] && check_pidfile "$pidfile" "$procname" >/dev/null 2>&1; then
+        echo "$name is running as pid $(cat "$pidfile")."
+        return 0
+    else
+        echo "$name is not running."
+        return 1
+    fi
+}
+
+run_rc_command "$1"

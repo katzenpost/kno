@@ -1,0 +1,68 @@
+#!/usr/bin/expect -f
+set timeout 900
+set disk    [lindex $argv 0]
+set pkgurl  [lindex $argv 1]
+set baseurl [lindex $argv 2]
+set vars    [lindex $argv 3]
+set ovmf    [lindex $argv 4]
+
+spawn qemu-system-x86_64 -enable-kvm -m 3072 -smp 2 \
+    -drive if=pflash,format=raw,unit=0,readonly=on,file=$ovmf \
+    -drive if=pflash,format=raw,unit=1,file=$vars \
+    -drive file=$disk,if=virtio -snapshot \
+    -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
+    -display none -serial stdio -monitor none
+
+expect {
+    timeout { puts "\nTIMEOUT waiting for login"; exit 2 }
+    -re "login: ?$" { send "root\r" }
+}
+expect {
+    timeout { puts "\nTIMEOUT after username"; exit 2 }
+    -re "assword:" { send "\r"; exp_continue }
+    -re "root@" { }
+}
+
+send "\r"
+expect -re "\[#$] $"
+send "KP1=KNO; KP2='> '; PS1=\"\$KP1\$KP2\"\r"
+expect -re "KNO> $"
+
+proc run {cmd tmo} {
+    send "$cmd\r"
+    set oldt $::timeout
+    set ::timeout $tmo
+    expect {
+        timeout { puts "\nTIMEOUT on: $cmd"; exit 2 }
+        -re "KNO> $" { }
+    }
+    set ::timeout $oldt
+}
+
+run "dhclient vtnet0 2>/dev/null; ifconfig vtnet0 | grep 'inet '" 40
+
+run "mkdir -p /jails/mix" 20
+run "fetch -q -o /tmp/base.txz $baseurl && ls -l /tmp/base.txz || echo FETCH_FAIL" 600
+run "tar -xf /tmp/base.txz -C /jails/mix >/tmp/x.log 2>&1; echo BASE_RC=\$?" 600
+run "cp /etc/resolv.conf /jails/mix/etc/resolv.conf 2>/dev/null; ls /jails/mix/bin/sh >/dev/null 2>&1; echo JAILROOT_RC=\$?" 30
+
+run "fetch -q -o /tmp/k.pkg $pkgurl && ls -l /tmp/k.pkg || echo FETCH_FAIL" 120
+run "cp /tmp/k.pkg /jails/mix/tmp/k.pkg; echo COPY_RC=\$?" 60
+run "env ASSUME_ALWAYS_YES=yes pkg -c /jails/mix add /tmp/k.pkg >/tmp/jadd.log 2>&1; rc=\$?; tail -3 /tmp/jadd.log; echo JAILADD_RC=\$rc" 300
+run "ls -l /jails/mix/usr/local/sbin/kpdirauth >/dev/null 2>&1; echo JAILBIN_RC=\$?" 30
+run "ls -l /jails/mix/usr/local/etc/rc.d/katzenpost >/dev/null 2>&1; echo JAILRCD_RC=\$?" 30
+
+run "jail -c name=mix path=/jails/mix host.hostname=mix.local ip4=inherit allow.raw_sockets persist >/tmp/jail.log 2>&1; echo JAILSTART_RC=\$?" 120
+run "jexec mix /bin/sh -c 'service katzenpost rcvar' >/tmp/rcvar.log 2>&1; rc=\$?; head -3 /tmp/rcvar.log; echo RCVAR_RC=\$rc" 60
+run "jexec mix /bin/sh -c '/usr/local/bin/kpgenkeypair --help >/dev/null 2>&1'; echo JAILEXEC_RC=\$?" 60
+
+run "jexec mix /bin/sh -c 'sysrc katzenpost_enable=YES katzenpost_daemon=/usr/local/bin/kpgenkeypair katzenpost_config=/dev/null' >/dev/null 2>&1; echo SYSRC_RC=\$?" 60
+run "jexec mix /bin/sh -c 'service katzenpost start' >/tmp/svc.log 2>&1; rc=\$?; tail -3 /tmp/svc.log; echo SVCSTART_RC=\$rc" 90
+
+run "jail -r mix >/dev/null 2>&1; echo JAILSTOP_RC=\$?" 60
+
+send "poweroff\r"
+expect {
+    timeout { exit 0 }
+    eof { }
+}

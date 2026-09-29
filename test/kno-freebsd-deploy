@@ -1,0 +1,86 @@
+#!/bin/sh
+set -eu
+
+SELF=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+REPO=$(CDPATH='' cd -- "$SELF/.." && pwd)
+# shellcheck disable=SC1091
+. "$REPO/data/thirdparty/pins.env"
+
+pkgs="${1:?usage: kno-freebsd-deploy <pkgs-dir>}"
+[ -d "$pkgs" ] || { echo "no such dir: $pkgs" >&2; exit 1; }
+
+pick() {
+	for f in "$pkgs"/$1; do
+		[ -f "$f" ] && { printf '%s\n' "$f"; return 0; }
+	done
+	echo "missing package matching $1 in $pkgs" >&2
+	return 1
+}
+binpkg=$(pick 'katzenpost-*.pkg')
+cfg1=$(pick 'namenlos-config-respectmy-pq-authority-*.pkg')
+cfg2=$(pick 'namenlos-config-allmixedup-pq-gatewaynode-*.pkg')
+
+for t in qemu-system-x86_64 qemu-img expect xz curl python3 go; do
+	command -v "$t" >/dev/null 2>&1 || { echo "missing tool: $t" >&2; exit 1; }
+done
+[ -e /dev/kvm ] || echo "warning: /dev/kvm absent; boot will be slow (TCG)" >&2
+ovmf="${FREEBSD_OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}"
+ovmfvars="${FREEBSD_OVMF_VARS:-/usr/share/OVMF/OVMF_VARS_4M.fd}"
+[ -r "$ovmf" ] || { echo "OVMF firmware not found: $ovmf" >&2; exit 1; }
+
+disk=$(cd "$REPO" && go run ./cmd/kno build vmimage)
+base=$(cd "$REPO" && go run ./cmd/kno build sysroot)
+
+work=$(mktemp -d)
+HTTP=""
+# shellcheck disable=SC2317,SC2329
+cleanup() {
+	[ -n "$HTTP" ] && kill "$HTTP" 2>/dev/null
+	rm -rf "$work"
+}
+trap cleanup EXIT INT TERM
+
+cp "$binpkg" "$work/katzenpost.pkg"
+cp "$cfg1" "$work/cfg-respectmy.pkg"
+cp "$cfg2" "$work/cfg-allmixedup.pkg"
+cp "$base" "$work/base.txz"
+cp "$ovmfvars" "$work/vars.fd"
+
+jailsdisk="$work/jails.qcow2"
+qemu-img create -f qcow2 "$jailsdisk" "${KNO_VMTEST_JAILS_SIZE:-16G}" >/dev/null
+
+port="${KNO_VMTEST_PORT:-8004}"
+( cd "$work" && exec python3 -m http.server "$port" --bind 127.0.0.1 >/dev/null 2>&1 ) &
+HTTP=$!
+i=0
+while [ "$i" -lt 50 ]; do
+	curl -fsS -o /dev/null "http://127.0.0.1:$port/katzenpost.pkg" 2>/dev/null && break
+	i=$((i + 1))
+	sleep 0.2
+done
+[ "$i" -lt 50 ] || { echo "http server did not come up on $port" >&2; exit 1; }
+
+log="$work/transcript.txt"
+expect "$SELF/kno-freebsd-deploy.exp" \
+	"$disk" "$jailsdisk" \
+	"http://10.0.2.2:$port/base.txz" \
+	"http://10.0.2.2:$port" \
+	"$work/vars.fd" "$ovmf" | tr -d '\r' | tee "$log"
+
+rc=0
+for m in JAILFS_RC BASEDL_RC JAILS_RC JAILUP_RC PKGDL_RC COPY_RC DEPGUARD_RC \
+	ADD1_RC ADD2_RC RC1_RC RC2_RC AUTHCFG_RC GWCFG_RC AUTHFILES_RC NOSECRET_RC \
+	RCVAR_RC START1_RC STATUS1_RC START2_RC STATUS2_RC; do
+	if grep -qx "${m}=0" "$log"; then
+		echo "  $m: pass"
+	else
+		echo "  $m: FAIL"
+		rc=1
+	fi
+done
+if [ "$rc" = 0 ]; then
+	echo "freebsd two-jail deploy test: PASS"
+else
+	echo "freebsd two-jail deploy test: FAIL"
+fi
+exit "$rc"

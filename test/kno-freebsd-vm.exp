@@ -1,0 +1,54 @@
+#!/usr/bin/expect -f
+set timeout 900
+set disk     [lindex $argv 0]
+set vars     [lindex $argv 1]
+set ovmf     [lindex $argv 2]
+set hostname [lindex $argv 3]
+set pubkey   [lindex $argv 4]
+set minkb    [lindex $argv 5]
+set smp [expr {[info exists ::env(KNO_VMTEST_SMP)] ? $::env(KNO_VMTEST_SMP) : 4}]
+set mem [expr {[info exists ::env(KNO_VMTEST_MEM)] ? $::env(KNO_VMTEST_MEM) : 4096}]
+
+spawn qemu-system-x86_64 -enable-kvm -m $mem -smp $smp \
+    -drive if=pflash,format=raw,unit=0,readonly=on,file=$ovmf \
+    -drive if=pflash,format=raw,unit=1,file=$vars \
+    -drive file=$disk,if=virtio,format=qcow2 \
+    -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
+    -display none -serial stdio -monitor none
+
+expect {
+    timeout { puts "\nTIMEOUT waiting for login"; exit 2 }
+    -re "login: ?$" { send "root\r" }
+}
+expect {
+    timeout { puts "\nTIMEOUT after username"; exit 2 }
+    -re "assword:" { send "\r"; exp_continue }
+    -re "root@" { }
+}
+send "\r"
+expect -re "\[#$] $"
+send "KP1=KNO; KP2='> '; PS1=\"\$KP1\$KP2\"\r"
+expect -re "KNO> $"
+
+proc run {cmd tmo} {
+    send "$cmd\r"
+    set oldt $::timeout
+    set ::timeout $tmo
+    expect {
+        timeout { puts "\nTIMEOUT on: $cmd"; exit 2 }
+        -re "KNO> $" { }
+    }
+    set ::timeout $oldt
+}
+
+run "cat /etc/rc.conf; df -h /; df -k / | awk 'NR == 2 { exit !(\$2 >= $minkb) }'; echo GROWFS_RC=\$?" 60
+run "sysrc hostname=$hostname sshd_enable=YES >/dev/null && hostname $hostname; echo HOST_RC=\$?" 60
+run "service sshd keygen >/dev/null 2>&1; ls /etc/ssh/ssh_host_ed25519_key.pub >/dev/null; echo HOSTKEY_RC=\$?" 120
+run "printf '%s\\n' 'PermitRootLogin prohibit-password' 'PasswordAuthentication no' 'KbdInteractiveAuthentication no' >> /etc/ssh/sshd_config; sshd -t; echo SSHDCFG_RC=\$?" 60
+run "mkdir -p /root/.ssh && chmod 700 /root/.ssh && printf '%s\\n' '$pubkey' > /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys; echo AUTHKEY_RC=\$?" 60
+
+send "poweroff\r"
+expect {
+    timeout { puts "\nTIMEOUT waiting for poweroff"; exit 2 }
+    eof { }
+}

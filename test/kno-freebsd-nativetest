@@ -1,0 +1,70 @@
+#!/bin/sh
+set -eu
+
+SELF=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+REPO=$(CDPATH='' cd -- "$SELF/.." && pwd)
+# shellcheck disable=SC1091
+. "$REPO/data/thirdparty/pins.env"
+
+for t in qemu-system-x86_64 qemu-img expect xz curl python3 go git; do
+	command -v "$t" >/dev/null 2>&1 || { echo "missing tool: $t" >&2; exit 1; }
+done
+[ -e /dev/kvm ] || echo "warning: /dev/kvm absent; boot will be slow (TCG)" >&2
+ovmf="${FREEBSD_OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}"
+ovmfvars="${FREEBSD_OVMF_VARS:-/usr/share/OVMF/OVMF_VARS_4M.fd}"
+[ -r "$ovmf" ] || { echo "OVMF firmware not found: $ovmf" >&2; exit 1; }
+
+disk=$(cd "$REPO" && go run ./cmd/kno build vmimage)
+
+work=$(mktemp -d)
+HTTP=""
+# shellcheck disable=SC2317,SC2329
+cleanup() {
+	[ -n "$HTTP" ] && kill "$HTTP" 2>/dev/null
+	rm -rf "$work"
+}
+trap cleanup EXIT INT TERM
+
+echo "building a freebsd/amd64 kno" >&2
+( cd "$REPO" && GOOS=freebsd GOARCH=amd64 go build -o "$work/kno" ./cmd/kno )
+tar -czf "$work/repo.tar.gz" -C "$REPO" \
+	--exclude='./.git' --exclude='./dist' .
+cp "$ovmfvars" "$work/vars.fd"
+
+scratch="$work/scratch.qcow2"
+qemu-img create -f qcow2 "$scratch" "${KNO_VMTEST_SCRATCH_SIZE:-30G}" >/dev/null
+
+port="${KNO_VMTEST_PORT:-8002}"
+( cd "$work" && exec python3 -m http.server "$port" --bind 127.0.0.1 >/dev/null 2>&1 ) &
+HTTP=$!
+i=0
+while [ "$i" -lt 50 ]; do
+	curl -fsS -o /dev/null "http://127.0.0.1:$port/kno" 2>/dev/null && break
+	i=$((i + 1))
+	sleep 0.2
+done
+[ "$i" -lt 50 ] || { echo "http server did not come up on $port" >&2; exit 1; }
+
+log="$work/transcript.txt"
+expect "$SELF/kno-freebsd-nativetest.exp" \
+	"$disk" "$scratch" \
+	"http://10.0.2.2:$port/kno" \
+	"http://10.0.2.2:$port/repo.tar.gz" \
+	"$work/vars.fd" "$ovmf" | tr -d '\r' | tee "$log"
+
+rc=0
+for m in BIGDISK_RC TOOLS_RC REPO_RC KNOHELP_RC DIRS_RC NATIVE_RC PKGMADE_RC \
+	RELBIN_RC FPKGVERIFY_RC SELFADD_RC RUN_RC; do
+	if grep -qx "${m}=0" "$log"; then
+		echo "  $m: pass"
+	else
+		echo "  $m: FAIL"
+		rc=1
+	fi
+done
+if [ "$rc" = 0 ]; then
+	echo "freebsd native-build test: PASS"
+else
+	echo "freebsd native-build test: FAIL"
+fi
+exit "$rc"

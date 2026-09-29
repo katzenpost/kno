@@ -1,0 +1,7 @@
+#!/bin/sh
+
+echo "" >>/var/log/mixbuilder.log
+date >>/var/log/mixbuilder.log
+ezjail-admin console -e "/root/autobuild" mixbuilder >>/var/log/mixbuilder.log 2>&1 && exit 0
+/root/bin/update-respectmy >>/var/log/mixbuilder.log 2>&1
+/root/bin/update-allmixedup >>/var/log/mixbuilder.log 2>&1

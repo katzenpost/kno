@@ -7,6 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/katzenpost/kno/internal/adopt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/katzenpost/kno/internal/activate"
@@ -18,8 +20,10 @@ import (
 	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/compile"
 	"github.com/katzenpost/kno/internal/config"
+	"github.com/katzenpost/kno/internal/contribute"
 	"github.com/katzenpost/kno/internal/doctor"
 	"github.com/katzenpost/kno/internal/hostsetup"
+	"github.com/katzenpost/kno/internal/nodeedit"
 	"github.com/katzenpost/kno/internal/peers"
 	"github.com/katzenpost/kno/internal/pkg/knodeb"
 	"github.com/katzenpost/kno/internal/preflight"
@@ -88,6 +92,8 @@ func newRootCommand() *cobra.Command {
 		quarantine.Command(),
 		activate.Command(),
 		topology.Command(),
+		contribute.Command(),
+		nodeedit.Command(),
 		push.Command(),
 		schedule.Command(),
 		verify.Command(),
@@ -100,11 +106,12 @@ func newRootCommand() *cobra.Command {
 		hostsetup.DepsCommand(),
 		hostsetup.BootstrapCommand(),
 		knodeb.Command(),
+		adopt.Command(),
 	)
 
 	honoured := []string{
-		"activate", "backup-keys", "bootstrap", "build", "build warped",
-		"clean", "deps", "doctor", "push",
+		"activate", "adopt", "backup-keys", "bootstrap", "build", "build warped",
+		"clean", "contribute", "deps", "doctor", "edit", "push",
 		"schedule",
 		"update",
 	}
