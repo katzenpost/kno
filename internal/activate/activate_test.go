@@ -209,7 +209,7 @@ func TestSystemdPlanChecksEveryPackageBeforeInstalling(t *testing.T) {
 	}
 	want := []StepKind{
 		StepScanSecretKeys, StepScanSecretKeys,
-		StepRun, StepRunIgnore,
+		StepRun, StepRun, StepRunIgnore,
 	}
 	got := kinds(p)
 	if len(got) != len(want) {
@@ -223,6 +223,9 @@ func TestSystemdPlanChecksEveryPackageBeforeInstalling(t *testing.T) {
 	kp := filepath.Join(rel, "pkgs", "katzenpost_0.0.104_amd64.deb")
 	if a := strings.Join(p.Steps[0].Argv, " "); a != "dpkg-deb --fsys-tarfile "+kp {
 		t.Errorf("scan argv = %q", a)
+	}
+	if a := p.Steps[2].Argv; a[0] != "sh" || a[2] != copyForwardScript {
+		t.Errorf("the old state is not copied forward before the install: %q", a)
 	}
 }
 
@@ -248,7 +251,7 @@ func TestSystemdApplyDryRunOnlyPrintsTheInstall(t *testing.T) {
 			dry = append(dry, ln)
 		}
 	}
-	if len(dry) != 2 || !strings.Contains(dry[0], "dpkg -i ") || !strings.Contains(dry[1], "restart kpclientd.service") {
+	if len(dry) != 3 || !strings.Contains(dry[0], "sh -c old=") || !strings.Contains(dry[1], "dpkg -i ") || !strings.Contains(dry[2], "restart kpclientd.service") {
 		t.Fatalf("expected the printed install and the kpclientd restart, got:\n%s", b.String())
 	}
 	if !strings.Contains(b.String(), "activated v0.0.104 (systemd)") {
@@ -586,5 +589,53 @@ func TestAnAttestationCheckThatKnoCannotDoIsRefused(t *testing.T) {
 	var b strings.Builder
 	if rc := Run(&b, []string{t.TempDir(), testTag}); rc != 1 || !strings.Contains(b.String(), "no such check") {
 		t.Errorf("rc = %d, want 1 and a refusal that says why:\n%s", rc, b.String())
+	}
+}
+
+func TestTheOldStateIsCopiedForwardAndStaysInPlace(t *testing.T) {
+	rel := t.TempDir()
+	write := func(p, body string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	root := t.TempDir()
+	old, cur := filepath.Join(root, "var/lib/pq-katzenpost-mixserver"), filepath.Join(root, "var/lib/katzenpost/server/x")
+	write(filepath.Join(rel, "manifest", "x-pq-gatewaynode.conf"), "BACKEND=\"systemd\"\nCONFIG_SRC=\"configs/x-pq-gatewaynode.toml\"\n"+
+		"STATE_DIR=\""+cur+"\"\nLEGACY_STATE_DIR=\""+old+"\"\n")
+	write(filepath.Join(rel, "configs", "x-pq-gatewaynode.toml"), "[Gateway.SpoolDB.Bolt]\n  SpoolDB = \""+cur+"/spool.db\"\n")
+	for _, f := range []string{"identity.private.pem", "link.private.pem", "spool.db", "users.db"} {
+		write(filepath.Join(old, f), "old "+f)
+	}
+	st, ok := copyForward(rel, "x-pq-gatewaynode")
+	if !ok {
+		t.Fatal("no copy step for a service with an old state dir")
+	}
+	run := func() {
+		t.Helper()
+		if out, err := exec.Command(st.Argv[0], st.Argv[1:]...).CombinedOutput(); err != nil {
+			t.Fatalf("%v: %s", err, out)
+		}
+	}
+	run()
+	for f, want := range map[string]bool{"identity.private.pem": true, "link.private.pem": true, "spool.db": true, "users.db": false} {
+		if _, err := os.Stat(filepath.Join(cur, f)); (err == nil) != want {
+			t.Errorf("%s copied = %v, want %v", f, err == nil, want)
+		}
+		if _, err := os.Stat(filepath.Join(old, f)); err != nil {
+			t.Errorf("the old %s is gone: %v", f, err)
+		}
+	}
+	write(filepath.Join(old, "identity.private.pem"), "changed")
+	run()
+	if b, _ := os.ReadFile(filepath.Join(cur, "identity.private.pem")); string(b) != "old identity.private.pem" {
+		t.Errorf("a second run overwrote the key with %q", b)
+	}
+	if _, ok := copyForward(rel, "absent"); ok {
+		t.Error("a service with no manifest got a copy step")
 	}
 }

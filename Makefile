@@ -126,9 +126,9 @@ install:
 	@test -f '$(DEB)' || { echo 'no $(DEB) -- run: make kno-deb'; exit 1; }
 	@test -f '$(HOSTDEB)' || { echo 'no $(HOSTDEB) -- run: make kno-deb'; exit 1; }
 	@echo '==> installing (sudo)'
-	@sudo dpkg -i '$(DEB)' >/dev/null
+	@sudo apt-get install -y -q '$(CURDIR)/$(DEB)' >/dev/null
 	@echo '==> kno-host-config (asks the setup questions the first time)'
-	@sudo dpkg -i '$(HOSTDEB)'
+	@sudo apt-get install -y -q '$(CURDIR)/$(HOSTDEB)'
 	@echo "kno: binary: $$(command -v kno 2>/dev/null || echo 'NOT on PATH?')"
 	@echo 'kno: config: /etc/katzenpost/kno.toml'
 

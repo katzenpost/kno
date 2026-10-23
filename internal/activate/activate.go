@@ -172,6 +172,12 @@ func systemdPlan(o Options, backend string) (Plan, error) {
 		p.Steps = append(p.Steps, Step{Kind: StepScanSecretKeys, Argv: []string{"dpkg-deb", "--fsys-tarfile", d}})
 	}
 
+	for _, svc := range o.Services {
+		if st, ok := copyForward(o.Rel, svc); ok {
+			p.Steps = append(p.Steps, st)
+		}
+	}
+
 	fresh := notInstalled(debs)
 	switch {
 	case len(fresh) == 0:
@@ -186,6 +192,25 @@ func systemdPlan(o Options, backend string) (Plan, error) {
 		}
 	}
 	return p, nil
+}
+
+const copyForwardScript = `old=$1 new=$2 spool=$3; [ -e "$old/identity.private.pem" ] && [ ! -e "$new/identity.private.pem" ] || exit 0; ` +
+	`mkdir -p "$new" && chmod 700 "$new" && cp -p "$old"/*.pem "$new"/ && { [ -z "$spool" ] || [ ! -e "$old/$spool" ] || cp -p "$old/$spool" "$new"/; } && ` +
+	`echo "copied the keys from $old to $new; $old stays as it is"`
+
+func copyForward(rel, svc string) (Step, bool) {
+	s, err := readManifest(filepath.Join(rel, "manifest", svc+".conf"))
+	if err != nil || s.LegacyStateDir == "" || s.StateDir == "" || s.LegacyStateDir == s.StateDir {
+		return Step{}, false
+	}
+	spool := ""
+	if b, err := os.ReadFile(filepath.Join(rel, "configs", filepath.Base(s.ConfigSrc))); err == nil {
+		if m := spoolDB.FindSubmatch(b); m != nil && filepath.Dir(string(m[1])) == s.StateDir {
+			spool = filepath.Base(string(m[1]))
+		}
+	}
+	return Step{Kind: StepRun, Log: "copy the keys of " + svc + " from " + s.LegacyStateDir + " if " + s.StateDir + " has none",
+		Argv: []string{"sh", "-c", copyForwardScript, "sh", s.LegacyStateDir, s.StateDir, spool}}, true
 }
 
 var debControl = func(path string) (string, string) {
@@ -574,23 +599,24 @@ func readManifest(path string) (service.Service, error) {
 		return service.Service{}, err
 	}
 	s := service.Service{
-		Name:         strings.TrimSuffix(filepath.Base(path), ".conf"),
-		Backend:      m["BACKEND"],
-		Unit:         m["UNIT"],
-		Build:        m["BUILD"],
-		BinarySrc:    m["BINARY_SRC"],
-		BinaryDst:    m["BINARY_DST"],
-		ConfigSrc:    m["CONFIG_SRC"],
-		ConfigDst:    m["CONFIG_DST"],
-		StateDir:     m["STATE_DIR"],
-		SecretKeys:   m["SECRET_KEYS"],
-		Jail:         m["JAIL"],
-		PrestartHook: m["PRESTART_HOOK"],
-		ServiceUser:  m["SERVICE_USER"],
-		DockerDir:    m["DOCKER_DIR"],
-		DockerImage:  m["DOCKER_IMAGE"],
-		DockerCont:   m["DOCKER_CONTAINER"],
-		DockerPorts:  m["DOCKER_PORTS"],
+		Name:           strings.TrimSuffix(filepath.Base(path), ".conf"),
+		Backend:        m["BACKEND"],
+		Unit:           m["UNIT"],
+		Build:          m["BUILD"],
+		BinarySrc:      m["BINARY_SRC"],
+		BinaryDst:      m["BINARY_DST"],
+		ConfigSrc:      m["CONFIG_SRC"],
+		ConfigDst:      m["CONFIG_DST"],
+		StateDir:       m["STATE_DIR"],
+		SecretKeys:     m["SECRET_KEYS"],
+		Jail:           m["JAIL"],
+		PrestartHook:   m["PRESTART_HOOK"],
+		ServiceUser:    m["SERVICE_USER"],
+		LegacyStateDir: m["LEGACY_STATE_DIR"],
+		DockerDir:      m["DOCKER_DIR"],
+		DockerImage:    m["DOCKER_IMAGE"],
+		DockerCont:     m["DOCKER_CONTAINER"],
+		DockerPorts:    m["DOCKER_PORTS"],
 	}
 	s.KeysSrc = strings.Fields(m["KEYS_SRC"])
 	s.AuxFiles = strings.Fields(m["AUX_FILES"])
