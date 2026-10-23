@@ -51,13 +51,12 @@ func TestValidateAcceptsWhatTheBuilderWrites(t *testing.T) {
 	}
 
 	cfg, err := PackageConfig(rel, tag, "", "x-pq-mixserver", Svc{
-		Build:        "server",
-		ConfigSrc:    "configs/x-pq-mixserver.toml",
-		ConfigDst:    "/usr/local/etc/katzenpost/x-pq-mixserver.toml",
-		StateDir:     "/var/lib/pq-katzenpost-mixserver",
-		KeysSrc:      []string{"keys/mix-id-keys"},
-		PrestartHook: "rm -f /var/lib/pq-katzenpost-mixserver/persistence.db",
-	}, repo, DefaultABI)
+		Build:     "server",
+		ConfigSrc: "configs/x-pq-mixserver.toml",
+		ConfigDst: "/usr/local/etc/katzenpost/x-pq-mixserver.toml",
+		StateDir:  "/var/lib/pq-katzenpost-mixserver",
+		KeysSrc:   []string{"keys/mix-id-keys"},
+	}, repo, DefaultABI, nil)
 	if err != nil {
 		t.Fatalf("PackageConfig: %v", err)
 	}
@@ -265,5 +264,45 @@ func TestValidateRejectsABrokenPackage(t *testing.T) {
 				t.Fatalf("caught the wrong way:\n got: %v\nwant a %q failure", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestAConfigPackageKeepsItsVersionWhileItsContentIsTheSame(t *testing.T) {
+	t.Setenv("SOURCE_DATE_EPOCH", "1600000000")
+	repo := t.TempDir()
+	rel := mkRelease(t)
+	svc := Svc{Build: "server", ConfigSrc: "configs/x-pq-mixserver.toml",
+		ConfigDst: "/usr/local/etc/katzenpost/x-pq-mixserver.toml", StateDir: "/var/lib/pq-katzenpost-mixserver"}
+	var seen []string
+	build := func(stamp string, keep bool) string {
+		t.Helper()
+		svc.Stamp = stamp
+		out, err := PackageConfig(rel, "v0.0.107", "", "x-pq-mixserver", svc, repo, DefaultABI, func(content, want string) string {
+			seen = append(seen, content)
+			if keep {
+				return "0.0.107.20261020000000.gold"
+			}
+			return want
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return filepath.Base(out)
+	}
+	if got := build("+20261021000000.gnew", false); got != "namenlos-config-x-pq-mixserver-0.0.107.20261021000000.gnew.pkg" {
+		t.Errorf("first build = %s", got)
+	}
+	if got := build("+20261022000000.gnewer", true); got != "namenlos-config-x-pq-mixserver-0.0.107.20261020000000.gold.pkg" {
+		t.Errorf("a kept version = %s", got)
+	}
+	if len(seen) != 2 || len(seen[0]) != 32 || seen[0] != seen[1] {
+		t.Errorf("content IDs %v: want one 32-hex ID that the version stamp does not change", seen)
+	}
+	if err := os.WriteFile(filepath.Join(rel, "configs", "x-pq-mixserver.toml"), []byte("[Server]\nIdentifier = \"y\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	build("+20261022000000.gnewer", false)
+	if seen[2] == seen[0] {
+		t.Error("a changed config has the content ID of the old one")
 	}
 }

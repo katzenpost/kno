@@ -71,21 +71,3 @@ func TestManifestFragmentIsComplete(t *testing.T) {
 		}
 	}
 }
-
-func TestHostPathAddsTheJailRoot(t *testing.T) {
-	t.Setenv("JAIL_ROOT", "")
-	jailed := Service{Jail: "respectmy"}
-	if got := jailed.HostPath("/var/lib/pq-katzenpost-authority"); got != "/usr/jails/respectmy/var/lib/pq-katzenpost-authority" {
-		t.Errorf("HostPath = %q, want the path under /usr/jails/respectmy", got)
-	}
-	t.Setenv("JAIL_ROOT", "/jails")
-	if got := jailed.HostPath("/etc/x"); got != "/jails/respectmy/etc/x" {
-		t.Errorf("HostPath with JAIL_ROOT=/jails = %q", got)
-	}
-	if got := (Service{}).HostPath("/var/lib/x"); got != "/var/lib/x" {
-		t.Errorf("a service outside a jail moved to %q", got)
-	}
-	if got := jailed.HostPath(""); got != "" {
-		t.Errorf("an empty path became %q", got)
-	}
-}

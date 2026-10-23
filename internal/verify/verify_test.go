@@ -724,9 +724,10 @@ func TestManifestUnits(t *testing.T) {
 	write("a-pq-storagenode-0.conf", "UNIT=\"pq-katzenpost-storage-replica-0\"\n")
 	write("blank.conf", "BACKEND=\"systemd\"\nUNIT=\"\"\n")
 	write("ignored.txt", "UNIT=\"nope\"\n")
+	write("respectmy-pq-authority.conf", "BACKEND=\"freebsd-ezjail\"\nUNIT=\"katzenpost\"\nBUILD=\"dirauth\"\nJAIL=\"respectmy\"\n")
 
 	got := manifestUnits(dir)
-	want := []string{"pq-katzenpost-mixserver", "pq-katzenpost-storage-replica-0"}
+	want := []string{"pq-katzenpost-mixserver", "pq-katzenpost-storage-replica-0", "kpauthority/katzenpost"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("manifestUnits = %v, want %v", got, want)
 	}

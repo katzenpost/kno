@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/service"
 )
 
@@ -76,17 +77,19 @@ func TestAServiceWithNoKeysFails(t *testing.T) {
 }
 
 func TestAJailedServiceIsReadInsideItsJail(t *testing.T) {
-	jails := t.TempDir()
-	t.Setenv("JAIL_ROOT", jails)
+	states := t.TempDir()
+	saved := freebsd.StatesDir
+	freebsd.StatesDir = states
+	t.Cleanup(func() { freebsd.StatesDir = saved })
 	const state = "/var/lib/katzenpost/authority/respectmy-pq-authority"
-	in := filepath.Join(jails, "respectmy", state)
+	in := filepath.Join(states, "kpauthority")
 	if err := os.MkdirAll(in, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(in, "identity.private.pem"), []byte("KEY"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s := service.Service{Jail: "respectmy", StateDir: state, SecretKeys: "identity.private.pem"}
+	s := service.Service{Jail: "respectmy", Build: "dirauth", StateDir: state, SecretKeys: "identity.private.pem"}
 	o := Options{Dest: t.TempDir(), Out: io.Discard}
 	r, err := copyFor(o, "respectmy-pq-authority", s)
 	if err != nil {
@@ -96,7 +99,7 @@ func TestAJailedServiceIsReadInsideItsJail(t *testing.T) {
 		t.Errorf("copied %v, want the identity key from inside the jail", r.Files)
 	}
 
-	s.Jail = "nosuchjail"
+	s.Build = "server"
 	if _, err := copyFor(o, "respectmy-pq-authority", s); err == nil {
 		t.Error("a jail with no state dir passed")
 	}

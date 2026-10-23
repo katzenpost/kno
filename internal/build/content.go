@@ -2,9 +2,11 @@ package build
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/katzenpost/kno/internal/pkg/deb"
+	"github.com/katzenpost/kno/internal/pkg/freebsd"
 )
 
 type Stable struct {
@@ -39,7 +41,12 @@ func NewStablePreferring(authoritative, fallback []PackageSum) *Stable {
 	return s
 }
 
-func ID(file string) deb.PkgID { return deb.IDOf(file) }
+func ID(file string) deb.PkgID {
+	if n, ok := freebsd.SplitPkgName(filepath.Base(file)); ok {
+		return deb.PkgID{Name: n, OS: "freebsd"}
+	}
+	return deb.IDOf(file)
+}
 
 func (s *Stable) Version(id deb.PkgID, content, want string) (string, string) {
 	if s == nil || content == "" {

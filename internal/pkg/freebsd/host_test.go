@@ -220,26 +220,12 @@ func pkgBodies(t *testing.T, pkg string) map[string]string {
 	}
 }
 
-func TestThePostInstallWarnsOnlyAboutAnActiveUpdateMixesLine(t *testing.T) {
+func TestThePostInstallOnlyNamesTheServices(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("sh not available")
 	}
-	dir := t.TempDir()
-	tab := filepath.Join(dir, "crontab")
-	script := strings.ReplaceAll(hostPostInstall("pietje", "respectmy-pq-authority", "kpclient"), "/etc/crontab", tab)
-	for _, c := range []struct {
-		line string
-		warn bool
-	}{
-		{"23,53\t*\t*\t*\t*\troot\t/root/bin/update-mixes\n", true},
-		{"#23,53\t*\t*\t*\t*\troot\t/root/bin/update-mixes\n", false},
-	} {
-		if err := os.WriteFile(tab, []byte("SHELL=/bin/sh\n"+c.line), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		out, _ := exec.Command("sh", "-c", script).CombinedOutput()
-		if got := strings.Contains(string(out), "still runs update-mixes"); got != c.warn {
-			t.Errorf("crontab line %q: warning = %v, want %v\n%s", c.line, got, c.warn, out)
-		}
+	out, err := exec.Command("sh", "-c", hostPostInstall("pietje", "respectmy-pq-authority")).CombinedOutput()
+	if err != nil || strings.TrimSpace(string(out)) != "kno-host-config-pietje: this host runs: respectmy-pq-authority" {
+		t.Errorf("post-install: %v\n%s", err, out)
 	}
 }

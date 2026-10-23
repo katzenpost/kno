@@ -5,52 +5,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/katzenpost/kno/internal/service"
 )
 
-func TestTheEzjailConfigGivesTheRootAndTheAddresses(t *testing.T) {
-	dir := t.TempDir()
-	saved := EzjailConfDir
-	EzjailConfDir = dir
-	t.Cleanup(func() { EzjailConfDir = saved })
-	body := "# To specify the start up order of your ezjails, use these lines\n" +
-		"export jail_respectmy_hostname=\"respectmy\"\n" +
-		"export jail_respectmy_ip=\"lo42|10.42.0.13,igb0|2a01:4f9:3100:4b60:1013::1\"\n" +
-		"export jail_respectmy_rootdir=\"/usr/jails/respectmy\"\n" +
-		"export jail_respectmy_parameters=\"\"\n"
-	if err := os.WriteFile(filepath.Join(dir, "respectmy"), []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	f, err := ReadEzjail("respectmy")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if f.Root != "/usr/jails/respectmy" || f.NoRun ||
-		strings.Join(f.IPs, " ") != "lo42|10.42.0.13 igb0|2a01:4f9:3100:4b60:1013::1" {
-		t.Errorf("facts = %+v", f)
-	}
-	if err := os.Rename(filepath.Join(dir, "respectmy"), filepath.Join(dir, "respectmy.norun")); err != nil {
-		t.Fatal(err)
-	}
-	if f, err := ReadEzjail("respectmy"); err != nil || !f.NoRun || f.Root != "/usr/jails/respectmy" {
-		t.Errorf("after norun: %+v, %v", f, err)
-	}
-	if _, err := ReadEzjail("absent"); err == nil {
-		t.Error("a jail with no ezjail config was read")
-	}
-	if err := os.WriteFile(filepath.Join(dir, "my-jail"), []byte("export jail_my_jail_rootdir=\"/usr/jails/my-jail\"\nexport jail_my_jail_ip=\"10.0.0.1\"\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if f, err := ReadEzjail("my-jail"); err != nil || f.Root != "/usr/jails/my-jail" || len(f.IPs) != 1 {
-		t.Errorf("a jail name with a dash: %+v, %v", f, err)
-	}
-}
-
 func TestAJailIsReadOnlyExceptItsStateRunTmpAndLog(t *testing.T) {
-	j := Jail{Name: "allmixedup", Root: "/usr/jails/allmixedup",
-		IPs: []string{"lo42|10.42.0.10", "igb0|2a01:4f9:3100:4b60:1010::1"}, Unit: "katzenpost",
-		Command:  []string{"/usr/local/sbin/kpserver", "-f", "/usr/local/etc/katzenpost/allmixedup-pq-gatewaynode.toml"},
-		HostDirs: []string{"/usr/local/sbin"}, RootDirs: []string{"/usr/local/etc/katzenpost"},
-		StateDir: "/var/lib/pq-katzenpost-mixserver"}
+	j := Jail{Name: "kpauthority", Unit: "katzenpost",
+		Command:  []string{"/usr/local/sbin/kpdirauth", "-f", "/usr/local/etc/katzenpost/authority/config.toml"},
+		StateDir: "/var/lib/pq-katzenpost-authority", KeysDir: KeysDir("respectmy-pq-authority"),
+		Prestart: "rm -f /var/lib/pq-katzenpost-authority/persistence.db"}
 	c := j.Conf()
 	var rw []string
 	first := ""
@@ -66,22 +29,59 @@ func TestAJailIsReadOnlyExceptItsStateRunTmpAndLog(t *testing.T) {
 			rw = append(rw, f[1])
 		}
 	}
-	if !strings.Contains(first, "/var/jail/kno/.skel/allmixedup /var/jail/kno/allmixedup nullfs ro") {
+	if !strings.Contains(first, "/var/jail/.skel/kpauthority /var/jail/kpauthority nullfs ro") {
 		t.Errorf("the first mount is not the read-only skeleton: %s", first)
 	}
-	want := "/var/jail/kno/allmixedup/var/lib/pq-katzenpost-mixserver /var/jail/kno/allmixedup/var/run " +
-		"/var/jail/kno/allmixedup/tmp /var/jail/kno/allmixedup/var/log"
+	want := "/var/jail/kpauthority/var/lib/pq-katzenpost-authority /var/jail/kpauthority/var/run " +
+		"/var/jail/kpauthority/tmp /var/jail/kpauthority/var/log"
 	if got := strings.Join(rw, " "); got != want {
 		t.Errorf("read-write mounts = %s, want %s", got, want)
 	}
-	if !strings.Contains(c, "/usr/jails/allmixedup/var/lib/pq-katzenpost-mixserver /var/jail/kno/allmixedup/var/lib/pq-katzenpost-mixserver nullfs rw") {
-		t.Errorf("the state dir is not mounted from where it is:\n%s", c)
+	for _, w := range []string{
+		"/var/db/kno/state/kpauthority /var/jail/kpauthority/var/lib/pq-katzenpost-authority nullfs rw",
+		"/var/db/kno/roots/kpauthority/current/usr/local /var/jail/kpauthority/usr/local nullfs ro",
+		"ip4 = \"inherit\";\n\tip6 = \"inherit\";",
+		"devfs_ruleset = 4;",
+		`exec.start = "rm -f /var/lib/pq-katzenpost-authority/persistence.db; /bin/cp -f /usr/local/share/namenlos/respectmy-pq-authority/keys/* /var/lib/pq-katzenpost-authority/ 2>/dev/null; /usr/sbin/daemon -r`,
+	} {
+		if !strings.Contains(c, w) {
+			t.Errorf("the jail lacks %s:\n%s", w, c)
+		}
 	}
-	if strings.Contains(c, "exec.prestart") {
-		t.Errorf("a jail with no hook got one:\n%s", c)
+	if strings.Contains(c, "ip4.addr") || strings.Contains(c, "exec.prestart") {
+		t.Errorf("the jail sets its own addresses or a hook outside the jail:\n%s", c)
 	}
-	if got := JailRC([]string{"kpclient", "allmixedup"}); !strings.Contains(got, "jail_enable=\"YES\"\n") ||
-		!strings.Contains(got, "jail_list=\"kpclient allmixedup\"\n") {
-		t.Errorf("rc.conf.d/jail = %q", got)
+}
+
+func TestAJailedServiceIsFoundInsideTheJailKno(t *testing.T) {
+	s := service.Service{Jail: "allmixedup", Build: "server", StateDir: "/var/lib/pq-katzenpost-mixserver"}
+	for in, want := range map[string]string{
+		"/var/lib/pq-katzenpost-mixserver":             "/var/db/kno/state/kpserver",
+		"/var/lib/pq-katzenpost-mixserver/spool.db":    "/var/db/kno/state/kpserver/spool.db",
+		"/var/lib/pq-katzenpost-mixserver2/x":          "/var/db/kno/roots/kpserver/current/var/lib/pq-katzenpost-mixserver2/x",
+		"/usr/local/etc/katzenpost/allmixedup-pq.toml": "/var/db/kno/roots/kpserver/current/usr/local/etc/katzenpost/allmixedup-pq.toml",
+		"": "",
+	} {
+		if got := HostPath(s, in); got != want {
+			t.Errorf("HostPath(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := HostPath(service.Service{StateDir: "/var/lib/x"}, "/var/lib/x"); got != "/var/lib/x" {
+		t.Errorf("a service outside a jail moved to %q", got)
+	}
+}
+
+func TestOnlyTheJailsInTheJailListAreEnabled(t *testing.T) {
+	saved := JailRCConf
+	JailRCConf = filepath.Join(t.TempDir(), "jail")
+	t.Cleanup(func() { JailRCConf = saved })
+	if got := EnabledJails(); got != nil {
+		t.Errorf("no rc.conf.d/jail, enabled = %v", got)
+	}
+	if err := os.WriteFile(JailRCConf, []byte("jail_enable=\"YES\"\njail_list=\"kpclientd kpauthority\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(EnabledJails(), " "); got != "kpclientd kpauthority" {
+		t.Errorf("enabled = %q", got)
 	}
 }

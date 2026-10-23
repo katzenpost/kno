@@ -76,6 +76,30 @@ func TestVMImageVerifiesAndExpands(t *testing.T) {
 	}
 }
 
+func TestAnImageOfAnOlderPinIsFetchedAgain(t *testing.T) {
+	const body = "the image of the new pin\n"
+	packed, sum := xzImage(t, body)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(packed)
+	}))
+	defer srv.Close()
+	cache := t.TempDir()
+	t.Setenv("KNO_FREEBSD_CACHE", cache)
+	dest := filepath.Join(cache, vmImageName)
+	for _, f := range []string{filepath.Join(cache, "vmimage.qcow2.xz"), dest} {
+		if err := os.WriteFile(f, []byte("the older pin\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := VMImage("", map[string]string{"FREEBSD_VMIMAGE_URL": srv.URL + "/img.qcow2.xz", "FREEBSD_VMIMAGE_SHA256": sum})
+	if err != nil {
+		t.Fatalf("VMImage: %v", err)
+	}
+	if out, _ := os.ReadFile(got); string(out) != body {
+		t.Errorf("the image is %q, want the one of the new pin", out)
+	}
+}
+
 func TestVMImageRejectsBadSha256(t *testing.T) {
 	cache := t.TempDir()
 	t.Setenv("KNO_FREEBSD_CACHE", cache)

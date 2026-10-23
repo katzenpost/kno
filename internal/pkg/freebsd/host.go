@@ -51,8 +51,8 @@ func KnoPackage(bin, debVersion, outdir, abi string, epoch int64) (string, error
 		Comment: "katzenpost network organizer (the kno tool)",
 		Www:     "https://github.com/katzenpost/kno",
 		Desc: "The kno binary " + debVersion + ": build, deploy, update and verify a\n" +
-			"katzenpost node. A FreeBSD host runs it as root from cron, builds natively\n" +
-			"with go and git, and installs the katzenpost packages into its jails.",
+			"katzenpost node. On a FreeBSD host it runs in the kno jail, builds there,\n" +
+			"and prepares the packages of the service jails.",
 	}, epoch)
 }
 
@@ -90,20 +90,11 @@ func HostConfigPackage(c config.Config, label, debVersion, outdir, abi, repo, ne
 			"updates are applied. Installs " + KnoConfig + " and, for the cron\n" +
 			"scheduler, " + CronFile + ", which logs to " + UpdateLog + ".",
 		Config:  []string{KnoConfig},
-		Scripts: map[string]string{"post-install": hostPostInstall(label, svcs, h.KpclientdJail())},
+		Scripts: map[string]string{"post-install": hostPostInstall(label, svcs)},
 	}, epoch)
 }
 
-func hostPostInstall(label, svcs, client string) string {
+func hostPostInstall(label, svcs string) string {
 	return "#!/bin/sh\n" +
-		"echo \"" + HostConfigName(label) + ": this host runs: " + svcs + "\" >&2\n" +
-		"if ! jls -j " + client + " >/dev/null 2>&1; then\n" +
-		"\techo \"" + HostConfigName(label) + ": no jail " + client + ". Create it for kpclientd: kno verify asks for the consensus through it.\" >&2\n" +
-		"fi\n" +
-		"for t in go git; do\n" +
-		"\tcommand -v $t >/dev/null 2>&1 || [ -x /usr/local/bin/$t ] || echo \"" + HostConfigName(label) + ": kno update builds with go and git; install them: pkg install go git\" >&2\n" +
-		"done\n" +
-		"if grep -q '^[^#]*update-mixes' /etc/crontab 2>/dev/null; then\n" +
-		"\techo \"" + HostConfigName(label) + ": /etc/crontab still runs update-mixes. Remove that line: two updaters on one host fight.\" >&2\n" +
-		"fi\n"
+		"echo \"" + HostConfigName(label) + ": this host runs: " + svcs + "\" >&2\n"
 }

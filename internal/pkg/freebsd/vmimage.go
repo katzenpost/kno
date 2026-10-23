@@ -23,12 +23,13 @@ func VMImage(dest string, pins map[string]string) (string, error) {
 	}
 
 	xz := filepath.Join(cache, "vmimage.qcow2.xz")
-	if _, err := os.Stat(xz); err != nil {
+	if verify(xz, want, "vmimage") != nil {
 		if err := fetchVerified(xz, []string{url}, want, "vmimage"); err != nil {
 			return "", err
 		}
-	} else if err := verify(xz, want, "vmimage"); err != nil {
-		return "", err
+		if err := os.Remove(dest); err != nil && !os.IsNotExist(err) {
+			return "", err
+		}
 	}
 
 	if _, err := os.Stat(dest); err == nil {

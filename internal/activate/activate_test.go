@@ -405,45 +405,23 @@ func stageFreeBSDRelease(t *testing.T, svcs ...string) string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := freebsd.PackageConfig(rel, testTag, "", svc, freebsd.SvcOf(rs, ""), repo, freebsd.DefaultABI); err != nil {
+		if _, err := freebsd.PackageConfig(rel, testTag, "", svc, freebsd.SvcOf(rs, ""), repo, freebsd.DefaultABI, nil); err != nil {
 			t.Fatalf("freebsd.PackageConfig %s: %v", svc, err)
 		}
-	}
-	if _, err := freebsd.PackageClient(rel, testTag, "", repo, freebsd.DefaultABI); err != nil {
-		t.Fatalf("freebsd.PackageClient: %v", err)
 	}
 	return rel
 }
 
-func ezjails(t *testing.T, norun bool, names ...string) {
-	t.Helper()
-	dir := t.TempDir()
-	ips := map[string]string{
-		"respectmy":  "lo42|10.42.0.13,igb0|2a01:4f9:3100:4b60:1013::1",
-		"allmixedup": "lo42|10.42.0.10,igb0|2a01:4f9:3100:4b60:1010::1",
-		"kpclient":   "lo42|10.42.0.30",
-	}
-	for _, n := range names {
-		f := filepath.Join(dir, n)
-		if norun {
-			f += ".norun"
-		}
-		body := "export jail_" + n + "_hostname=\"" + n + "\"\nexport jail_" + n + "_ip=\"" + ips[n] +
-			"\"\nexport jail_" + n + "_rootdir=\"/usr/jails/" + n + "\"\n"
-		if err := os.WriteFile(f, []byte(body), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	savedDir, savedPath := freebsd.EzjailConfDir, jailPath
-	freebsd.EzjailConfDir, jailPath = dir, func(string) string { return "" }
-	t.Cleanup(func() { freebsd.EzjailConfDir, jailPath = savedDir, savedPath })
-}
-
-func TestEzjailPlanInstallsKatzenpostOnceOutsideTheHostAndRunsEachJailReadOnly(t *testing.T) {
+func TestTheKnoJailPreparesOneRootForEachJail(t *testing.T) {
 	svcs := []string{"respectmy-pq-authority", "allmixedup-pq-gatewaynode"}
 	rel := stageFreeBSDRelease(t, svcs...)
-	ezjails(t, true, "respectmy", "allmixedup", "kpclient")
-	p, err := PlanFor(Options{Rel: rel, Tag: testTag, Services: svcs, ClientJail: "kpclient"})
+	saved, savedLink, savedRuns, savedEnabled := rootExists, linkTarget, jailRuns, enabledJails
+	defer func() { rootExists, linkTarget, jailRuns, enabledJails = saved, savedLink, savedRuns, savedEnabled }()
+	rootExists = func(string) bool { return false }
+	linkTarget = func(string) string { return "" }
+	jailRuns = func(string) bool { return false }
+	enabledJails = func() []string { return nil }
+	p, err := PlanFor(Options{Rel: rel, Tag: testTag, Services: svcs, ClientJail: "kpclientd"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -452,78 +430,63 @@ func TestEzjailPlanInstallsKatzenpostOnceOutsideTheHostAndRunsEachJailReadOnly(t
 	}
 	pkgs := filepath.Join(rel, "pkgs")
 	kp := filepath.Join(pkgs, "katzenpost-0.0.104.pkg")
-	in := "/var/cache/kno/" + testTag
-	cfg := func(svc string) string { return filepath.Join(pkgs, "namenlos-config-"+svc+"-0.0.104.pkg") }
-	jail := func(j, svc string) []string {
-		stage := in + "/" + j
-		return []string{
-			"mkdir -p " + stage,
-			"cp " + cfg(svc) + " " + stage + "/",
-			"env ASSUME_ALWAYS_YES=yes pkg -r /usr/jails/" + j + " add -f -M " + stage + "/namenlos-config-" + svc + "-0.0.104.pkg",
-			"rm -rf " + stage,
-		}
-	}
-	kpRoot := "/var/jail/kno/.kp/" + testTag
-	want := []string{"mkdir -p " + kpRoot, strings.Join(freebsd.PkgAddInRoot(kpRoot, kp), " ")}
-	want = append(want, jail("kpclient", "kpclientd")...)
-	want = append(want, jail("respectmy", "respectmy-pq-authority")...)
-	want = append(want, jail("allmixedup", "allmixedup-pq-gatewaynode")...)
-	for _, j := range []string{"kpclient", "respectmy", "allmixedup"} {
-		want = append(want, "service jail stop "+j, "service jail start "+j)
-	}
-	var got []string
-	for _, l := range lines(p) {
-		if l != "" {
-			got = append(got, l)
-		}
-	}
-	if strings.Join(got, "\n") != strings.Join(want, "\n") {
-		t.Fatalf("plan:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
-	}
+	var want []string
 	writes := map[string]string{}
+	for _, jc := range [][2]string{{"kpclientd", ""}, {"kpauthority", "respectmy-pq-authority"}, {"kpserver", "allmixedup-pq-gatewaynode"}} {
+		add, base := []string{kp}, "katzenpost-0.0.104"
+		if jc[1] != "" {
+			add = append(add, filepath.Join(pkgs, "namenlos-config-"+jc[1]+"-0.0.104.pkg"))
+			base = "namenlos-config-" + jc[1] + "-0.0.104_" + base
+		}
+		root := "/var/db/kno/roots/" + jc[0] + "/" + base
+		want = append(want, "rm -rf "+root+".new", "mkdir -p "+root+".new",
+			strings.Join(freebsd.PkgAddInRoot(root+".new", add...), " "), "mv "+root+".new "+root,
+			"ln -sfh "+base+" /var/db/kno/roots/"+jc[0]+"/current", "")
+	}
+	want = append(want, "")
+	if got := lines(p); strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("before the cutover, plan:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
 	for _, st := range p.Steps {
 		if st.Kind == StepWrite {
 			writes[st.Path] = st.Content
 		}
 	}
-	if got := writes[freebsd.KatzenpostTag]; got != testTag+"\n" {
-		t.Errorf("%s = %q, want %s", freebsd.KatzenpostTag, got, testTag)
+	if c := writes["/etc/jail.conf.d/kpauthority.conf"]; !strings.Contains(c, "kpauthority {") || !strings.Contains(c, `ip4 = "inherit";`) {
+		t.Errorf("kpauthority.conf:\n%s", c)
 	}
-	if got := writes[freebsd.JailRCConf]; !strings.Contains(got, `jail_list="kpclient respectmy allmixedup"`) {
-		t.Errorf("rc.conf.d/jail = %q, want the three jails, the client first", got)
-	}
-	r := writes["/etc/jail.conf.d/respectmy.conf"]
-	for _, w := range []string{
-		`mount = "/var/jail/kno/.skel/respectmy /var/jail/kno/respectmy nullfs ro 0 0";`,
-		`mount += "/var/jail/kno/.kp/` + testTag + `/usr/local/sbin /var/jail/kno/respectmy/usr/local/sbin nullfs ro 0 0";`,
-		`mount += "/usr/jails/respectmy/usr/local/etc/katzenpost /var/jail/kno/respectmy/usr/local/etc/katzenpost nullfs ro 0 0";`,
-		`mount += "/usr/jails/respectmy/var/lib/pq-katzenpost-authority /var/jail/kno/respectmy/var/lib/pq-katzenpost-authority nullfs rw 0 0";`,
-		`ip4.addr = "lo42|10.42.0.13";`,
-		`ip6.addr = "igb0|2a01:4f9:3100:4b60:1013::1";`,
-		`exec.prestart = "rm -f /usr/jails/respectmy/var/lib/pq-katzenpost-authority/persistence.db";`,
-		`/usr/local/sbin/kpdirauth -f /usr/local/etc/katzenpost/authority/config.toml";`,
-	} {
-		if !strings.Contains(r, w) {
-			t.Errorf("respectmy.conf lacks %s:\n%s", w, r)
-		}
-	}
-	c := writes["/etc/jail.conf.d/kpclient.conf"]
-	for _, w := range []string{
-		`mount += "/var/jail/kno/.kp/` + testTag + `/usr/local/bin /var/jail/kno/kpclient/usr/local/bin nullfs ro 0 0";`,
-		`mount += "/var/jail/kno/.kp/` + testTag + `/usr/local/etc/kpclientd /var/jail/kno/kpclient/usr/local/etc/kpclientd nullfs ro 0 0";`,
-		`exec.start = "/bin/mkdir -p /var/run/kpclientd && /usr/sbin/daemon -r -P /var/run/kpclientd.pid -p /var/run/kpclientd.child.pid -o /var/log/kpclientd.log /usr/local/bin/kpclientd -c /usr/local/etc/kpclientd/client.toml";`,
-	} {
-		if !strings.Contains(c, w) {
-			t.Errorf("kpclient.conf lacks %s:\n%s", w, c)
-		}
-	}
-	if strings.Contains(c, " rw 0 0\";") && !strings.Contains(c, "/var/log/kno/kpclient") {
-		t.Errorf("the client jail mounts something read-write besides its log:\n%s", c)
+	if got := writes[freebsd.CutoverFile]; got != "kpclientd - -\n"+
+		"kpauthority respectmy /var/lib/pq-katzenpost-authority *.pem\n"+
+		"kpserver allmixedup /var/lib/pq-katzenpost-mixserver *.pem spool.db\n" {
+		t.Errorf("cutover file:\n%s", got)
 	}
 
+	rootExists = func(string) bool { return true }
+	running := map[string]string{
+		"kpclientd":   "katzenpost-0.0.104",
+		"kpauthority": "namenlos-config-respectmy-pq-authority-0.0.104_katzenpost-0.0.104",
+		"kpserver":    "an-older-root",
+	}
+	linkTarget = func(p string) string { return running[filepath.Base(filepath.Dir(p))] }
+	jailRuns = func(name string) bool { return name != "kpclientd" }
+	enabledJails = func() []string { return []string{"kpclientd", "kpauthority", "kpserver"} }
+	p, err = PlanFor(Options{Rel: rel, Tag: testTag, Services: svcs, ClientJail: "kpclientd"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restarts []string
+	for _, l := range lines(p) {
+		if r, ok := strings.CutPrefix(l, "service jail restart "); ok {
+			restarts = append(restarts, r)
+		} else if l != "" && !strings.HasPrefix(l, "ln -sfh ") && !strings.HasPrefix(l, "jls -j ") {
+			t.Errorf("a root that exists is installed again: %s", l)
+		}
+	}
+	if strings.Join(restarts, " ") != "kpclientd kpserver" {
+		t.Errorf("restarts = %v, want the stopped kpclientd and kpserver with its older root", restarts)
+	}
 	var b strings.Builder
-	o := Options{Rel: rel, Tag: testTag, Services: svcs, DryRun: true}
-	if err := Apply(context.Background(), p, o, &b); err != nil {
+	if err := Apply(context.Background(), p, Options{Rel: rel, Tag: testTag, Services: svcs, DryRun: true}, &b); err != nil {
 		t.Fatalf("Apply: %v\n%s", err, b.String())
 	}
 	if !strings.Contains(b.String(), "activated "+testTag+" (freebsd-ezjail)") {
@@ -531,34 +494,13 @@ func TestEzjailPlanInstallsKatzenpostOnceOutsideTheHostAndRunsEachJailReadOnly(t
 	}
 }
 
-func TestAJailThatEzjailStillStartsIsRefused(t *testing.T) {
-	svcs := []string{"respectmy-pq-authority"}
-	rel := stageFreeBSDRelease(t, svcs...)
-	ezjails(t, false, "respectmy")
-	_, err := PlanFor(Options{Rel: rel, Tag: testTag, Services: svcs})
-	if err == nil || !strings.Contains(err.Error(), "ezjail-admin config -r norun respectmy") {
-		t.Fatalf("a jail that ezjail starts at boot was planned: %v", err)
-	}
-	ezjails(t, true, "respectmy")
-	jailPath = func(string) string { return "/usr/jails/respectmy" }
-	_, err = PlanFor(Options{Rel: rel, Tag: testTag, Services: svcs})
-	if err == nil || !strings.Contains(err.Error(), "ezjail-admin stop respectmy") {
-		t.Fatalf("a jail of the same name that still runs from its ezjail root was planned: %v", err)
-	}
-	jailPath = func(string) string { return "/var/jail/kno/respectmy" }
-	if _, err := PlanFor(Options{Rel: rel, Tag: testTag, Services: svcs}); err != nil {
-		t.Fatalf("a running kno jail stopped the plan: %v", err)
-	}
-}
-
 func TestEzjailPlanNeedsTheConfigPackageOfEachJail(t *testing.T) {
 	rel := stageFreeBSDRelease(t, "respectmy-pq-authority")
 	svcs := []string{"respectmy-pq-authority", "allmixedup-pq-gatewaynode"}
 	if err := os.WriteFile(filepath.Join(rel, "manifest", "allmixedup-pq-gatewaynode.conf"),
-		[]byte("BACKEND=\"freebsd-ezjail\"\nUNIT=\"katzenpost\"\nJAIL=\"allmixedup\"\n"), 0o644); err != nil {
+		[]byte("BACKEND=\"freebsd-ezjail\"\nUNIT=\"katzenpost\"\nBUILD=\"server\"\nJAIL=\"allmixedup\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	ezjails(t, true, "respectmy", "allmixedup")
 	_, err := PlanFor(Options{Rel: rel, Tag: testTag, Services: svcs})
 	if err == nil || !strings.Contains(err.Error(), "namenlos-config-allmixedup-pq-gatewaynode") {
 		t.Fatalf("a jail without its config package was planned: %v", err)
@@ -583,19 +525,17 @@ func TestEzjailPlanRefusesAPackagedPrivateKey(t *testing.T) {
 	}, 1600000000); err != nil {
 		t.Fatal(err)
 	}
-	ezjails(t, true, "respectmy")
 	_, err := PlanFor(Options{Rel: rel, Tag: testTag, Services: svcs})
 	if err == nil || !strings.Contains(err.Error(), "private key") {
 		t.Fatalf("a package holding a private key was planned: %v", err)
 	}
 }
 
-func TestEzjailClientJailRunsNoService(t *testing.T) {
+func TestTheClientJailRunsNoService(t *testing.T) {
 	svcs := []string{"respectmy-pq-authority"}
 	rel := stageFreeBSDRelease(t, svcs...)
-	ezjails(t, true, "respectmy")
-	_, err := PlanFor(Options{Rel: rel, Tag: testTag, Services: svcs, ClientJail: "respectmy"})
-	if err == nil || !strings.Contains(err.Error(), "jail of its own") {
+	_, err := PlanFor(Options{Rel: rel, Tag: testTag, Services: svcs, ClientJail: "kpauthority"})
+	if err == nil || !strings.Contains(err.Error(), "another service has it") {
 		t.Fatalf("kpclientd was planned into a service jail: %v", err)
 	}
 }

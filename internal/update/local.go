@@ -3,7 +3,6 @@ package update
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -24,19 +23,15 @@ func localSample(e track.Env, note, consensus string) *record.Sample {
 	}
 	s := &record.Sample{Sampled: time.Now().UTC(), Note: note, Consensus: consensus}
 	units := make([]string, 0, len(e.Services))
-	jails := map[string]bool{}
 	for _, svc := range e.Services {
 		unit := svc
 		if r, err := service.ResolveService(e.Repo, e.Network, svc); err == nil && r.Unit != "" {
-			unit = verify.JailUnit(r.Jail, r.Unit)
-			if r.Jail != "" {
-				jails[r.Jail] = true
-			}
+			unit = verify.ServiceUnit(r)
 		}
 		units = append(units, unit)
 	}
 	if runtime.GOOS == "freebsd" {
-		s.Packages = jailPackages(jails)
+		s.Packages = jailPackages()
 	} else {
 		s.Packages = localPackages()
 	}
@@ -44,7 +39,7 @@ func localSample(e track.Env, note, consensus string) *record.Sample {
 	return s
 }
 
-func jailPackages(jails map[string]bool) map[string]string {
+func jailPackages() map[string]string {
 	pkgs := map[string]string{}
 	names := []string{"query", "-g", "%n %v", "katzenpost", "kno*", "namenlos-config-*"}
 	parse := func(prefix string, out []byte) {
@@ -59,16 +54,12 @@ func jailPackages(jails map[string]bool) map[string]string {
 		parse(prefix, out)
 	}
 	query("")
-	if b, err := os.ReadFile(freebsd.KatzenpostTag); err == nil {
-		if tag := strings.TrimSpace(string(b)); tag != "" {
-			argv := freebsd.PkgQueryInRoot(freebsd.KatzenpostRoot(tag), names[1:]...)
+	if dirs, err := os.ReadDir(freebsd.RootsDir); err == nil {
+		for _, d := range dirs {
+			argv := freebsd.PkgQueryInRoot(freebsd.CurrentRoot(d.Name()), names[1:]...)
 			out, _ := exec.Command("sh", argv[1:]...).Output()
-			parse("", out)
+			parse(d.Name()+"/", out)
 		}
-	}
-	root := service.JailRoot()
-	for j := range jails {
-		query(j+"/", "-c", filepath.Join(root, j))
 	}
 	if len(pkgs) == 0 {
 		return nil

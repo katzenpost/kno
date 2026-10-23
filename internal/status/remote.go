@@ -14,6 +14,7 @@ import (
 	"github.com/katzenpost/kno/internal/argcheck"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/parallel"
+	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/service"
 	"github.com/katzenpost/kno/internal/sshx"
 	"github.com/katzenpost/kno/internal/track"
@@ -106,7 +107,10 @@ func askHost(ctx context.Context, ssh, node, label string, e track.Env, svcs []s
 			unit = service.ClientUnit
 		default:
 			if r, err := service.ResolveService(e.Repo, e.Network, s); err == nil && r.Unit != "" {
-				unit, jail = unitOn(e, label, r), r.Jail
+				unit, jail = unitOn(e, label, r), r.RunJail()
+				if jail != "" {
+					jail = freebsd.KnoJailName + "." + jail
+				}
 			}
 		}
 		if err := argcheck.Arg("unit for "+s, unit); err != nil {

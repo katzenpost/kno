@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/katzenpost/kno/internal/fsutil"
+	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/service"
 	"github.com/katzenpost/kno/internal/track"
 )
@@ -87,7 +88,7 @@ func copyFor(o Options, svc string, s service.Service) (Result, error) {
 		return r, err
 	}
 	if len(files) == 0 {
-		return r, fmt.Errorf("no secret keys matched in %s", s.HostPath(s.StateDir))
+		return r, fmt.Errorf("no secret keys matched in %s", freebsd.HostPath(s, s.StateDir))
 	}
 	dir, fresh, err := target(o.Dest, svc, files, time.Now())
 	if err != nil {
@@ -231,7 +232,7 @@ func put(src, dst string) error {
 }
 
 func secrets(s service.Service) ([]string, error) {
-	root := s.HostPath(s.StateDir)
+	root := freebsd.HostPath(s, s.StateDir)
 	seen := map[string]bool{}
 	var out []string
 	add := func(p string) {

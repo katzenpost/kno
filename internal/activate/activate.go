@@ -11,7 +11,9 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 
@@ -92,8 +94,6 @@ type Options struct {
 	Repo string
 
 	Network string
-
-	JailRoot string
 
 	ClientJail string
 
@@ -272,14 +272,6 @@ func installStep(o Options, debs []string) Step {
 	}
 }
 
-var jailPath = func(name string) string {
-	out, err := exec.Command("jls", "-j", name, "path").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
-}
-
 func ezjailPlan(o Options, backend string) (Plan, error) {
 	pkgs := filepath.Join(o.Rel, "pkgs")
 	kp, err := freebsd.OnePkg(pkgs, "katzenpost")
@@ -289,111 +281,86 @@ func ezjailPlan(o Options, backend string) (Plan, error) {
 	if err := refusePackagedSecret(kp); err != nil {
 		return Plan{}, err
 	}
+	specs, err := freebsd.Specs(o.ClientJail, o.Services, func(svc string) (service.Service, error) {
+		return readManifest(filepath.Join(o.Rel, "manifest", svc+".conf"))
+	})
+	if err != nil {
+		return Plan{}, err
+	}
 	p := Plan{Backend: backend, Tag: o.Tag, Needs: "pkg", Packages: []string{kp}}
-	var jails []freebsd.Jail
-	var cfgs []string
-	if c := o.ClientJail; c != "" {
-		j, err := knoJail(c)
-		if err != nil {
-			return Plan{}, err
+	enabled := enabledJails()
+	var cutover strings.Builder
+	for _, sp := range specs {
+		add := []string{kp}
+		base := strings.TrimSuffix(filepath.Base(kp), ".pkg")
+		if sp.Config != "" {
+			cfg, err := freebsd.OnePkg(pkgs, sp.Config)
+			if err != nil {
+				return Plan{}, err
+			}
+			if err := refusePackagedSecret(cfg); err != nil {
+				return Plan{}, err
+			}
+			p.Packages = append(p.Packages, cfg)
+			add = append(add, cfg)
+			base = strings.TrimSuffix(filepath.Base(cfg), ".pkg") + "_" + base
 		}
-		j.Unit = freebsd.ClientService
-		j.Command = []string{"/usr/local/bin/kpclientd", "-c", "/usr/local/etc/kpclientd/client.toml"}
-		j.HostDirs = []string{"/usr/local/bin", "/usr/local/etc/kpclientd"}
-		j.RunDirs = []string{"/var/run/kpclientd"}
-		jails = append(jails, j)
-		cfgs = append(cfgs, configPkgPrefix+freebsd.ClientService)
-	}
-	for _, svc := range o.Services {
-		s, err := readManifest(filepath.Join(o.Rel, "manifest", svc+".conf"))
-		if err != nil {
-			return Plan{}, fmt.Errorf("ezjail activate failed for %s: %v", svc, err)
+		name := sp.Jail.Name
+		root := freebsd.JailRoot(name, base)
+		if !rootExists(root) {
+			p.Steps = append(p.Steps,
+				Step{Kind: StepRunIgnore, Argv: []string{"rm", "-rf", root + ".new"}},
+				Step{Kind: StepRun, Argv: []string{"mkdir", "-p", root + ".new"}},
+				Step{Kind: StepRun, Log: "install " + o.Tag + " for the jail " + name + " in " + root,
+					Argv: freebsd.PkgAddInRoot(root+".new", add...)},
+				Step{Kind: StepRun, Argv: []string{"mv", root + ".new", root}})
 		}
-		if s.Jail == "" {
-			return Plan{}, fmt.Errorf("%s names no JAIL", svc)
-		}
-		if s.Jail == o.ClientJail {
-			return Plan{}, fmt.Errorf("the client jail %s also runs a service; kpclientd needs a jail of its own", s.Jail)
-		}
-		j, err := knoJail(s.Jail)
-		if err != nil {
-			return Plan{}, err
-		}
-		j.Unit = "katzenpost"
-		j.Command = []string{s.BinaryDst, "-f", s.ConfigDst}
-		j.HostDirs = []string{filepath.Dir(s.BinaryDst)}
-		j.RootDirs = []string{configDir(s.ConfigDst)}
-		j.StateDir = s.StateDir
-		if s.PrestartHook != "" && s.StateDir != "" {
-			j.Prestart = strings.ReplaceAll(s.PrestartHook, s.StateDir, j.Root+s.StateDir)
-		}
-		jails = append(jails, j)
-		cfgs = append(cfgs, configPkgPrefix+svc)
-	}
-
-	kpRoot := freebsd.KatzenpostRoot(o.Tag)
-	p.Steps = append(p.Steps,
-		Step{Kind: StepRun, Argv: []string{"mkdir", "-p", kpRoot}},
-		Step{Kind: StepRun, Log: "install " + o.Tag + " in " + kpRoot + ", once for all jails",
-			Argv: freebsd.PkgAddInRoot(kpRoot, kp)},
-		Step{Kind: StepWrite, Path: freebsd.KatzenpostTag, Content: o.Tag + "\n", Mode: 0o644})
-	for i := range jails {
-		jails[i].PkgRoot = kpRoot
-	}
-	var names []string
-	for i, j := range jails {
-		cfg, err := freebsd.OnePkg(pkgs, cfgs[i])
-		if err != nil {
-			return Plan{}, err
-		}
-		if err := refusePackagedSecret(cfg); err != nil {
-			return Plan{}, err
-		}
-		p.Packages = append(p.Packages, cfg)
-		stage := filepath.Join("/var/cache/kno", o.Tag, j.Name)
 		p.Steps = append(p.Steps,
-			Step{Kind: StepRun, Argv: []string{"mkdir", "-p", stage}},
-			Step{Kind: StepRun, Argv: []string{"cp", cfg, stage + "/"}},
-			Step{Kind: StepRun, Log: "install the config of " + j.Name + " in " + j.Root,
-				Argv: freebsd.PkgAddInJail(j.Root, filepath.Join(stage, filepath.Base(cfg)))},
-			Step{Kind: StepRunIgnore, Argv: []string{"rm", "-rf", stage}},
-			Step{Kind: StepWrite, Path: j.ConfPath(), Content: j.Conf(), Mode: 0o644})
-		names = append(names, j.Name)
+			Step{Kind: StepRun, Argv: []string{"ln", "-sfh", base, freebsd.CurrentRoot(name)}},
+			Step{Kind: StepWrite, Path: sp.Jail.ConfPath(), Content: sp.Jail.Conf(), Mode: 0o644})
+		switch {
+		case !slices.Contains(enabled, name):
+			p.Steps[len(p.Steps)-1].Log = "the jail " + name + " is ready with " + base + "; kno-host-cutover starts it"
+		case linkTarget(freebsd.RunningRoot(name)) != base || !jailRuns(name):
+			p.Steps = append(p.Steps,
+				Step{Kind: StepRun, Log: "restart the jail " + name + " with " + base, Argv: []string{"service", "jail", "restart", name}},
+				Step{Kind: StepRun, Argv: []string{"jls", "-j", name, "name"}},
+				Step{Kind: StepRun, Argv: []string{"ln", "-sfh", base, freebsd.RunningRoot(name)}})
+		}
+		cutover.WriteString(cutoverLine(sp, o.Rel) + "\n")
 	}
-	p.Steps = append(p.Steps, Step{Kind: StepWrite, Path: freebsd.JailRCConf, Content: freebsd.JailRC(names), Mode: 0o644})
-	for _, j := range jails {
-		p.Steps = append(p.Steps,
-			Step{Kind: StepRunIgnore, Argv: []string{"service", "jail", "stop", j.Name}},
-			Step{Kind: StepRun, Log: "start the read-only jail " + j.Name, Argv: []string{"service", "jail", "start", j.Name}})
-	}
+	p.Steps = append(p.Steps, Step{Kind: StepWrite, Path: freebsd.CutoverFile, Content: cutover.String(), Mode: 0o644})
 	return p, nil
 }
 
-func knoJail(name string) (freebsd.Jail, error) {
-	f, err := freebsd.ReadEzjail(name)
-	if err != nil {
-		return freebsd.Jail{}, err
+var spoolDB = regexp.MustCompile(`(?m)^\s*SpoolDB\s*=\s*"([^"]+)"`)
+
+func cutoverLine(sp freebsd.JailSpec, rel string) string {
+	if sp.Old == "" || sp.Jail.StateDir == "" {
+		return sp.Jail.Name + " - -"
 	}
-	if !f.NoRun {
-		return freebsd.Jail{}, fmt.Errorf("ezjail would start the jail %s at boot, and so would kno."+
-			" Stop it and keep it from starting: ezjail-admin stop %s && ezjail-admin config -r norun %s",
-			name, name, name)
+	files := []string{"*.pem"}
+	if b, err := os.ReadFile(filepath.Join(rel, "configs", filepath.Base(sp.ConfigSrc))); err == nil {
+		if m := spoolDB.FindSubmatch(b); m != nil && filepath.Dir(string(m[1])) == sp.Jail.StateDir {
+			files = append(files, filepath.Base(string(m[1])))
+		}
 	}
-	j := freebsd.Jail{Name: name, Root: f.Root, IPs: f.IPs}
-	if p := jailPath(name); p != "" && p != j.Path() {
-		return freebsd.Jail{}, fmt.Errorf("a jail named %s runs from %s. Stop it first: ezjail-admin stop %s",
-			name, p, name)
-	}
-	return j, nil
+	return strings.Join(append([]string{sp.Jail.Name, sp.Old, sp.Jail.StateDir}, files...), " ")
 }
 
-func configDir(dst string) string {
-	const kp = "/usr/local/etc/katzenpost"
-	if strings.HasPrefix(dst, kp+"/") {
-		return kp
-	}
-	return filepath.Dir(dst)
+var enabledJails = freebsd.EnabledJails
+
+var rootExists = func(dir string) bool {
+	fi, err := os.Stat(dir)
+	return err == nil && fi.IsDir()
 }
+
+var linkTarget = func(p string) string {
+	t, _ := os.Readlink(p)
+	return t
+}
+
+var jailRuns = func(name string) bool { return exec.Command("jls", "-j", name, "name").Run() == nil }
 
 func refusePackagedSecret(pkg string) error {
 	found, err := freebsd.SecretKeyIn(pkg)
@@ -685,7 +652,6 @@ func Run(stderr io.Writer, args []string) int {
 		Repo:       e.Repo,
 		Network:    e.Network,
 		Install:    install,
-		JailRoot:   service.JailRoot(),
 		ClientJail: clientJail(e),
 		WantClient: wantClient(e),
 

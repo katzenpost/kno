@@ -21,9 +21,9 @@ var packagedDirs = []string{"/usr/lib/systemd/system", "/lib/systemd/system"}
 
 var unitDirs = append(append([]string{}, packagedDirs...), "/etc/systemd/system")
 
-func rcInstalled(s service.Service, unit string) bool {
-	_, err := os.Stat(s.HostPath("/usr/local/etc/rc.d/" + unit))
-	return err == nil
+func isDir(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && fi.IsDir()
 }
 
 func unitInstalled(unit string) bool { return unitFileIn(unitDirs, unit) }
@@ -112,8 +112,8 @@ func gatherHost(e track.Env, sc verify.Systemd) hostFacts {
 		jailed = jailed || s.Jail != ""
 
 		if s.Jail != "" {
-			u.Installed = rcInstalled(s, u.Unit)
-			u.Unit = verify.JailUnit(s.Jail, u.Unit)
+			u.Installed = isDir(freebsd.CurrentRoot(s.RunJail()))
+			u.Unit = verify.ServiceUnit(s)
 		} else {
 			u.Installed = unitInstalled(u.Unit)
 		}
@@ -123,7 +123,7 @@ func gatherHost(e track.Env, sc verify.Systemd) hostFacts {
 		}
 		u.Prov = gatherProvenance(svc)
 		if err == nil {
-			u.StateDir, u.Config = s.HostPath(s.StateDir), s.HostPath(s.ConfigDst)
+			u.StateDir, u.Config = freebsd.HostPath(s, s.StateDir), freebsd.HostPath(s, s.ConfigDst)
 			if s.Jail == "" {
 				u.User = s.ServiceUser
 			}
@@ -136,20 +136,20 @@ func gatherHost(e track.Env, sc verify.Systemd) hostFacts {
 			}
 		}
 		if u.StateDir != "" || u.Config != "" {
-			u.Keys = ScanKeysIn(u.StateDir, u.Config, s.HostPath)
+			u.Keys = ScanKeysIn(u.StateDir, u.Config, func(p string) string { return freebsd.HostPath(s, p) })
 		}
 		f.Units = append(f.Units, u)
 	}
 	f.Faults = status.UserFaults(e)
 	f.Stale = hostsetup.StaleOnHost(f.UpdaterUser)
 	if len(f.Units) > 0 && jailed {
-		c := service.Service{Jail: config.LocalClientJail(e.Config)}
-		f.Thinclient = c.HostPath(verify.Thinclient(true))
+		jail := config.LocalClientJail(e.Config)
+		f.Thinclient = freebsd.CurrentRoot(jail) + verify.Thinclient(true)
 		f.ThinclientWhy = verify.ThinclientProblem(f.Thinclient)
-		if rcInstalled(c, service.Client) {
-			f.Client = sc.State(verify.JailUnit(c.Jail, service.Client))
+		if isDir(freebsd.CurrentRoot(jail)) {
+			f.Client = sc.State(verify.JailUnit(jail, service.Client))
 			f.ClientInstalled, f.ClientConfig = true, true
-			f.ClientJail = c.Jail
+			f.ClientJail = jail
 		}
 		return f
 	}

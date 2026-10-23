@@ -145,6 +145,27 @@ func TestPackageIsReproducible(t *testing.T) {
 	}
 }
 
+func TestABaseOfAnOlderPinIsFetchedAgain(t *testing.T) {
+	const body = "the base of the new pin\n"
+	sum := sha256.Sum256([]byte(body))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(body))
+	}))
+	defer srv.Close()
+	cache := t.TempDir()
+	t.Setenv("KNO_FREEBSD_CACHE", cache)
+	if err := os.WriteFile(filepath.Join(cache, "base.txz"), []byte("the older pin\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := SysrootTarball(map[string]string{"FREEBSD_BASE_URL": srv.URL + "/base.txz", "FREEBSD_BASE_SHA256": hex.EncodeToString(sum[:])})
+	if err != nil {
+		t.Fatalf("SysrootTarball: %v", err)
+	}
+	if out, _ := os.ReadFile(got); string(out) != body {
+		t.Errorf("the base is %q, want the one of the new pin", out)
+	}
+}
+
 func TestSysrootRejectsBadSha256(t *testing.T) {
 	cache := t.TempDir()
 	t.Setenv("KNO_FREEBSD_CACHE", cache)

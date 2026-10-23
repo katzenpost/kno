@@ -23,20 +23,9 @@ func TestConfigPkgForJailServices(t *testing.T) {
 		t.Fatalf("Stage: %v", err)
 	}
 
-	want := map[string]struct {
-		program  string
-		config   string
-		prestart bool
-	}{
-		"respectmy-pq-authority": {
-			program:  "/usr/local/sbin/kpdirauth",
-			config:   "/usr/local/etc/katzenpost/authority/config.toml",
-			prestart: true,
-		},
-		"allmixedup-pq-gatewaynode": {
-			program: "/usr/local/sbin/kpserver",
-			config:  "/usr/local/etc/katzenpost/allmixedup-pq-gatewaynode.toml",
-		},
+	want := map[string]struct{ config string }{
+		"respectmy-pq-authority":    {config: "/usr/local/etc/katzenpost/authority/config.toml"},
+		"allmixedup-pq-gatewaynode": {config: "/usr/local/etc/katzenpost/allmixedup-pq-gatewaynode.toml"},
 	}
 
 	for _, svc := range svcs {
@@ -46,7 +35,7 @@ func TestConfigPkgForJailServices(t *testing.T) {
 		}
 		root, err := StageConfig(rel, svc, Svc{
 			Build: rs.Build, ConfigSrc: rs.ConfigSrc, ConfigDst: rs.ConfigDst,
-			StateDir: rs.StateDir, KeysSrc: rs.KeysSrc, PrestartHook: rs.PrestartHook,
+			StateDir: rs.StateDir, KeysSrc: rs.KeysSrc,
 		}, filepath.Join(tmp, "roots"))
 		if err != nil {
 			t.Fatalf("StageConfig %s: %v", svc, err)
@@ -57,30 +46,8 @@ func TestConfigPkgForJailServices(t *testing.T) {
 			t.Errorf("%s: config not staged at %s: %v", svc, w.config, err)
 		}
 
-		rc, err := os.ReadFile(filepath.Join(root, "usr/local/etc/rc.conf.d/katzenpost"))
-		if err != nil {
-			t.Fatalf("%s: no rc.conf.d file: %v", svc, err)
-		}
-		got := string(rc)
-		for _, line := range []string{
-			`katzenpost_enable="YES"`,
-			`katzenpost_program=""`,
-			`katzenpost_daemon="` + w.program + `"`,
-			`katzenpost_config="` + w.config + `"`,
-		} {
-			if !strings.Contains(got, line) {
-				t.Errorf("%s: rc.conf.d missing %s\n%s", svc, line, got)
-			}
-		}
-		if w.prestart && !strings.Contains(got, "katzenpost_prestart=") {
-			t.Errorf("%s: authority needs a prestart hook\n%s", svc, got)
-		}
-		if !w.prestart && strings.Contains(got, "katzenpost_prestart=") {
-			t.Errorf("%s: unexpected prestart hook\n%s", svc, got)
-		}
-
-		if !strings.Contains(w.program, "/usr/local/sbin/") {
-			t.Errorf("%s: daemon must be under /usr/local/sbin, got %s", svc, w.program)
+		if _, err := os.Stat(filepath.Join(root, "usr/local/etc/rc.conf.d")); !os.IsNotExist(err) {
+			t.Errorf("%s: the config package ships rc.conf.d settings, which the jail does not read", svc)
 		}
 		if secret, _ := findSecretForTest(root); secret != "" {
 			t.Errorf("%s: private key packaged: %s", svc, secret)

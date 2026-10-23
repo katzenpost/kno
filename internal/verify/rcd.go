@@ -17,7 +17,9 @@ import (
 
 type RcD struct{}
 
-func (RcD) Available() bool { return runtime.GOOS == "freebsd" && lookPath("service") != "" }
+func (RcD) Available() bool {
+	return runtime.GOOS == "freebsd" && lookPath("service") != ""
+}
 
 func (RcD) State(unit string) UnitState {
 	u := UnitState{Unit: unit, Restarts: -1, Enabled: true, Active: "inactive"}
@@ -73,6 +75,8 @@ func Platform() Systemd {
 	}
 	return Systemctl{}
 }
+
+func ServiceUnit(s service.Service) string { return JailUnit(s.RunJail(), s.Unit) }
 
 func JailUnit(jail, unit string) string {
 	if jail == "" {

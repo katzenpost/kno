@@ -10,7 +10,7 @@ import (
 )
 
 var configBuilderPaths = []string{
-	":(top)internal/pkg/deb", ":(top)internal/service", ":(top)internal/release",
+	":(top)internal/pkg/deb", ":(top)internal/pkg/freebsd", ":(top)internal/service", ":(top)internal/release",
 	":(top,exclude,glob)**/*_test.go",
 }
 

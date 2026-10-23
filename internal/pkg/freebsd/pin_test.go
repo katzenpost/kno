@@ -39,16 +39,14 @@ func TestEveryPackageKeepsItsBytes(t *testing.T) {
 		"katzenpost": func() (string, error) { return Package(bindir, rel, "v0.0.107", "3", repo, "") },
 		"config": func() (string, error) {
 			return PackageConfig(rel, "v0.0.107", "3", "x-pq-mixserver", Svc{
-				Build:        "server",
-				ConfigSrc:    "configs/x-pq-mixserver.toml",
-				ConfigDst:    "/usr/local/etc/katzenpost/x-pq-mixserver.toml",
-				StateDir:     "/var/lib/pq-katzenpost-mixserver",
-				KeysSrc:      []string{"keys/mix-id-keys"},
-				PrestartHook: "rm -f /var/lib/pq-katzenpost-mixserver/persistence.db",
-				Stamp:        "+20261020.gabc",
-			}, repo, DefaultABI)
+				Build:     "server",
+				ConfigSrc: "configs/x-pq-mixserver.toml",
+				ConfigDst: "/usr/local/etc/katzenpost/x-pq-mixserver.toml",
+				StateDir:  "/var/lib/pq-katzenpost-mixserver",
+				KeysSrc:   []string{"keys/mix-id-keys"},
+				Stamp:     "+20261020.gabc",
+			}, repo, DefaultABI, nil)
 		},
-		"client": func() (string, error) { return PackageClient(rel, "v0.0.107", "3", repo, DefaultABI) },
 		"kno": func() (string, error) {
 			return KnoPackage(kno, "0.0.107-1+20261020123335.g4eca74c", t.TempDir(), "", 1600000000)
 		},
@@ -61,13 +59,11 @@ func TestEveryPackageKeepsItsBytes(t *testing.T) {
 		"katzenpost": "katzenpost-0.0.107_3.pkg" +
 			" b1052d3573a3d9059d0c603c9521ff90f40136e6eb11f44d4a4ec43cbd27c81d",
 		"config": "namenlos-config-x-pq-mixserver-0.0.107.20261020.gabc_3.pkg" +
-			" 7d57199dc43e92cb11b824e131fc56b409a24d2e99bd087d37143fb279fd3601",
-		"client": "namenlos-config-kpclientd-0.0.107_3.pkg" +
-			" 6ce662fdbbf2db2c34c5493010e121c7453dc50c21a81a468a6e43f04aa1e598",
+			" 365ee4498954a3f470af69a71f09698d8c6f75a880dd70c682d9e2294ef1790b",
 		"kno": "kno-0.0.107.20261020123335.g4eca74c_1.pkg" +
-			" 1638aaa5725daf39b82a09bfcd0a715a6348534b11cb03ebf4547acdf79e686c",
+			" ef271aa8f1211974b66f66b09d6dec8ed450788ab5b0d6c56b018fcca7b1cb32",
 		"host-config": "kno-host-config-jailhost-0.0.107.20261020.gdef.pkg" +
-			" c997d0f3e05d4ef8d6a2c1bd7687544af6def9d020992ad8cdbb8826e9dd8850",
+			" bedb0822eabd466818e6d4bc25435474b0938912cb0a2c4d6a5f0898d99e6177",
 	}
 	for name, f := range build {
 		p, err := f()

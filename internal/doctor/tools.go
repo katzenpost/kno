@@ -102,18 +102,18 @@ var Tools = []Tool{
 	},
 	{
 		Name: "jls", Scope: ScopeNode, GOOS: "freebsd",
-		For: "kno verify (freebsd-ezjail backend)",
-		Why: "finds the root of the jail that runs kpclientd, so verify can name a missing thin-client config",
+		For: "kno activate, kno verify (freebsd-ezjail backend)",
+		Why: "checks that a service jail runs after its restart, and finds the root of the jail that runs kpclientd",
 	},
 	{
 		Name: "jexec", Scope: ScopeNode, GOOS: "freebsd",
-		For: "kno verify (freebsd-ezjail backend), git and go in the build jail",
-		Why: "runs kpfetch inside the kpclientd jail, where the thin-client socket is, and git and go inside the build jail",
+		For: "kno verify (freebsd-ezjail backend)",
+		Why: "runs kpfetch inside the kpclientd jail, where the thin-client socket is",
 	},
 	{
 		Name: "service", Scope: ScopeNode, GOOS: "freebsd",
 		For: "kno activate, kno verify (freebsd-ezjail backend)",
-		Why: "installs, stops and starts each read-only service jail with service jail, and asks an old ezjail jail's rc.d service with service -j",
+		Why: "restarts each service jail in the jail kno with service jail, and asks an old ezjail jail's rc.d service with service -j",
 	},
 	{
 		Name: "genkeypair", Scope: ScopeVendored, For: "kno sim",
@@ -285,6 +285,11 @@ var Tools = []Tool{
 		Why: "adds a suffix to the name of a unit file that has priority over the packaged unit, and puts it back if the unit does not start",
 	},
 
+	{
+		Name: "ln", Scope: ScopeNode, GOOS: "freebsd",
+		For: "kno activate (freebsd-ezjail backend)",
+		Why: "points each service jail at the root that it runs from its next start, and records the root that it runs",
+	},
 	{
 		Name: "mkdir", Scope: ScopeRemote, For: "kno push",
 		Why: "creates the staging directory on the host being deployed",

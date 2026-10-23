@@ -27,22 +27,19 @@ func SysrootTarball(pins map[string]string) (string, error) {
 		return "", err
 	}
 	tarball := filepath.Join(cache, "base.txz")
-	if _, err := os.Stat(tarball); err != nil {
-		var urls []string
-		for _, k := range []string{"FREEBSD_BASE_URL", "FREEBSD_BASE_URL_FALLBACK"} {
-			if u := pins[k]; u != "" {
-				urls = append(urls, u)
-			}
-		}
-		if len(urls) == 0 {
-			return "", fmt.Errorf("freebsd sysroot: no FREEBSD_BASE_URL in pins")
-		}
-		if err := fetchVerified(tarball, urls, want, "sysroot: base.txz"); err != nil {
-			return "", err
-		}
+	if verify(tarball, want, "sysroot: base.txz") == nil {
 		return tarball, nil
 	}
-	if err := verify(tarball, want, "sysroot: base.txz"); err != nil {
+	var urls []string
+	for _, k := range []string{"FREEBSD_BASE_URL", "FREEBSD_BASE_URL_FALLBACK"} {
+		if u := pins[k]; u != "" {
+			urls = append(urls, u)
+		}
+	}
+	if len(urls) == 0 {
+		return "", fmt.Errorf("freebsd sysroot: no FREEBSD_BASE_URL in pins")
+	}
+	if err := fetchVerified(tarball, urls, want, "sysroot: base.txz"); err != nil {
 		return "", err
 	}
 	return tarball, nil

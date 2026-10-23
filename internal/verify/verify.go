@@ -74,7 +74,8 @@ type Options struct {
 	Run     Runner
 	Systemd Systemd
 
-	Wrap     []string
+	Wrap []string
+
 	FileRoot string
 
 	Label string
@@ -560,7 +561,7 @@ func units(e track.Env, release string) ([]string, error) {
 		if err != nil || sv.Unit == "" {
 			continue
 		}
-		out = append(out, JailUnit(sv.Jail, sv.Unit))
+		out = append(out, ServiceUnit(sv))
 	}
 	return out, nil
 }
@@ -573,17 +574,21 @@ func manifestUnits(dir string) []string {
 		if err != nil {
 			continue
 		}
-		unit, jail := "", ""
+		var sv service.Service
 		for _, ln := range strings.Split(string(b), "\n") {
-			if v, ok := strings.CutPrefix(strings.TrimSpace(ln), "UNIT="); ok {
-				unit = strings.Trim(v, `"'`)
-			}
-			if v, ok := strings.CutPrefix(strings.TrimSpace(ln), "JAIL="); ok {
-				jail = strings.Trim(v, `"'`)
+			k, v, _ := strings.Cut(strings.TrimSpace(ln), "=")
+			v = strings.Trim(v, `"'`)
+			switch k {
+			case "UNIT":
+				sv.Unit = v
+			case "JAIL":
+				sv.Jail = v
+			case "BUILD":
+				sv.Build = v
 			}
 		}
-		if unit != "" {
-			out = append(out, JailUnit(jail, unit))
+		if sv.Unit != "" {
+			out = append(out, ServiceUnit(sv))
 		}
 	}
 	return out

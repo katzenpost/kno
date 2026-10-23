@@ -1,0 +1,43 @@
+#!/bin/sh
+set -eu
+addr=${1:?usage: kno-host-setup interface|address, for example 'lo42|10.42.0.14'}
+E=/usr/local/etc/ezjail
+J=/usr/jails
+[ -r /usr/local/etc/ezjail.conf ] && J=$(sh -c '. /usr/local/etc/ezjail.conf; echo "${ezjail_jaildir:-/usr/jails}"')
+params="allow.mount allow.mount.nullfs allow.mount.tmpfs allow.mount.devfs enforce_statfs=1 devfs_ruleset=4"
+var() { sed -n "s/^export jail_$(printf %s "$2" | tr -c 'A-Za-z0-9' _)_$3=\"\{0,1\}\([^\"]*\)\"\{0,1\}$/\1/p" "$1"; }
+
+[ -f "$E/kno.norun" ] && ezjail-admin config -r run kno
+if [ ! -f "$E/kno" ]; then
+	a=${addr#*|}
+	if ifconfig | grep -qw "inet6\{0,1\} $a" || grep -qsw "$a" "$E"/*; then
+		echo "kno-host-setup: $a is in use; choose a free address" >&2
+		exit 1
+	fi
+	echo "create the ezjail kno on $addr"
+	ezjail-admin create kno "$addr" >/var/log/kno-host-setup.log 2>&1
+fi
+old=$(var "$E/kno" kno parameters)
+want=$params
+for p in $old; do
+	case $p in children.max=*) want="$p $want" ;; esac
+done
+changed=""
+if [ "$old" != "$want" ]; then
+	echo "set the parameters of the jail kno: $want"
+	if grep -q '^export jail_kno_parameters=' "$E/kno"; then
+		sed -i '' "s|^export jail_kno_parameters=.*|export jail_kno_parameters=\"$want\"|" "$E/kno"
+	else
+		echo "export jail_kno_parameters=\"$want\"" >>"$E/kno"
+	fi
+	changed=1
+fi
+cp /etc/resolv.conf "$J/kno/etc/resolv.conf"
+if ! jls -j kno >/dev/null 2>&1; then
+	ezjail-admin start kno
+elif [ -n "$changed" ]; then
+	ezjail-admin restart kno
+fi
+jexec kno env ASSUME_ALWAYS_YES=yes pkg install -y go git >/dev/null
+jls -j kno -n name ip4.addr allow.mount.devfs devfs_ruleset enforce_statfs
+echo "kno-host-setup: the jail kno runs. Next, in it: clone kno, write /usr/local/etc/kno.toml, kno build, pkg add kno, kno activate"

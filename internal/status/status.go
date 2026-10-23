@@ -36,7 +36,9 @@ const dialTimeout = 2 * time.Second
 
 var addrLine = regexp.MustCompile(`(?i)^[[:space:]]*Addresses[[:space:]]*=`)
 
-var ipPort = regexp.MustCompile(`[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+`)
+var bindLine = regexp.MustCompile(`(?i)^[[:space:]]*BindAddresses[[:space:]]*=`)
+
+var tcpAddr = regexp.MustCompile(`tcp://(\[[0-9A-Fa-f:.]+\]|[0-9.]+):([0-9]+)`)
 
 func Run(stdout, stderr io.Writer, args []string) int {
 	verbose, live := false, false
@@ -398,19 +400,49 @@ func writeReachability(w io.Writer, e track.Env) {
 	}
 	gc := knopath.ConfigsDir(e.Repo, e.Network)
 	for _, s := range probe {
-		addr := announced(filepath.Join(gc, s+".toml"))
-		if addr == "" {
-			continue
-		}
-		state := "UNREACHABLE"
-		for try := 0; try < 3 && state != "reachable"; try++ {
-			if c, err := net.DialTimeout("tcp", addr, dialTimeout); err == nil {
-				c.Close()
-				state = "reachable"
+		cfg := filepath.Join(gc, s+".toml")
+		for _, addr := range addrsOn(cfg, addrLine) {
+			state := "reachable"
+			if !dials(addr) {
+				state = "UNREACHABLE"
+				for _, b := range addrsOn(cfg, bindLine) {
+					if b != addr && dials(b) {
+						state = "no answer from this machine, but the service answers on " + b +
+							". A host cannot reach its own public address through pf rdr; test it from another machine"
+						break
+					}
+				}
 			}
+			fmt.Fprintln(w, cli.Column(fmt.Sprintf("  %-32s %s ", s, addr), state))
 		}
-		fmt.Fprintf(w, "  %-32s %s %s\n", s, addr, state)
 	}
+}
+
+func dials(addr string) bool {
+	for try := 0; try < 3; try++ {
+		if c, err := net.DialTimeout("tcp", addr, dialTimeout); err == nil {
+			c.Close()
+			return true
+		}
+	}
+	return false
+}
+
+func addrsOn(cfg string, line *regexp.Regexp) []string {
+	b, err := os.ReadFile(cfg)
+	if err != nil {
+		return nil
+	}
+	for _, ln := range strings.Split(string(b), "\n") {
+		if line.MatchString(ln) {
+			var out []string
+			for _, m := range tcpAddr.FindAllStringSubmatch(ln, -1) {
+				out = append(out, m[1]+":"+m[2])
+			}
+			return out
+		}
+	}
+	return nil
 }
 
 func unitOf(e track.Env, svc string) (string, error) {
@@ -424,7 +456,7 @@ func unitOf(e track.Env, svc string) (string, error) {
 	if s.Unit == "" {
 		return svc, nil
 	}
-	return verify.JailUnit(s.Jail, s.Unit), nil
+	return verify.ServiceUnit(s), nil
 }
 
 func unitState(sd verify.Systemd, unit string) string {
@@ -432,19 +464,6 @@ func unitState(sd verify.Systemd, unit string) string {
 		return a
 	}
 	return "unknown"
-}
-
-func announced(cfg string) string {
-	b, err := os.ReadFile(cfg)
-	if err != nil {
-		return ""
-	}
-	for _, ln := range strings.Split(string(b), "\n") {
-		if addrLine.MatchString(ln) {
-			return ipPort.FindString(ln)
-		}
-	}
-	return ""
 }
 
 func gitState(dir string) string {
@@ -506,6 +525,9 @@ func reportPackages(w io.Writer, e track.Env, verbose bool) {
 			have = append(have, fmt.Sprintf("%d config", configs))
 		}
 		state := "built; kno push did not run for any host"
+		if !remoteHosts(e) {
+			state = "built"
+		}
 		if len(b.PushedTo) > 0 {
 			state = "kno push ran for " + strings.Join(b.PushedTo, " ")
 		}
@@ -741,15 +763,27 @@ func installedVersions(e track.Env, label string) string {
 	if s == nil || len(s.Packages) == 0 {
 		return ""
 	}
-	var parts []string
-	if v := s.Packages["katzenpost"]; v != "" {
-		parts = append(parts, "katzenpost "+v)
+	kp := map[string]bool{}
+	pkgs := map[string]string{}
+	for name, v := range s.Packages {
+		if _, base, jailed := strings.Cut(name, "/"); jailed {
+			name = base
+		}
+		if name == "katzenpost" {
+			kp[v] = true
+			continue
+		}
+		pkgs[name] = v
 	}
-	if v := s.Packages["kno"]; v != "" {
+	var parts []string
+	if len(kp) > 0 {
+		parts = append(parts, "katzenpost "+strings.Join(slices.Sorted(maps.Keys(kp)), " "))
+	}
+	if v := pkgs["kno"]; v != "" {
 		parts = append(parts, "kno "+v)
 	}
 	cfg := map[string][]string{}
-	for name, v := range s.Packages {
+	for name, v := range pkgs {
 		if strings.HasPrefix(name, configPkgPrefix) {
 			cfg[v] = append(cfg[v], strings.TrimPrefix(name, configPkgPrefix))
 		}
@@ -774,6 +808,15 @@ func installedVersions(e track.Env, label string) string {
 }
 
 const configPkgPrefix = knopath.ConfigPkgPrefix
+
+func remoteHosts(e track.Env) bool {
+	for _, h := range e.Config.Hosts {
+		if h.SSH != "" {
+			return true
+		}
+	}
+	return false
+}
 
 func pushedTags(host string) map[string]bool {
 	out := map[string]bool{}
@@ -807,10 +850,10 @@ type tickState struct {
 }
 
 func hostTick(e track.Env, label string) tickState {
-	if e.StateDir == "" {
+	dir := hostStateDir(e, label)
+	if dir == "" {
 		return tickState{}
 	}
-	dir := knopath.HostState(e.StateDir, label)
 	return tickState{
 		current: firstLine(filepath.Join(dir, "current")),
 		state:   firstLine(filepath.Join(dir, "state")),
@@ -865,6 +908,9 @@ func pinnedRef(repo string) string {
 func hostStateDir(e track.Env, label string) string {
 	if e.StateDir == "" {
 		return ""
+	}
+	if h, ok := e.Config.Hosts[label]; ok && h.SSH == "" {
+		return e.StateDir
 	}
 	return knopath.HostState(e.StateDir, label)
 }

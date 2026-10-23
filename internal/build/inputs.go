@@ -8,6 +8,7 @@ import (
 
 	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/pkg/deb"
+	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/source"
 )
 
@@ -28,6 +29,9 @@ func readInputs(repo string) *BuildInputs {
 }
 
 func describe(path string) (arch, version string, scripts []string) {
+	if n, ok := freebsd.SplitPkgName(filepath.Base(path)); ok {
+		return "", strings.TrimSuffix(strings.TrimPrefix(filepath.Base(path), n+"-"), ".pkg"), nil
+	}
 	control, scripts, err := deb.Control(path)
 	if err != nil {
 		return "", "", nil

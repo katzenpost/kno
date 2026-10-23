@@ -15,7 +15,7 @@ ITERLOG = kno-iterate.log
 
 .PHONY: help build tools test sim hooks print-debver install install-test reconfigure upgrade packages repro report clean \
 	kno-deb built ci-image ci-shell ci \
-	freebsd-vmtest freebsd-jailtest freebsd-deploy
+	freebsd-vmtest freebsd-jailtest
 
 help:
 	@echo 'make build         build bin/kno'
@@ -263,10 +263,6 @@ freebsd-vmtest:
 freebsd-jailtest:
 	$(need_pkg)
 	@pkg=$$(ls -1 '$(PKGDIR)'/katzenpost*.pkg | head -1); test/kno-freebsd-jailtest "$$pkg"
-
-freebsd-deploy:
-	@test -d '$(PKGDIR)' || { echo 'nothing built for $(TAG) -- run: make packages' >&2; exit 1; }
-	test/kno-freebsd-deploy '$(PKGDIR)'
 
 REGISTRY_NAME ?= kno-registry
 REGISTRY_PORT ?= 5000

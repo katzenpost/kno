@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+E=/usr/local/etc/ezjail
+J=/usr/jails
+[ -r /usr/local/etc/ezjail.conf ] && J=$(sh -c '. /usr/local/etc/ezjail.conf; echo "${ezjail_jaildir:-/usr/jails}"')
+K=$J/kno
+F=$K/var/db/kno/cutover
+B=/root/kno-cutover
+
+[ -s "$F" ] || { echo "kno-host-back: no $F, so there is nothing to go back from" >&2; exit 1; }
+jls -j kno >/dev/null 2>&1 && ezjail-admin stop kno
+[ -f "$E/kno" ] && ezjail-admin config -r norun kno
+[ -f "$B/kno" ] && cp -p "$B/kno" "$E/kno.norun"
+rm -f "$K/etc/rc.conf.d/jail"
+while read -r _ old _; do
+	[ "$old" != - ] || continue
+	[ -f "$E/$old.norun" ] && ezjail-admin config -r run "$old" </dev/null
+	jls -j "$old" >/dev/null 2>&1 || ezjail-admin start "$old" </dev/null
+done <"$F"
+for j in "$@"; do
+	[ -f "$E/$j.norun" ] && ezjail-admin config -r run "$j"
+	jls -j "$j" >/dev/null 2>&1 || ezjail-admin start "$j"
+done
+[ -f "$B/crontab" ] && cp -p "$B/crontab" /etc/crontab
+jls -n name | sed 's/^name=/runs /'
+echo "kno-host-back: the old jails run again; the jail kno is stopped and does not start at boot"

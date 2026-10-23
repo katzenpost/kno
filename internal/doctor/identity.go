@@ -8,6 +8,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/katzenpost/kno/internal/knopath"
+	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/service"
 	"github.com/katzenpost/kno/internal/track"
 )
@@ -26,7 +27,7 @@ func reportIdentity(r *Result, e track.Env) {
 		if err != nil || sv.StateDir == "" {
 			continue
 		}
-		dir := sv.HostPath(sv.StateDir)
+		dir := freebsd.HostPath(sv, sv.StateDir)
 		p := filepath.Join(dir, "identity.public.pem")
 		b, err := os.ReadFile(p)
 		if os.IsNotExist(err) {

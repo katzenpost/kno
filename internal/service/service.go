@@ -49,20 +49,16 @@ type Service struct {
 	ExtraMoves      []string
 }
 
-const DefaultJailRoot = "/usr/jails"
-
-func JailRoot() string {
-	if root := os.Getenv("JAIL_ROOT"); root != "" {
-		return root
+func (s Service) RunJail() string {
+	switch {
+	case s.Jail == "":
+		return ""
+	case s.Build == "dirauth":
+		return "kpauthority"
+	case s.Build == "server":
+		return "kpserver"
 	}
-	return DefaultJailRoot
-}
-
-func (s Service) HostPath(p string) string {
-	if s.Jail == "" || p == "" {
-		return p
-	}
-	return filepath.Join(JailRoot(), s.Jail, p)
+	return "kp" + s.Build
 }
 
 func (s Service) ManifestFragment() string {

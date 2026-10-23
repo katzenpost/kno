@@ -65,10 +65,6 @@ func PkgQueryInRoot(root string, args ...string) []string {
 	return append([]string{"sh", "-c", `exec pkg -o ABI="$(pkg config abi)" -r "$0" query "$@"`, root}, args...)
 }
 
-func PkgAddInJail(root string, pkgs ...string) []string {
-	return append([]string{"env", "ASSUME_ALWAYS_YES=yes", "pkg", "-r", root, "add", "-f", "-M"}, pkgs...)
-}
-
 func OnePkg(dir, name string) (string, error) {
 	matches, _ := filepath.Glob(filepath.Join(dir, name+"-*.pkg"))
 	var out []string

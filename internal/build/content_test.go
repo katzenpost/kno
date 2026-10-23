@@ -1,6 +1,7 @@
 package build
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/katzenpost/kno/internal/pkg/deb"
@@ -182,5 +183,18 @@ func TestPackageName(t *testing.T) {
 		if got := PackageName(in); got != want {
 			t.Errorf("PackageName(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestAFreeBSDPackageHasAStableIDAndItsVersion(t *testing.T) {
+	f := "namenlos-config-respectmy-pq-authority-0.0.107.20261023174021.gcd67d61.pkg"
+	if id := ID(f); id.Name != "namenlos-config-respectmy-pq-authority" || id.OS != "freebsd" {
+		t.Errorf("ID(%s) = %+v", f, id)
+	}
+	if _, v, _ := describe(filepath.Join(t.TempDir(), f)); v != "0.0.107.20261023174021.gcd67d61" {
+		t.Errorf("version of %s = %q", f, v)
+	}
+	if id := ID("kno-0.0.107.20261023181749.g9815162_1.pkg"); id.Name != "kno" {
+		t.Errorf("the kno package has ID %+v", id)
 	}
 }

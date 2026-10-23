@@ -37,11 +37,9 @@ type Host struct {
 	Privilege string `toml:"privilege,omitempty"`
 
 	ClientJail string `toml:"client_jail,omitempty"`
-
-	BuildJail string `toml:"build_jail,omitempty"`
 }
 
-const DefaultClientJail = "kpclient"
+const DefaultClientJail = "kpclientd"
 
 func (h Host) KpclientdJail() string {
 	if h.ClientJail != "" {
@@ -303,9 +301,6 @@ func Write(c Config, path string) error {
 		}
 		if h.ClientJail != "" {
 			fmt.Fprintf(&b, "client_jail = %q\n", h.ClientJail)
-		}
-		if h.BuildJail != "" {
-			fmt.Fprintf(&b, "build_jail = %q\n", h.BuildJail)
 		}
 		if len(h.Services) > 0 {
 			fmt.Fprintf(&b, "services = [%s]\n", quoteList(h.Services))

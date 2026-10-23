@@ -432,11 +432,12 @@ func Build(o Options) ([]string, error) {
 				return nil, fmt.Errorf("materialize source: %w", err)
 			}
 		}
-		pkgs, err := buildNative(o, rel, work, pins)
+		ids := &contentIDs{}
+		pkgs, err := buildNative(o, rel, work, pins, ids)
 		if err != nil {
 			return nil, err
 		}
-		return finish(o, rel, key, scope, pkgs, &contentIDs{})
+		return finish(o, rel, key, scope, pkgs, ids)
 	}
 	built := make([]string, len(platforms))
 	if !o.SkipCompile {
@@ -592,7 +593,7 @@ func Build(o Options) ([]string, error) {
 			return nil, err
 		}
 		pkgs = append(pkgs, kp)
-		cfgs, err := freebsdConfigPkgs(o, rel, pins["FREEBSD_ABI"])
+		cfgs, err := freebsdConfigPkgs(o, rel, pins["FREEBSD_ABI"], ids)
 		if err != nil {
 			return nil, err
 		}
@@ -720,7 +721,7 @@ func verifyAgainstRecord(o Options, rel string) error {
 	return nil
 }
 
-func buildNative(o Options, rel, work string, pins map[string]string) ([]string, error) {
+func buildNative(o Options, rel, work string, pins map[string]string, ids *contentIDs) ([]string, error) {
 	if runtime.GOOS != "freebsd" {
 		return nil, fmt.Errorf("--native is only supported on freebsd, not %s", runtime.GOOS)
 	}
@@ -747,7 +748,7 @@ func buildNative(o Options, rel, work string, pins map[string]string) ([]string,
 	if o.BinaryOnly {
 		return out, nil
 	}
-	cfgs, err := freebsdConfigPkgs(o, rel, pins["FREEBSD_ABI"])
+	cfgs, err := freebsdConfigPkgs(o, rel, pins["FREEBSD_ABI"], ids)
 	if err != nil {
 		return nil, err
 	}
@@ -804,15 +805,25 @@ func knoPkgOf(o Options, bin, rel, toolVer, abi string) (string, error) {
 	return p, nil
 }
 
-func freebsdConfigPkgs(o Options, rel, abi string) ([]string, error) {
-	var out []string
-	if BackendFormats(o.Repo, o.Network, o.Services)["freebsd"] {
-		cp, err := freebsd.PackageClient(rel, o.Tag, o.Revision, o.Repo, abi)
-		if err != nil {
-			return nil, fmt.Errorf("freebsd client pkg: %w", err)
-		}
-		out = append(out, cp)
+func freebsdConfigPkgs(o Options, rel, abi string, ids *contentIDs) ([]string, error) {
+	stable := NewStablePreferring(
+		Recorded(CommittedDir(o.Repo, o.Network, o.Tag)),
+		Existing(filepath.Join(rel, "pkgs")))
+	if o.ToolRevision != "" {
+		stable = nil
 	}
+	version := func(svc string) func(content, want string) string {
+		return func(content, want string) string {
+			id := deb.PkgID{Name: freebsd.ConfigPkgName(svc), OS: "freebsd"}
+			ids.note(id, content)
+			v, why := stable.Version(id, content, want)
+			if why != "" {
+				note("%s", why)
+			}
+			return v
+		}
+	}
+	var out []string
 	for _, svc := range o.Services {
 		rs, err := service.ResolveService(o.Repo, o.Network, svc)
 		if err != nil {
@@ -822,7 +833,7 @@ func freebsdConfigPkgs(o Options, rel, abi string) ([]string, error) {
 			continue
 		}
 		cp, err := freebsd.PackageConfig(rel, o.Tag, o.Revision, svc,
-			freebsd.SvcOf(rs, deb.ConfigStamp(o.Repo, o.Network, svc)), o.Repo, abi)
+			freebsd.SvcOf(rs, deb.ConfigStamp(o.Repo, o.Network, svc)), o.Repo, abi, version(svc))
 		if err != nil {
 			return nil, fmt.Errorf("freebsd config pkg: %w", err)
 		}

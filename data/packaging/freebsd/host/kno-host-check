@@ -1,0 +1,74 @@
+#!/bin/sh
+set -u
+addr=${1:-}
+E=/usr/local/etc/ezjail
+J=/usr/jails
+[ -r /usr/local/etc/ezjail.conf ] && J=$(sh -c '. /usr/local/etc/ezjail.conf; echo "${ezjail_jaildir:-/usr/jails}"')
+fail=0
+ok() { echo "ok    $*"; }
+bad() { echo "FAIL  $*"; fail=1; }
+warn() { echo "WARN  $*"; }
+say() { echo "      $*"; }
+var() { sed -n "s/^export jail_$(printf %s "$2" | tr -c 'A-Za-z0-9' _)_$3=\"\{0,1\}\([^\"]*\)\"\{0,1\}$/\1/p" "$1"; }
+
+v=$(freebsd-version -u)
+case $v in 14.5-RELEASE*) ok "host userland $v, kernel $(freebsd-version -k)" ;; *) bad "host userland $v: want 14.5-RELEASE" ;; esac
+b=$("$J/basejail/bin/freebsd-version" -u 2>/dev/null)
+case $b in 14.5-RELEASE*) ok "basejail $b" ;; *) bad "basejail ${b:-missing}: want 14.5-RELEASE" ;; esac
+cc=$("$J/basejail/usr/bin/cc" --version 2>/dev/null | head -1)
+case $cc in *"clang version 21.1.8"*) ok "basejail compiler: clang 21.1.8" ;; *) bad "basejail compiler ${cc:-missing}: want clang 21.1.8" ;; esac
+
+missing=""
+for p in children.max allow.mount allow.mount.nullfs allow.mount.tmpfs allow.mount.devfs enforce_statfs devfs_ruleset; do
+	sysctl -q "security.jail.param.$p" >/dev/null 2>&1 || missing="$missing $p"
+done
+if [ -z "$missing" ]; then ok "the kernel knows the jail parameters for child jails"; else bad "the kernel has no jail parameter:$missing"; fi
+if devfs rule -s 4 show 2>/dev/null | grep -q .; then ok "devfs ruleset 4 is loaded"; else bad "devfs ruleset 4 is not loaded"; fi
+
+if command -v ezjail-admin >/dev/null; then ok "ezjail $(pkg query %v ezjail 2>/dev/null)"; else bad "no ezjail-admin"; fi
+if [ -e "$E/kno" ] || [ -e "$E/kno.norun" ]; then warn "the ezjail kno exists"; else ok "no ezjail kno yet"; fi
+if pkg info -e kno; then warn "kno is installed on the host"; fi
+
+for f in "$E"/*; do
+	[ -f "$f" ] || continue
+	n=${f##*/}
+	n=${n%.norun}
+	ip=$(var "$f" "$n" ip)
+	root=$(var "$f" "$n" rootdir)
+	run=stopped
+	jls -j "$n" >/dev/null 2>&1 && run=running
+	boot=yes
+	[ "$f" = "$E/$n.norun" ] && boot=no
+	echo "jail  $n: $run, starts at boot: $boot, root $root, addresses $ip"
+	if [ "$run" = running ]; then
+		pgrep -lf -j "$n" 'katzenpost|kpdirauth|kpserver|/server|dirauth' 2>/dev/null | sed 's/^/        process /'
+		sockstat -46l -j "$n" 2>/dev/null | awk 'NR > 1 { print "        listens " $2 " " $6 }' | sort -u
+	fi
+	for d in "$root"/var/lib/*katzenpost*; do
+		[ -d "$d" ] || continue
+		keys=$(find "$d" -maxdepth 1 -name '*.pem' -type f | sed 's|.*/||' | sort | tr '\n' ' ')
+		say "state ${d#"$root"} ($(du -sh "$d" | cut -f1)): ${keys:-no key files}"
+		find "$d" -mindepth 1 -maxdepth 1 ! -name '*.pem' -exec du -sh {} + | sed "s|$d/||; s/^/        other /"
+	done
+done
+if [ -n "$addr" ]; then
+	a=${addr#*|}
+	if [ -f "$E/kno" ] && grep -qw "$a" "$E/kno"; then
+		ok "the jail kno has $a"
+	elif ifconfig | grep -qw "inet6\{0,1\} $a" || grep -qsw "$a" "$E"/*; then
+		bad "$a is in use: choose a free address for the jail kno"
+	else
+		ok "$a is free for the jail kno"
+	fi
+fi
+
+c=$(grep -n 'update-mixes' /etc/crontab)
+if [ -n "$c" ]; then say "crontab: $c"; else warn "/etc/crontab has no update-mixes line"; fi
+pfctl -s nat 2>/dev/null | sed 's/^/      pf nat: /'
+zfs list -H -o name,used,avail "$J" 2>/dev/null | awk '{ print "      zfs " $1 ": used " $2 ", free " $3 }'
+df -h "$J" | awk 'NR > 1 { print "      disk " $6 ": free " $4 }'
+free=$(df -k "$J" | awk 'NR > 1 { print int($4 / 1048576) }')
+if [ "$free" -ge 10 ]; then ok "$free GB free in $J"; else bad "$free GB free in $J: want 10 GB"; fi
+
+[ "$fail" = 0 ] && echo "kno-host-check: the host can take the jail kno" || echo "kno-host-check: fix each FAIL first"
+exit "$fail"

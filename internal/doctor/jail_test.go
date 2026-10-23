@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/service"
 	"github.com/katzenpost/kno/internal/testutil"
 	"github.com/katzenpost/kno/internal/track"
@@ -23,9 +24,8 @@ func TestIdentityOfAJailedServiceIsReadInTheJail(t *testing.T) {
 	if !ok {
 		t.Fatalf("network.toml records no identity for %s", svc)
 	}
-	root := t.TempDir()
-	t.Setenv("JAIL_ROOT", root)
-	dir := filepath.Join(root, sv.Jail, sv.StateDir)
+	roots(t)
+	dir := freebsd.StateRoot(sv.RunJail())
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -52,6 +52,20 @@ func TestANativeBuildNeedsNoContainerEngine(t *testing.T) {
 	}
 }
 
+func roots(t *testing.T, jails ...string) string {
+	t.Helper()
+	dir := t.TempDir()
+	saved, savedStates := freebsd.RootsDir, freebsd.StatesDir
+	freebsd.RootsDir, freebsd.StatesDir = dir, filepath.Join(dir, ".state")
+	t.Cleanup(func() { freebsd.RootsDir, freebsd.StatesDir = saved, savedStates })
+	for _, j := range jails {
+		if err := os.MkdirAll(filepath.Join(dir, j, "current"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
 type rcFake struct{ asked []string }
 
 func (*rcFake) Available() bool { return true }
@@ -64,46 +78,40 @@ func (f *rcFake) State(unit string) verify.UnitState {
 func TestAJailedServiceIsAskedInItsJail(t *testing.T) {
 	repo := testutil.RepoRoot(t)
 	const svc = "respectmy-pq-authority"
-	root := t.TempDir()
-	t.Setenv("JAIL_ROOT", root)
 	t.Setenv("VERIFY_THINCLIENT", "")
-	rc := filepath.Join(root, "respectmy", "usr", "local", "etc", "rc.d")
-	if err := os.MkdirAll(rc, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(rc, "katzenpost"), []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	rr := roots(t, "kpauthority", "kpclientd")
 	fake := &rcFake{}
 	f := gatherHost(track.Env{Repo: repo, Network: "namenlos", Services: []string{svc}}, fake)
 	if len(f.Units) != 1 {
 		t.Fatalf("units = %+v", f.Units)
 	}
 	u := f.Units[0]
-	if !u.Installed || u.Unit != "respectmy/katzenpost" || u.State.Active != "active" {
-		t.Errorf("unit = %+v, want respectmy/katzenpost installed and active", u)
+	if !u.Installed || u.Unit != "kpauthority/katzenpost" || u.State.Active != "active" {
+		t.Errorf("unit = %+v, want kpauthority/katzenpost installed and active", u)
+	}
+	if want := filepath.Join(rr, "kpauthority", "current", "usr", "local", "etc", "katzenpost", "authority", "config.toml"); u.Config != want {
+		t.Errorf("config = %q, want %q", u.Config, want)
 	}
 	if u.User != "" {
 		t.Errorf("the host account check asks for %q, which lives in the jail", u.User)
 	}
-	if want := filepath.Join(root, "respectmy", "var", "lib", "pq-katzenpost-authority"); u.StateDir != want {
+	if want := filepath.Join(rr, ".state", "kpauthority"); u.StateDir != want {
 		t.Errorf("state dir = %q, want %q", u.StateDir, want)
 	}
-	if len(fake.asked) != 1 || fake.asked[0] != "respectmy/katzenpost" {
-		t.Errorf("asked %v, want respectmy/katzenpost", fake.asked)
+	if len(fake.asked) != 2 || fake.asked[0] != "kpauthority/katzenpost" || fake.asked[1] != "kpclientd/kpclientd" {
+		t.Errorf("asked %v, want kpauthority/katzenpost and kpclientd/kpclientd", fake.asked)
 	}
-	if want := filepath.Join(root, "kpclient", "usr", "local", "etc", "kpclientd", "thinclient.toml"); f.Thinclient != want {
+	if want := filepath.Join(rr, "kpclientd", "current", "usr", "local", "etc", "kpclientd", "thinclient.toml"); f.Thinclient != want {
 		t.Errorf("thinclient = %q, want the client jail's %q", f.Thinclient, want)
 	}
 }
 
 func TestTheThinclientVariableIsReadInTheClientJail(t *testing.T) {
 	repo := testutil.RepoRoot(t)
-	root := t.TempDir()
-	t.Setenv("JAIL_ROOT", root)
 	t.Setenv("VERIFY_THINCLIENT", "/usr/local/etc/kpclientd/other.toml")
+	rr := roots(t)
 	f := gatherHost(track.Env{Repo: repo, Network: "namenlos", Services: []string{"respectmy-pq-authority"}}, &rcFake{})
-	if want := filepath.Join(root, "kpclient", "usr", "local", "etc", "kpclientd", "other.toml"); f.Thinclient != want {
+	if want := filepath.Join(rr, "kpclientd", "current", "usr", "local", "etc", "kpclientd", "other.toml"); f.Thinclient != want {
 		t.Errorf("thinclient = %q, want %q: kno verify reads the variable as a path in the jail", f.Thinclient, want)
 	}
 }

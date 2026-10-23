@@ -550,8 +550,8 @@ func TestParseProbe(t *testing.T) {
 
 		{"arm64 debian-13\n", "arm64", "debian-13", false, false},
 
-		{"amd64 freebsd-14.4 no\n", "amd64", "freebsd-14.4", false, true},
-		{"- freebsd-14.4 no\n", "", "freebsd-14.4", false, true},
+		{"amd64 freebsd-14.5 no\n", "amd64", "freebsd-14.5", false, true},
+		{"- freebsd-14.5 no\n", "", "freebsd-14.5", false, true},
 	}
 	for _, c := range cases {
 		arch, osName, rsync, answered := ParseProbe(c.in)

@@ -14,7 +14,6 @@ import (
 	"github.com/katzenpost/kno/internal/activate"
 	"github.com/katzenpost/kno/internal/backupkeys"
 	"github.com/katzenpost/kno/internal/build"
-	"github.com/katzenpost/kno/internal/buildjail"
 	"github.com/katzenpost/kno/internal/check"
 	"github.com/katzenpost/kno/internal/clean"
 	"github.com/katzenpost/kno/internal/cli"
@@ -145,17 +144,6 @@ func newRootCommand() *cobra.Command {
 }
 
 func main() {
-	if code, ok := buildjail.Dispatch(os.Args); ok {
-		os.Exit(code)
-	}
-	if c, err := config.Load(config.ResolvePath("")); err == nil {
-		if _, h, ok := config.LocalHost(c); ok {
-			if err := buildjail.Enter(h.BuildJail); err != nil {
-				fmt.Fprintln(os.Stderr, "kno: the build jail:", err)
-				os.Exit(1)
-			}
-		}
-	}
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	go func() {
