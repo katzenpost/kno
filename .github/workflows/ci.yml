@@ -94,11 +94,13 @@ jobs:
           docker image prune -af >/dev/null
           df -h /
 
-      - name: Register qemu, so a container can build each node's architecture
+      - name: Register qemu 11.1.2 from polyarch, so a container can build each node's architecture
         run: |
-          if ! ls /proc/sys/fs/binfmt_misc/qemu-aarch64 /proc/sys/fs/binfmt_misc/qemu-ppc64le >/dev/null 2>&1; then
-            sudo apt-get update && sudo apt-get install -y qemu-user-binfmt
-          fi
+          img=docker.io/polyarch/qemu-user-static@sha256:1f1c20bb35e5fbe18a9e0de7883b3fa2267af0427dba4bdab9b7fd77a0594b4a
+          docker run --rm --privileged "$img" --reset -p yes
+          docker run --rm --entrypoint /usr/bin/qemu-ppc64le-static "$img" --version | head -1
+          docker rmi "$img" >/dev/null
+          head -3 /proc/sys/fs/binfmt_misc/qemu-aarch64 /proc/sys/fs/binfmt_misc/qemu-ppc64le
 
       - name: Build the release twice and compare every file
         run: KNO_ARTIFACTS="$RUNNER_TEMP/artifacts" make repro
@@ -123,11 +125,13 @@ jobs:
           docker image prune -af >/dev/null
           df -h /
 
-      - name: Register qemu, so a container can run each node's architecture
+      - name: Register qemu 11.1.2 from polyarch, so a container can run each node's architecture
         run: |
-          if ! ls /proc/sys/fs/binfmt_misc/qemu-ppc64le >/dev/null 2>&1; then
-            sudo apt-get update && sudo apt-get install -y qemu-user-binfmt
-          fi
+          img=docker.io/polyarch/qemu-user-static@sha256:1f1c20bb35e5fbe18a9e0de7883b3fa2267af0427dba4bdab9b7fd77a0594b4a
+          docker run --rm --privileged "$img" --reset -p yes
+          docker run --rm --entrypoint /usr/bin/qemu-ppc64le-static "$img" --version | head -1
+          docker rmi "$img" >/dev/null
+          head -3 /proc/sys/fs/binfmt_misc/qemu-aarch64 /proc/sys/fs/binfmt_misc/qemu-ppc64le
 
       - name: Build kno
         run: go build -o "$RUNNER_TEMP/kno" ./cmd/kno
