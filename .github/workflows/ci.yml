@@ -91,7 +91,7 @@ jobs:
       - name: Register qemu, so a container can build each node's architecture
         run: |
           if ! ls /proc/sys/fs/binfmt_misc/qemu-aarch64 /proc/sys/fs/binfmt_misc/qemu-ppc64le >/dev/null 2>&1; then
-            sudo apt-get update && sudo apt-get install -y qemu-user-static
+            sudo apt-get update && sudo apt-get install -y qemu-user-binfmt
           fi
 
       - name: Build the release twice and compare every file
@@ -114,7 +114,7 @@ jobs:
       - name: Register qemu, so a container can run each node's architecture
         run: |
           if ! ls /proc/sys/fs/binfmt_misc/qemu-ppc64le >/dev/null 2>&1; then
-            sudo apt-get update && sudo apt-get install -y qemu-user-static
+            sudo apt-get update && sudo apt-get install -y qemu-user-binfmt
           fi
 
       - name: Build kno
