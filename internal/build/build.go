@@ -201,6 +201,9 @@ func (o Options) platforms() []compile.Platform {
 	}
 	covered := map[string]bool{}
 	for _, svc := range o.Services {
+		if !BackendFormats(o.Repo, o.Network, []string{svc})["deb"] {
+			continue
+		}
 		node, _ := nodefile.NodeOf(svc)
 		a := config.NodeArch(o.Repo, o.Network, node)
 		if a == "" || !arches[a] {

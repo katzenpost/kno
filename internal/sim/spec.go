@@ -164,7 +164,7 @@ func (r *run) deriveSpec() ([]daemon, error) {
 		out = append(out, daemon{Ctr: ctr, IP: ip, Base: base, Bin: bin,
 			DataSrc: prefix + "-" + ident,
 			Arch:    config.NodeArch(r.Repo, r.Network, node),
-			OS:      config.NodeOS(r.Repo, r.Network, node)})
+			OS:      r.containerOS(node)})
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no *-pq-*.toml configs in %s (run 'configs' first)", r.cfg)

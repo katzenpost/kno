@@ -38,9 +38,20 @@ func (r *run) daemonsOf() ([]daemon, error) {
 		node := nodeOf(s)
 		out = append(out, daemon{Base: s,
 			Arch: config.NodeArch(r.Repo, r.Network, node),
-			OS:   config.NodeOS(r.Repo, r.Network, node)})
+			OS:   r.containerOS(node)})
 	}
 	return out, nil
+}
+
+func (r *run) containerOS(node string) string {
+	name := config.NodeOS(r.Repo, r.Network, node)
+	if !strings.HasPrefix(name, "freebsd-") {
+		return name
+	}
+	if r.log.W != nil {
+		r.log.Logf("%s runs %s; the sim runs it in a Linux container, because it boots no FreeBSD guest yet", node, name)
+	}
+	return config.NodeOS(r.Repo, r.Network, "")
 }
 
 func (r *run) neededPlatforms(ds []daemon) []platform {
