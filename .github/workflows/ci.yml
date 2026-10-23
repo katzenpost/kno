@@ -88,6 +88,12 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Remove the runner's unused toolchains and images, for disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
+          docker image prune -af >/dev/null
+          df -h /
+
       - name: Register qemu, so a container can build each node's architecture
         run: |
           if ! ls /proc/sys/fs/binfmt_misc/qemu-aarch64 /proc/sys/fs/binfmt_misc/qemu-ppc64le >/dev/null 2>&1; then
@@ -110,6 +116,12 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+
+      - name: Remove the runner's unused toolchains and images, for disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
+          docker image prune -af >/dev/null
+          df -h /
 
       - name: Register qemu, so a container can run each node's architecture
         run: |
