@@ -4,9 +4,11 @@
   "written": "2026-10-20T07:12:37Z",
   "packages": [
     {
-      "name": "namenlos-config-allmixedup-pq-gatewaynode-0.0.107.20260908113702.g3d6b2ff.pkg",
-      "sha256": "e5bd05d0b65e4a413ca97a6e4c29084aae90276b169c468469c1e93325b585ef",
-      "bytes": 10131
+      "name": "namenlos-config-allmixedup-pq-gatewaynode-0.0.107.20261023180000.g7f835bb.pkg",
+      "version": "0.0.107.20261023180000.g7f835bb",
+      "sha256": "0a9c82209a38a9cd19ba7acc9ef3e7c7bb2e027e7806c7682ed64f6e57775ee4",
+      "bytes": 9918,
+      "content": "0c0104a4fabb4e003579181664f20f38"
     }
   ]
 }
