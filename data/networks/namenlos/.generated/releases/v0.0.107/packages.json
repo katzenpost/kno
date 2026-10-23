@@ -1,0 +1,125 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.107",
+  "written": "2026-10-20T07:12:37Z",
+  "source_date_epoch": "1792480357",
+  "tool_revision": "1",
+  "inputs": {
+    "katzenpost_ref": "v0.0.107",
+    "katzenpost_sha": "6f6b13d4524ec2da68ca3ba18fefe4a181af8a04",
+    "hpqc_ref": "v0.0.93",
+    "hpqc_sha": "d836052c3ad7461abc2bdb02a7e0867b88665123",
+    "go_version": "1.26.10",
+    "build_image": "docker.io/library/golang@sha256:ee3901c61e423732605a51f1b8157c849ec01194ea0a274213b5202b2c11e7bf",
+    "deb_image": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+    "tool": "0.0.107-1+20261023111050.gfe8934b"
+  },
+  "packages": [
+    {
+      "name": "katzenpost-0.0.107-debian13-amd64.tar.gz",
+      "sha256": "772d3a308862ecb4ce4211434d1dfdbc3d234ea6e6502ab9fc0608557c99c4d5",
+      "bytes": 115915162
+    },
+    {
+      "name": "katzenpost-0.0.107-debian13-arm64.tar.gz",
+      "sha256": "715a070d51112a57849101d028eeba74ffd727ddf1fc60f88760fba0889d7023",
+      "bytes": 96278568
+    },
+    {
+      "name": "katzenpost-0.0.107-freebsd-amd64.tar.gz",
+      "sha256": "02ff05c4bcaabcb9bbcdd64d1b7f91cca67ff47c3ed0466d8ff160653d541e92",
+      "bytes": 99827297
+    },
+    {
+      "name": "katzenpost-0.0.107-ubuntu24.04-amd64.tar.gz",
+      "sha256": "cbbd7d2f058e2a6274f1ceeba043c2862fe6e92a7e18c56169dd78afee13e55b",
+      "bytes": 118069952
+    },
+    {
+      "name": "katzenpost-0.0.107-ubuntu25.04-amd64.tar.gz",
+      "sha256": "ca269cb9abe77be0dea1c55639ae9b9ca781d657f6d4430f1a786e45f40f70a7",
+      "bytes": 116021451
+    },
+    {
+      "name": "katzenpost-0.0.107-ubuntu26.04-ppc64el.tar.gz",
+      "sha256": "82a08928a008a8d1a3f2bb0ecb293f30e3ee896f39ed32686f42882823eba0c2",
+      "bytes": 107941326
+    },
+    {
+      "name": "katzenpost-0.0.107.pkg",
+      "sha256": "f859cdf05bda3bf3d1a11d47cf3ed27026dd918811fbd8ab56b13af6056dc080",
+      "bytes": 92423238
+    },
+    {
+      "name": "katzenpost_0.0.107+debian13_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.107",
+      "sha256": "445f8405bbcc9eedd1a14a8c055cbee7b1827dfffabcd40a0ec2326171646d8a",
+      "bytes": 83796944,
+      "content": "445f8405bbcc9eedd1a14a8c055cbee7b1827dfffabcd40a0ec2326171646d8a",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    },
+    {
+      "name": "katzenpost_0.0.107+debian13_arm64.deb",
+      "arch": "arm64",
+      "version": "0.0.107",
+      "sha256": "73f4ba264f4859858f437c13aae925d546fe024359b948773d644f6569bad035",
+      "bytes": 64803500,
+      "content": "73f4ba264f4859858f437c13aae925d546fe024359b948773d644f6569bad035",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    },
+    {
+      "name": "katzenpost_0.0.107+ubuntu24.04_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.107",
+      "sha256": "baf989899e8cc5685fa165a3f5b02eb3c7ff01e3f6d85f9e9b2acc1668b13286",
+      "bytes": 92288302,
+      "content": "baf989899e8cc5685fa165a3f5b02eb3c7ff01e3f6d85f9e9b2acc1668b13286",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    },
+    {
+      "name": "katzenpost_0.0.107+ubuntu25.04_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.107",
+      "sha256": "6ee6a3b6cdaba68ba69b6caca69b30c71509e51c55bd633cd1593b872689ab36",
+      "bytes": 90744920,
+      "content": "6ee6a3b6cdaba68ba69b6caca69b30c71509e51c55bd633cd1593b872689ab36",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    },
+    {
+      "name": "katzenpost_0.0.107+ubuntu26.04_ppc64el.deb",
+      "arch": "ppc64el",
+      "version": "0.0.107",
+      "sha256": "4c6c0b765ed12c799f3fc4e72efc50ddd15ebf19084e83b40a7f2d4e3a014745",
+      "bytes": 82300114,
+      "content": "4c6c0b765ed12c799f3fc4e72efc50ddd15ebf19084e83b40a7f2d4e3a014745",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst",
+        "prerm"
+      ]
+    },
+    {
+      "name": "namenlos-config-kpclientd-0.0.107.pkg",
+      "sha256": "b3654ba7936240acfeeefb5c8827a5397c0077b4a8d01d4e65ed561f3356a929",
+      "bytes": 575
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.107",
+  "written": "2026-10-20T07:12:37Z",
+  "packages": [
+    {
+      "name": "namenlos-config-windfall-pq-authority_0.0.107-1+20260908113702.g3d6b2ff_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.107-1+20260908113702.g3d6b2ff",
+      "sha256": "eb2e83a2e0174eb9fdc5572b7a821ca150bba5cb59e9e04525d420e743aa4a15",
+      "bytes": 14492,
+      "content": "b40a7fb784953f40542ec9356899bcf5",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    },
+    {
+      "name": "namenlos-config-windfall-pq-gatewaynode_0.0.107-1+20260908113702.g3d6b2ff_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.107-1+20260908113702.g3d6b2ff",
+      "sha256": "52c08db599bc99610805a50b4627583b0edb5adc436b53aab2b597057f93c4ba",
+      "bytes": 13892,
+      "content": "17d6c8274814e2440ae2ca311e58c33f",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    },
+    {
+      "name": "namenlos-config-windfall-pq-mixserver_0.0.107-1+20260908113702.g3d6b2ff_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.107-1+20260908113702.g3d6b2ff",
+      "sha256": "4a89f9deb04079208030bdcda8bf98b775896d513a87d22bb426eaa227fd33b8",
+      "bytes": 13836,
+      "content": "69decfe81226bb6d41edefb15260415c",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    },
+    {
+      "name": "namenlos-config-windfall-pq-servicenode_0.0.107-1+20260908113702.g3d6b2ff_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.107-1+20260908113702.g3d6b2ff",
+      "sha256": "b24b968742e00eb61f9af36af777f7da0dc652afa015864fc4902b9bd2131cb1",
+      "bytes": 15632,
+      "content": "246dfbdff0dd2d723130d5d9ea6295c9",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    },
+    {
+      "name": "namenlos-config-windfall-pq-storagenode-2_0.0.107-1+20260908113702.g3d6b2ff_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.107-1+20260908113702.g3d6b2ff",
+      "sha256": "c98d8a842546bc78d20dbacd13de34cc3c552c7694245a17087140c4cc272d2b",
+      "bytes": 12284,
+      "content": "627b4dcc7dcd2099153259c68a9a6a80",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}
