@@ -133,7 +133,7 @@ fi
 if [ "${GATES_SKIP_SIM:-0}" = 1 ]; then
 	echo "skip  kno sim validate (GATES_SKIP_SIM=1)"
 elif [ -n "$bin" ]; then
-	if KNO_ARTIFACTS="$work/artifacts" KNO_REPO="$PWD" "$bin" build --binary-only >"$work/sim.log" 2>&1 &&
+	if KNO_ARTIFACTS="$work/artifacts" KNO_REPO="$PWD" "$bin" build --binary-only --arches "$(go env GOARCH)" >"$work/sim.log" 2>&1 &&
 		KNO_ARTIFACTS="$work/artifacts" KNO_REPO="$PWD" "$bin" sim validate >>"$work/sim.log" 2>&1; then
 		pass "kno sim validate"
 	else

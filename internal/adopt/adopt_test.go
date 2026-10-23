@@ -41,6 +41,10 @@ func commit(t *testing.T, dir, path, body, msg string) {
 
 func fixture(t *testing.T) (track.Env, string) {
 	t.Helper()
+	for k, v := range map[string]string{"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@invalid",
+		"GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@invalid"} {
+		t.Setenv(k, v)
+	}
 	kp := t.TempDir()
 	gitT(t, kp, "init", "-q", "-b", "main")
 	commit(t, kp, "a", "1", "one")

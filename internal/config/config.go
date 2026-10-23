@@ -764,7 +764,7 @@ func NodeOS(repo, network, node string) string {
 	if a.DefaultOS != "" {
 		return a.DefaultOS
 	}
-	return "debian-12"
+	return "debian-13"
 }
 
 func shQuote(s string) string {

@@ -69,7 +69,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Build the katzenpost package for this runner
-        run: go run ./cmd/kno build --binary-only
+        run: go run ./cmd/kno build --binary-only --arches "$(go env GOARCH)"
 
       - name: Load every rendered config with its own daemon
         run: go run ./cmd/kno sim validate
