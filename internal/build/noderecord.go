@@ -12,6 +12,11 @@ import (
 
 const NodesDir = "nodes"
 
+const (
+	NativeBuild = "native"
+	CrossBuild  = "cross"
+)
+
 func NodeOfPackage(name string) string {
 	svc, ok := configPkgService(name)
 	if !ok {
@@ -45,9 +50,30 @@ func nodeRecordDirs(dir string) []string {
 	return out
 }
 
-func committedEntries(repo, network, tag string) ([]PackageSum, error) {
-	sums, _ := CommittedSums(repo, network, tag)
-	entries, err := SumsEntries(sums)
+func (s PackageSums) kind() string {
+	if s.Build == "" {
+		return NativeBuild
+	}
+	return s.Build
+}
+
+func buildKind(dir string) string {
+	m, _ := LoadManifest(filepath.Join(dir, ManifestName))
+	return m.kind()
+}
+
+func kindDir(repo, network, tag, kind string) string {
+	dir := CommittedDir(repo, network, tag)
+	_, err := os.Stat(filepath.Join(dir, SumsName))
+	if err != nil || buildKind(dir) == kind {
+		return dir
+	}
+	return filepath.Join(dir, kind)
+}
+
+func committedEntries(repo, network, tag, kind string) ([]PackageSum, error) {
+	top := filepath.Join(kindDir(repo, network, tag, kind), SumsName)
+	entries, err := SumsEntries(top)
 	if err != nil {
 		return nil, err
 	}

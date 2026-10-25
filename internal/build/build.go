@@ -67,6 +67,20 @@ type Options struct {
 	Verbose bool
 
 	Native bool
+
+	Qemu bool
+}
+
+func (o Options) kind() string {
+	if o.Native || o.Qemu || runtime.GOARCH != "amd64" {
+		return NativeBuild
+	}
+	for _, pf := range o.platforms() {
+		if pf.Arch != "amd64" {
+			return CrossBuild
+		}
+	}
+	return NativeBuild
 }
 
 func upstreamWork(o Options, pf compile.Platform) string {
@@ -240,9 +254,11 @@ func (o Options) PrepareImages(w io.Writer) error {
 		return err
 	}
 	pfs := o.platforms()
+	kind := o.kind()
 	for _, pf := range pfs {
 		u := upstreamDeb{Repo: o.Repo, Work: upstreamWork(o, pf), Arch: pf.Arch, OS: pf.OS,
-			Pins: pins, Out: w, Verbose: o.Verbose}
+			Pins: pins, Out: w, Verbose: o.Verbose,
+			Cross: kind == CrossBuild && pf.Arch != "amd64"}
 		if _, err := u.image(context.Background()); err != nil {
 			return err
 		}
@@ -265,6 +281,7 @@ func (o Options) stampIn(kno string) stampInputs {
 		BinaryOnly: o.BinaryOnly, Warped: o.Warped, Kno: kno,
 		Epoch: epochFor(o), RecordPins: release.Pins(o.Repo, o.Network, o.Tag),
 		Peers: o.Peers, HostConfigs: o.hostConfigDigests(),
+		Kind: o.kind(),
 	}
 }
 
@@ -456,10 +473,10 @@ func Build(o Options) ([]string, error) {
 			return nil, err
 		}
 		recorded := map[string]string{}
-		if entries, err := committedEntries(o.Repo, o.Network, o.Tag); err == nil {
-			for _, e := range entries {
-				recorded[e.Name] = e.Sha256
-			}
+		kind := o.kind()
+		entries, _ := committedEntries(o.Repo, o.Network, o.Tag, kind)
+		for _, e := range entries {
+			recorded[e.Name] = e.Sha256
 		}
 		tasks := make([]parallel.Task, len(platforms))
 		for i, pf := range platforms {
@@ -475,7 +492,7 @@ func Build(o Options) ([]string, error) {
 					Repo: o.Repo, Src: filepath.Join(work, "katzenpost"), Work: upstreamWork(o, pf), Tag: o.Tag,
 					Arch: pf.Arch, OS: pf.OS, Pins: pins,
 					ModCache: modCache, GoCache: buildCache, Out: os.Stderr, Verbose: o.Verbose,
-					Offline: o.Offline,
+					Offline: o.Offline, Cross: kind == CrossBuild && pf.Arch != "amd64",
 				}.Build(ctx)
 				if err != nil {
 					return err

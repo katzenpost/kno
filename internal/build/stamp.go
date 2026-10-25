@@ -34,6 +34,8 @@ type stampInputs struct {
 	Peers      map[string]string
 
 	HostConfigs map[string]string
+
+	Kind string
 }
 
 func stamp(in stampInputs) string {
@@ -48,6 +50,9 @@ func stamp(in stampInputs) string {
 		fmt.Fprintf(h, "%s\n", strings.Join(s, ","))
 	}
 	fmt.Fprintf(h, "epoch=%s\n", in.Epoch)
+	if in.Kind == CrossBuild {
+		fmt.Fprintf(h, "kind=%s\n", in.Kind)
+	}
 	for _, k := range sortedKeys(in.Peers) {
 		fmt.Fprintf(h, "peer=%s=%s\n", k, in.Peers[k])
 	}

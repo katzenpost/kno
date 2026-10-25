@@ -28,13 +28,13 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Install the linters the gates run
+      - name: install linters
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
           go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@v0.52.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Everything the pre-commit hook runs, and the rest
+      - name: gates
         run: make test
 
   install:
@@ -51,7 +51,7 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Build kno's packages, and install them in a container
+      - name: install test
         run: make install-test
 
   sim:
@@ -68,10 +68,10 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Build the katzenpost package for this runner
+      - name: build katzenpost
         run: go run ./cmd/kno build --binary-only --arches "$(go env GOARCH)"
 
-      - name: Load every rendered config with its own daemon
+      - name: validate configs
         run: go run ./cmd/kno sim validate
 
   repro:
@@ -88,21 +88,13 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Remove the runner's unused toolchains and images, for disk space
+      - name: free disk
+        if: ${{ !env.ACT }}
         run: |
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
           docker image prune -af >/dev/null
-          df -h /
 
-      - name: Register qemu 11.1.2 from polyarch, so a container can build each node's architecture
-        run: |
-          img=docker.io/polyarch/qemu-user-static@sha256:1f1c20bb35e5fbe18a9e0de7883b3fa2267af0427dba4bdab9b7fd77a0594b4a
-          docker run --rm --privileged "$img" --reset -p yes
-          docker run --rm --entrypoint /usr/bin/qemu-ppc64le-static "$img" --version | head -1
-          docker rmi "$img" >/dev/null
-          head -3 /proc/sys/fs/binfmt_misc/qemu-aarch64 /proc/sys/fs/binfmt_misc/qemu-ppc64le
-
-      - name: Build the release twice and compare every file
+      - name: repro
         run: KNO_ARTIFACTS="$RUNNER_TEMP/artifacts" make repro
 
   simnet:
@@ -119,27 +111,32 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Remove the runner's unused toolchains and images, for disk space
+      - name: free disk
+        if: ${{ !env.ACT }}
         run: |
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
           docker image prune -af >/dev/null
-          df -h /
 
-      - name: Register qemu 11.1.2 from polyarch, so a container can run each node's architecture
+      - name: register qemu
+        if: ${{ !env.ACT }}
         run: |
           img=docker.io/polyarch/qemu-user-static@sha256:1f1c20bb35e5fbe18a9e0de7883b3fa2267af0427dba4bdab9b7fd77a0594b4a
           docker run --rm --privileged "$img" --reset -p yes
-          docker run --rm --entrypoint /usr/bin/qemu-ppc64le-static "$img" --version | head -1
-          docker rmi "$img" >/dev/null
-          head -3 /proc/sys/fs/binfmt_misc/qemu-aarch64 /proc/sys/fs/binfmt_misc/qemu-ppc64le
 
-      - name: Build kno
+      - name: build kno
         run: go build -o "$RUNNER_TEMP/kno" ./cmd/kno
 
-      - name: Boot namenlos on each node's platform, with fresh keys
+      - name: apparmor pasta fixup
+        if: ${{ !env.ACT }}
+        run: |
+          p=/etc/apparmor.d/usr.bin.pasta
+          sudo sed -i 's/^}$/  signal receive set=term peer=podman,\n}/' "$p"
+          sudo apparmor_parser -r "$p"
+
+      - name: sim
         run: '"$RUNNER_TEMP/kno" sim all --emulate --epoch 5m --net cisim'
 
-      - name: A broken config fails the sim
+      - name: sim mutation
         run: |
           KNO="$RUNNER_TEMP/kno" SIM_PKGS="/var/tmp/kno-sim-$(id -u)-cisim/pkgs" \
             sh scripts/sim-mutation.sh

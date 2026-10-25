@@ -24,6 +24,7 @@ type upstreamDeb struct {
 	ModCache, GoCache string
 	Out               io.Writer
 	Verbose, Offline  bool
+	Cross             bool
 }
 
 func (u upstreamDeb) imageArgs() ([]string, string, error) {
@@ -31,7 +32,10 @@ func (u upstreamDeb) imageArgs() ([]string, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	base, err := compile.BaseImageFor(u.Arch, u.OS)
+	if u.Cross {
+		goarch = "amd64"
+	}
+	base, err := compile.BaseImageFor(goarch, u.OS)
 	if err != nil {
 		return nil, "", err
 	}
@@ -62,10 +66,20 @@ func (u upstreamDeb) image(ctx context.Context) (string, error) {
 	}
 	quiet := u
 	quiet.Verbose = false
+	defer lockImage(image)()
 	if err := quiet.run(ctx, append(args, ctxDir)...); err != nil {
 		return "", fmt.Errorf("katzenpost build image (%s %s): %w", u.OS, u.Arch, err)
 	}
 	return image, nil
+}
+
+var imageLocks sync.Map
+
+func lockImage(tag string) func() {
+	m, _ := imageLocks.LoadOrStore(tag, &sync.Mutex{})
+	mu := m.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
 }
 
 func (u upstreamDeb) run(ctx context.Context, argv ...string) error {
@@ -194,8 +208,17 @@ func builtDeb(tree, arch string) (string, error) {
 }
 
 func (u upstreamDeb) runArgs(goarch, tree, image string) []string {
-	args := []string{"run", "--rm", "--platform", "linux/" + goarch,
+	platform, script := goarch, "packaging/debian/build.sh"
+	if u.Cross {
+		platform, script = "amd64", script+" -a "+u.Arch
+	}
+	args := []string{"run", "--rm", "--platform", "linux/" + platform,
 		"-v", compile.MustMount(tree, "/src"), "-w", "/src"}
+	if u.Cross {
+		_, cc, _ := compile.ArchToGo(u.Arch)
+		args = append(args, "-e", "GOARCH="+goarch,
+			"-e", "CGO_ENABLED=1", "-e", "CC="+cc)
+	}
 	if u.ModCache != "" {
 		args = append(args, "-v", compile.MustMount(u.ModCache, "/gomod"), "-e", "GOMODCACHE=/gomod")
 	}
@@ -205,7 +228,7 @@ func (u upstreamDeb) runArgs(goarch, tree, image string) []string {
 	if u.Offline {
 		args = append(args, "--network", "none", "-e", "GOPROXY=off")
 	}
-	return append(args, image, "sh", "-c", "packaging/debian/build.sh")
+	return append(args, image, "sh", "-c", script)
 }
 
 func debField(path, field string) (string, error) {

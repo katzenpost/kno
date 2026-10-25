@@ -229,7 +229,7 @@ ci:
 	[ -S "$$socket" ] || { echo "podman socket unavailable: $$socket" >&2; \
 		echo 'start it with: systemctl --user start podman.socket' >&2; exit 1; }; \
 	mkdir -p .ci-local/go-mod .ci-local/go-build .ci-local/artifacts; \
-	$(ACT) -P ubuntu-latest=$(CI_LOCAL_IMAGE) --rm --concurrent-jobs 1 \
+	$(ACT) -P ubuntu-26.04=$(CI_LOCAL_IMAGE) --rm --concurrent-jobs 1 \
 		--pull=false --privileged --network $(CI_LOCAL_NETWORK) \
 		--container-daemon-socket "$$endpoint" \
 		--container-options '--volume $(CURDIR)/.ci-local:$(CURDIR)/.ci-local' \

@@ -29,6 +29,8 @@ type PackageSums struct {
 
 	ToolRevision string `json:"tool_revision,omitempty"`
 
+	Build string `json:"build,omitempty"`
+
 	Inputs *BuildInputs `json:"inputs,omitempty"`
 
 	Simulation json.RawMessage `json:"simulation,omitempty"`
@@ -159,6 +161,9 @@ func recordAndVerify(o Options, pkgs []string) error {
 			return fmt.Errorf("hashing packages: %w", err)
 		}
 		sums.ToolRevision = o.toolRevision()
+		if k := o.kind(); k != NativeBuild {
+			sums.Build = k
+		}
 		sums = sums.Merge(Existing(dir.dir))
 		if err := WriteSums(dir.dir, sums); err != nil {
 			return fmt.Errorf("writing %s: %w", SumsName, err)

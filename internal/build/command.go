@@ -33,6 +33,7 @@ type flags struct {
 	skipFbsd, skipDocker                    bool
 	skipTarball                             bool
 	native, dry, verbose                    bool
+	qemu                                    bool
 	imagesOnly                              bool
 	force                                   bool
 }
@@ -71,6 +72,8 @@ func Command() *cobra.Command {
 	f.BoolVar(&v.skipTarball, "skip-tarball", false, "do not build the binary and source tarballs")
 	f.BoolVar(&v.native, "native", compile.NativeBuild(),
 		"build with the host Go toolchain and emit the host package format, no container; default on freebsd")
+	f.BoolVar(&v.qemu, "qemu", false, "build each katzenpost package in a"+
+		" container of its own arch under qemu, not with a cross compiler")
 	f.BoolVar(&v.imagesOnly, "images", false,
 		"prepare the build images for the selected hosts and stop")
 
@@ -432,6 +435,7 @@ func runBuild(cmd *cobra.Command, v flags) {
 		Revision:     rev,
 		ToolRevision: toolRev,
 		Native:       v.native,
+		Qemu:         v.qemu,
 
 		SkipFreeBSD: v.skipFbsd || os.Getenv("KNO_SKIP_FREEBSD") == "1" || v.binOnly,
 		SkipDocker:  v.skipDocker || os.Getenv("KNO_SKIP_DOCKER") == "1" || v.binOnly,

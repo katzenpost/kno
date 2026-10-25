@@ -76,14 +76,16 @@ func (d CommittedDiff) Empty() bool {
 
 func DiffAgainstCommitted(repo, network, tag, dir, allowlist string) (CommittedDiff, error) {
 	var d CommittedDiff
-	sums, sig := CommittedSums(repo, network, tag)
+	kind := buildKind(dir)
+	sums := filepath.Join(kindDir(repo, network, tag, kind), SumsName)
 	if _, err := os.Stat(sums); err != nil {
 		return d, fmt.Errorf("%w: %s", ErrNoCommittedSums, sums)
 	}
+	sig := sums + ".sig"
 	if err := checkCommittedSignature(sums, sig, allowlist, tag); err != nil {
 		return d, err
 	}
-	entries, err := committedEntries(repo, network, tag)
+	entries, err := committedEntries(repo, network, tag, kind)
 	if err != nil {
 		return d, err
 	}
@@ -223,7 +225,8 @@ func record(repo, network, tag, dir string, prune bool) ([]string, error) {
 	}
 	fresh.Packages = keep
 
-	out := CommittedDir(repo, network, tag)
+	base := CommittedDir(repo, network, tag)
+	out := kindDir(repo, network, tag, fresh.kind())
 	freshTop, freshNodes := splitByNode(fresh.Packages)
 	oldTop, legacy := splitByNode(recordedFlat(out))
 	var wrote []string
@@ -251,7 +254,7 @@ func record(repo, network, tag, dir string, prune bool) ([]string, error) {
 	for n := range legacy {
 		nodes[n] = true
 	}
-	for _, d := range nodeRecordDirs(out) {
+	for _, d := range nodeRecordDirs(base) {
 		nodes[filepath.Base(d)] = true
 	}
 	names := make([]string, 0, len(nodes))
@@ -260,7 +263,7 @@ func record(repo, network, tag, dir string, prune bool) ([]string, error) {
 	}
 	sort.Strings(names)
 	for _, node := range names {
-		dir := NodeRecordDir(out, node)
+		dir := NodeRecordDir(base, node)
 		if prune && len(freshNodes[node]) == 0 {
 			if _, err := os.Stat(dir); err == nil {
 				if err := os.RemoveAll(dir); err != nil {
