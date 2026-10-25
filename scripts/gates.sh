@@ -97,7 +97,9 @@ else
 	tmp=$(mktemp -d /var/tmp/kg.XXXXXX)
 	mkdir "$tmp/real"
 	ln -s real "$tmp/l"
-	if TMPDIR="$tmp/l" go test ./... >/tmp/kno-gates-test.$$ 2>&1; then
+	printf '[maintenance]\n\tauto = false\n' >"$tmp/gitconfig"
+	if GIT_CONFIG_GLOBAL="$tmp/gitconfig" TMPDIR="$tmp/l" \
+		go test ./... >/tmp/kno-gates-test.$$ 2>&1; then
 		pass "go test (TMPDIR behind a symlink, as /var on macOS)"
 	else
 		fail "go test"
