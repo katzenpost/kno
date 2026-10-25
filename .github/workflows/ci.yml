@@ -137,7 +137,7 @@ jobs:
         run: go build -o "$RUNNER_TEMP/kno" ./cmd/kno
 
       - name: Boot namenlos on each node's platform, with fresh keys
-        run: '"$RUNNER_TEMP/kno" sim all --emulate --epoch 2m --net cisim'
+        run: '"$RUNNER_TEMP/kno" sim all --emulate --epoch 5m --net cisim'
 
       - name: A broken config fails the sim
         run: |
