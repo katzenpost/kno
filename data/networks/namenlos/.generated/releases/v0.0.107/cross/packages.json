@@ -1,0 +1,122 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.107",
+  "written": "2026-10-20T07:12:37Z",
+  "source_date_epoch": "1792480357",
+  "tool_revision": "1",
+  "build": "cross",
+  "inputs": {
+    "katzenpost_ref": "v0.0.107",
+    "katzenpost_sha": "6f6b13d4524ec2da68ca3ba18fefe4a181af8a04",
+    "hpqc_ref": "v0.0.93",
+    "hpqc_sha": "d836052c3ad7461abc2bdb02a7e0867b88665123",
+    "go_version": "1.26.10",
+    "build_image": "docker.io/library/golang@sha256:ee3901c61e423732605a51f1b8157c849ec01194ea0a274213b5202b2c11e7bf",
+    "deb_image": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+    "tool": "0.0.107-1+20261025221704.g8526ce3"
+  },
+  "packages": [
+    {
+      "name": "katzenpost-0.0.107-debian13-amd64.tar.gz",
+      "sha256": "772d3a308862ecb4ce4211434d1dfdbc3d234ea6e6502ab9fc0608557c99c4d5",
+      "bytes": 115915162
+    },
+    {
+      "name": "katzenpost-0.0.107-debian13-arm64.tar.gz",
+      "sha256": "4747d4bc033d4ce3e7d4c3999c1ea79e5c99710b17286a6f7e46d6b16d7419af",
+      "bytes": 96283677
+    },
+    {
+      "name": "katzenpost-0.0.107-freebsd-amd64.tar.gz",
+      "sha256": "dfe015348246e2f0eaac5df42e05daca86a9f14bb9dc41c079739392ebc2e608",
+      "bytes": 99790709
+    },
+    {
+      "name": "katzenpost-0.0.107-ubuntu24.04-amd64.tar.gz",
+      "sha256": "cbbd7d2f058e2a6274f1ceeba043c2862fe6e92a7e18c56169dd78afee13e55b",
+      "bytes": 118069952
+    },
+    {
+      "name": "katzenpost-0.0.107-ubuntu25.04-amd64.tar.gz",
+      "sha256": "ca269cb9abe77be0dea1c55639ae9b9ca781d657f6d4430f1a786e45f40f70a7",
+      "bytes": 116021451
+    },
+    {
+      "name": "katzenpost-0.0.107-ubuntu26.04-ppc64el.tar.gz",
+      "sha256": "7b6d33a4887eb55bb139e0c8f10fd2ac2a1866a4fd93df7af56ecbc2ef353a29",
+      "bytes": 107941357
+    },
+    {
+      "name": "katzenpost-0.0.107.pkg",
+      "version": "0.0.107",
+      "sha256": "93a37383954b0fff9ab042176cc82a9fedf4d4359969496640d380031be5c4cf",
+      "bytes": 92422672
+    },
+    {
+      "name": "katzenpost_0.0.107+debian13_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.107",
+      "sha256": "445f8405bbcc9eedd1a14a8c055cbee7b1827dfffabcd40a0ec2326171646d8a",
+      "bytes": 83796944,
+      "content": "445f8405bbcc9eedd1a14a8c055cbee7b1827dfffabcd40a0ec2326171646d8a",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    },
+    {
+      "name": "katzenpost_0.0.107+debian13_arm64.deb",
+      "arch": "arm64",
+      "version": "0.0.107",
+      "sha256": "2712c8be2431009201770a7e57962a2ec01145d814aeb47fdfbfede18d178743",
+      "bytes": 64807036,
+      "content": "2712c8be2431009201770a7e57962a2ec01145d814aeb47fdfbfede18d178743",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    },
+    {
+      "name": "katzenpost_0.0.107+ubuntu24.04_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.107",
+      "sha256": "baf989899e8cc5685fa165a3f5b02eb3c7ff01e3f6d85f9e9b2acc1668b13286",
+      "bytes": 92288302,
+      "content": "baf989899e8cc5685fa165a3f5b02eb3c7ff01e3f6d85f9e9b2acc1668b13286",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    },
+    {
+      "name": "katzenpost_0.0.107+ubuntu25.04_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.107",
+      "sha256": "6ee6a3b6cdaba68ba69b6caca69b30c71509e51c55bd633cd1593b872689ab36",
+      "bytes": 90744920,
+      "content": "6ee6a3b6cdaba68ba69b6caca69b30c71509e51c55bd633cd1593b872689ab36",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    },
+    {
+      "name": "katzenpost_0.0.107+ubuntu26.04_ppc64el.deb",
+      "arch": "ppc64el",
+      "version": "0.0.107",
+      "sha256": "6a0d70df8c8defebb2de1bde2b425853790dffb10d8b43b8ca4c58570ccbc2e6",
+      "bytes": 82300476,
+      "content": "6a0d70df8c8defebb2de1bde2b425853790dffb10d8b43b8ca4c58570ccbc2e6",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}
