@@ -2,12 +2,13 @@ package activate
 
 import (
 	"context"
-	"github.com/katzenpost/kno/internal/compile"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/katzenpost/kno/internal/compile"
 
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/release"
@@ -35,6 +36,21 @@ func stageRelease(t *testing.T, svcs ...string) string {
 		}
 	}
 	return rel
+}
+
+func fakeRepo(t *testing.T, frags map[string]string) string {
+	t.Helper()
+	repo := t.TempDir()
+	dir := filepath.Join(repo, "networks", "namenlos", ".generated", "services")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for svc, frag := range frags {
+		if err := os.WriteFile(filepath.Join(dir, svc+".conf"), []byte(frag), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return repo
 }
 
 func mkpkgs(t *testing.T, rel string, names ...string) {
@@ -321,10 +337,8 @@ func TestDockerPlanRefusesIncompleteService(t *testing.T) {
 	}
 	frag := "BACKEND=\"docker\"\nUNIT=\"kp\"\nCONFIG_SRC=\"configs/x-pq-mixserver.toml\"\n" +
 		"CONFIG_DST=\"/conf/katzenpost.toml\"\nDOCKER_DIR=\"/opt/kp\"\nDOCKER_IMAGE=\"\"\nDOCKER_CONTAINER=\"kp\"\n"
-	if err := os.WriteFile(filepath.Join(rel, "manifest", "x-pq-mixserver.conf"), []byte(frag), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	_, err := PlanFor(Options{Rel: rel, Tag: testTag, Services: []string{"x-pq-mixserver"}})
+	repo := fakeRepo(t, map[string]string{"x-pq-mixserver": frag})
+	_, err := PlanFor(Options{Rel: rel, Tag: testTag, Repo: repo, Services: []string{"x-pq-mixserver"}})
 	if err == nil || !strings.Contains(err.Error(), "needs DOCKER_IMAGE") {
 		t.Fatalf("expected a DOCKER_IMAGE error, got %v", err)
 	}
@@ -333,7 +347,7 @@ func TestDockerPlanRefusesIncompleteService(t *testing.T) {
 func TestPlanRefusesWithoutServicesOrRelease(t *testing.T) {
 	rel := stageRelease(t, "mixy-pq-mixserver")
 	_, err := PlanFor(Options{Rel: rel, Tag: testTag})
-	if err == nil || !strings.Contains(err.Error(), "no services resolve for this machine") {
+	if err == nil || !strings.Contains(err.Error(), "no services resolve for this host") {
 		t.Fatalf("expected the service_list refusal, got %v", err)
 	}
 	_, err = PlanFor(Options{Rel: t.TempDir(), Tag: testTag, Services: []string{"mixy-pq-mixserver"}})
@@ -342,15 +356,12 @@ func TestPlanRefusesWithoutServicesOrRelease(t *testing.T) {
 	}
 }
 
-func TestReleaseBackendReadsTheStagedManifest(t *testing.T) {
-	if b := ReleaseBackend(stageRelease(t, "wauland-pq-authority")); b != "docker" {
+func TestTheBackendComesFromTheRepo(t *testing.T) {
+	if b := hostBackend(Options{Services: []string{"wauland-pq-authority"}}); b != "docker" {
 		t.Errorf("backend = %q, want docker", b)
 	}
-	if b := ReleaseBackend(stageRelease(t, "mixy-pq-mixserver")); b != "systemd" {
+	if b := hostBackend(Options{Services: []string{"mixy-pq-mixserver"}}); b != "systemd" {
 		t.Errorf("backend = %q, want systemd", b)
-	}
-	if b := ReleaseBackend(t.TempDir()); b != "systemd" {
-		t.Errorf("backend of an empty release = %q, want systemd", b)
 	}
 }
 
@@ -605,14 +616,15 @@ func TestTheOldStateIsCopiedForwardAndStaysInPlace(t *testing.T) {
 	}
 	root := t.TempDir()
 	old, cur := filepath.Join(root, "var/lib/pq-katzenpost-mixserver"), filepath.Join(root, "var/lib/katzenpost/server/x")
-	write(filepath.Join(rel, "manifest", "x-pq-gatewaynode.conf"), "BACKEND=\"systemd\"\nCONFIG_SRC=\"configs/x-pq-gatewaynode.toml\"\n"+
-		"STATE_DIR=\""+cur+"\"\nLEGACY_STATE_DIR=\""+old+"\"\n")
+	repo := fakeRepo(t, map[string]string{"x-pq-gatewaynode": "BACKEND=\"systemd\"\nCONFIG_SRC=\"configs/x-pq-gatewaynode.toml\"\n" +
+		"STATE_DIR=\"" + cur + "\"\nLEGACY_STATE_DIR=\"" + old + "\"\n"})
+	o := Options{Rel: rel, Repo: repo}
 	write(filepath.Join(rel, "configs", "x-pq-gatewaynode.toml"), "[Gateway.SpoolDB.Bolt]\n  SpoolDB = \""+cur+"/spool.db\"\n")
 	for _, f := range []string{"identity.private.pem", "link.private.pem", "spool.db", "users.db"} {
 		write(filepath.Join(old, f), "old "+f)
 	}
-	st, ok := copyForward(rel, "x-pq-gatewaynode")
-	if !ok {
+	st, ok, err := copyForward(o, "x-pq-gatewaynode")
+	if err != nil || !ok {
 		t.Fatal("no copy step for a service with an old state dir")
 	}
 	run := func() {
@@ -635,7 +647,15 @@ func TestTheOldStateIsCopiedForwardAndStaysInPlace(t *testing.T) {
 	if b, _ := os.ReadFile(filepath.Join(cur, "identity.private.pem")); string(b) != "old identity.private.pem" {
 		t.Errorf("a second run overwrote the key with %q", b)
 	}
-	if _, ok := copyForward(rel, "absent"); ok {
-		t.Error("a service with no manifest got a copy step")
+	if _, ok, _ := copyForward(o, "absent"); ok {
+		t.Error("a service that the repo does not name got a copy step")
 	}
+}
+
+func (p Plan) Argv() [][]string {
+	out := make([][]string, 0, len(p.Steps))
+	for _, s := range p.Steps {
+		out = append(out, s.Argv)
+	}
+	return out
 }

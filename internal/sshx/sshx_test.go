@@ -109,8 +109,8 @@ func TestControlDirIsPrivate(t *testing.T) {
 
 func TestNoMultiplexMeansNoControlPath(t *testing.T) {
 	t.Setenv("KNO_SSH_MULTIPLEX", "0")
-	if a := Args(); a != nil {
-		t.Errorf("Args() = %q, want none", a)
+	if a := strings.Join(Args(), " "); a != strings.Join(Bounds, " ") {
+		t.Errorf("Args() = %q, want only the timeouts", a)
 	}
 }
 
@@ -188,11 +188,20 @@ func TestQuoteSurvivesTheShell(t *testing.T) {
 func TestSSHWithOptionsIsSplitIntoWords(t *testing.T) {
 	t.Setenv("KNO_SSH_MULTIPLEX", "0")
 	got := SSH("ssh -p 2222 -o BatchMode=yes", "root@mixy", "true")
-	want := []string{"ssh", "-p", "2222", "-o", "BatchMode=yes", "root@mixy"}
+	want := append([]string{"ssh", "-p", "2222", "-o", "BatchMode=yes"}, append(Bounds, "root@mixy")...)
 	if len(got) != len(want)+1 || strings.Join(got[:len(want)], " ") != strings.Join(want, " ") {
 		t.Errorf("SSH = %q, want %q and the command", got, want)
 	}
 	if got := SSH("", "root@mixy", "true"); got[0] != "ssh" {
 		t.Errorf("an empty SSH gives %q", got)
+	}
+}
+
+func TestEverySSHCallHasTimeouts(t *testing.T) {
+	got := strings.Join(SSH("ssh", "h", "true"), " ")
+	for _, o := range []string{"ConnectTimeout=", "ServerAliveInterval=", "ServerAliveCountMax="} {
+		if !strings.Contains(got, o) {
+			t.Errorf("ssh has no %s: %s", o, got)
+		}
 	}
 }

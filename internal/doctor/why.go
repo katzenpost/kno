@@ -122,7 +122,7 @@ func reportWhy(r *Result, unit string, w unitWhy) {
 		r.line("       last error: errno=%d, which the service gave to systemd", w.Errno)
 	}
 	if w.Validation != "" {
-		r.line("       the config does not validate; the daemon says:")
+		r.line("       The daemon refuses the config. It gives:")
 		for _, l := range strings.Split(w.Validation, "\n") {
 			r.line("         %s", strings.TrimRight(l, "\r"))
 		}

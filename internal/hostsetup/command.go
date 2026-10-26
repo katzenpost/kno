@@ -107,7 +107,7 @@ func BootstrapCommand() *cobra.Command {
 			}
 			if o.OperatorPubkey == "" && !pkg {
 				fmt.Fprintf(errOut,
-					"kno bootstrap: no OPERATOR_PUBKEY set; authorize the operator's ssh key to push to %s\n",
+					"kno bootstrap: no OPERATOR_PUBKEY set. Authorize the operator's ssh key to push to %s\n",
 					o.Bare)
 			}
 			if err := apply(plan); err != nil {
@@ -115,12 +115,8 @@ func BootstrapCommand() *cobra.Command {
 			}
 			if pkg {
 
-				priv := "no path to root"
-				if (config.Host{Privilege: o.Privilege}).WritesSudoers() {
-					priv = SudoersPath
-				}
-				fmt.Fprintf(errOut, "kno bootstrap: host prepared (updater user %s, %s, systemd units)\n",
-					o.User, priv)
+				fmt.Fprintf(errOut, "kno bootstrap: host prepared (updater user %s, systemd units)\n",
+					o.User)
 				return nil
 			}
 			fmt.Fprintln(errOut, nextSteps(o, f))
@@ -131,7 +127,7 @@ func BootstrapCommand() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&rev, "rev", "", "refuse to run unless the repo is at this revision")
 	f.BoolVar(&pkg, "package", false,
-		"the subset a .deb postinst may do: user, dirs, sudoers and units; no clone, no bare repo, no timer start")
+		"the subset a .deb postinst may do: user, dirs and units. No clone, no bare repo, no timer start")
 	return cmd
 }
 
@@ -167,8 +163,8 @@ func nextSteps(o BootstrapOptions, f Facts) string {
 
 func bootstrapSupported(look func(string) (string, error)) error {
 	if _, err := look("useradd"); err != nil {
-		return fmt.Errorf("this machine has no useradd. kno bootstrap sets up a Debian node:" +
-			" an updater account, a sudoers rule and systemd units. A FreeBSD node gets its" +
+		return fmt.Errorf("this host has no useradd. kno bootstrap sets up a Debian node:" +
+			" an updater account and systemd units. A FreeBSD node gets its" +
 			" setup from its kno-host-config package and runs kno update as root from cron," +
 			" and an operator machine needs no bootstrap")
 	}

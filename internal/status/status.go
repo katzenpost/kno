@@ -7,7 +7,6 @@ import (
 	"maps"
 	"net"
 	"os"
-	"os/exec"
 	"os/user"
 	"path/filepath"
 	"regexp"
@@ -17,6 +16,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/katzenpost/kno/internal/fsutil"
+
+	"github.com/katzenpost/kno/internal/attest"
 	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/hostsel"
@@ -113,12 +115,13 @@ func Run(stdout, stderr io.Writer, args []string) int {
 		network = root
 	}
 	fmt.Fprintf(stdout, "  kno checkout:      %s, %s\n", network, gitState(network))
+	fmt.Fprintf(stdout, "  signatures:        %s\n", attest.Check(network, "HEAD", attest.SignersPath))
 	fmt.Fprintf(stdout, "  katzenpost source: %s. kno build compiles it\n", pinnedKatzenpost(e.Repo))
 	if kp := gitState(e.KatzenpostRepo); !strings.HasPrefix(kp, "absent") {
 		fmt.Fprintf(stdout, "  katzenpost clone:  %s. kno reads only its tags\n", e.KatzenpostRepo)
 	}
 	if pin, target := pinnedRef(e.Repo), e.TargetVersion(); pin != "" && target != "" && pin != target {
-		fmt.Fprintf(stdout, "  WARN: the target %s is not the katzenpost source %s; kno build"+
+		fmt.Fprintf(stdout, "  WARN: the target %s is not the katzenpost source %s. kno build"+
 			" cannot build %s\n", target, pin, target)
 	}
 
@@ -164,7 +167,7 @@ func writeMasked(w io.Writer, userPath string) {
 func writeVersions(w io.Writer, e track.Env) {
 	fmt.Fprintln(w, "-- versions --")
 
-	fmt.Fprintf(w, "  kno:        %s (this machine)\n", cli.Version())
+	fmt.Fprintf(w, "  kno:        %s (this host)\n", cli.Version())
 
 	if have, built := localKnoGap(e); have != "" {
 		fmt.Fprintf(w, "              this is OLDER than what this checkout builds (%s).\n", built)
@@ -210,7 +213,7 @@ func versionsOf(e track.Env) versions {
 	labels := organizedLabels(e)
 	if len(labels) == 0 {
 		v := versions{current: e.CurrentVersion()}
-		v.lastGood = firstLine(filepath.Join(e.StateDir, "last-known-good"))
+		v.lastGood = fsutil.FirstLine(filepath.Join(e.StateDir, "last-known-good"))
 		v.quarantine = strings.Join(strings.Fields(readFile(e.QuarantineFile)), " ")
 		return v
 	}
@@ -220,13 +223,13 @@ func versionsOf(e track.Env) versions {
 	var quarantined, missing []string
 	for _, l := range labels {
 		dir := knopath.HostState(e.StateDir, l)
-		c := firstLine(filepath.Join(dir, "current"))
+		c := fsutil.FirstLine(filepath.Join(dir, "current"))
 		if c == "" {
 			missing = append(missing, l)
 		} else {
 			cur[c] = append(cur[c], l)
 		}
-		if g := firstLine(filepath.Join(dir, "last-known-good")); g != "" {
+		if g := fsutil.FirstLine(filepath.Join(dir, "last-known-good")); g != "" {
 			good[g] = append(good[g], l)
 		}
 		for _, t := range strings.Fields(readFile(filepath.Join(dir, "quarantine"))) {
@@ -349,7 +352,7 @@ func writeServices(w, stderr io.Writer, e track.Env, verbose, live bool) {
 		}
 	case len(e.Services) == 0:
 		fmt.Fprintln(w, "-- services --")
-		fmt.Fprintln(w, "  (none selected: no services on this machine. To add some, run 'kno setup' or install kno-host-config)")
+		fmt.Fprintln(w, "  (none selected: no services on this host. To add some, run 'kno setup' or install kno-host-config)")
 	case unitStates().Available():
 		fmt.Fprintln(w, "-- services --")
 		sd := unitStates()
@@ -386,7 +389,7 @@ func writeServices(w, stderr io.Writer, e track.Env, verbose, live bool) {
 var unitStates = verify.Platform
 
 func writeReachability(w io.Writer, e track.Env) {
-	fmt.Fprintln(w, "-- reachability (a TCP connection from this machine to each announced address) --")
+	fmt.Fprintln(w, "-- reachability (a TCP connection from this host to each announced address) --")
 
 	probe := e.Services
 	if len(probe) == 0 {
@@ -407,7 +410,7 @@ func writeReachability(w io.Writer, e track.Env) {
 				state = "UNREACHABLE"
 				for _, b := range addrsOn(cfg, bindLine) {
 					if b != addr && dials(b) {
-						state = "no answer from this machine, but the service answers on " + b +
+						state = "no answer from this host, but the service answers on " + b +
 							". A host cannot reach its own public address through pf rdr; test it from another machine"
 						break
 					}
@@ -490,11 +493,6 @@ func gitState(dir string) string {
 	return fmt.Sprintf("%s (%s)", desc, branch)
 }
 
-func have(cmd string) bool {
-	_, err := exec.LookPath(cmd)
-	return err == nil
-}
-
 func reportPackages(w io.Writer, e track.Env, verbose bool) {
 	fmt.Fprintln(w, "-- packages --")
 	builds := knopath.Builds()
@@ -559,7 +557,7 @@ func releasesInUse(e track.Env) map[string]bool {
 		}
 		d := knopath.HostState(e.StateDir, l)
 		for _, f := range []string{"current", "last-known-good"} {
-			if v := firstLine(filepath.Join(d, f)); v != "" {
+			if v := fsutil.FirstLine(filepath.Join(d, f)); v != "" {
 				in[v] = true
 			}
 		}
@@ -640,7 +638,7 @@ func hostLine(e track.Env, l, target string, delivered map[string]bool) (mark, d
 	dir := hostStateDir(e, l)
 	tick := hostTick(e, l)
 	kv := pendingKV(dir)
-	lkg := firstLine(filepath.Join(dir, "last-known-good"))
+	lkg := fsutil.FirstLine(filepath.Join(dir, "last-known-good"))
 	quarantined := strings.Fields(readFile(filepath.Join(dir, "quarantine")))
 	switch {
 	case target == "":
@@ -690,11 +688,11 @@ func hostLine(e track.Env, l, target string, delivered map[string]bool) (mark, d
 	case tick.current != "":
 		return "UPDATE", "has " + tick.current + "; the target is " + target
 	case len(delivered) == 0:
-		return "UPDATE", "kno has no record that this machine installed on it"
+		return "UPDATE", "kno has no record that this host installed on it"
 	case delivered[target]:
 		return "ok", "has " + target
 	}
-	return "UPDATE", "got " + newest(delivered) + " from this machine; the target is " + target
+	return "UPDATE", "got " + newest(delivered) + " from this host. The target is " + target
 }
 
 func pendingKV(dir string) map[string]string {
@@ -855,8 +853,8 @@ func hostTick(e track.Env, label string) tickState {
 		return tickState{}
 	}
 	return tickState{
-		current: firstLine(filepath.Join(dir, "current")),
-		state:   firstLine(filepath.Join(dir, "state")),
+		current: fsutil.FirstLine(filepath.Join(dir, "current")),
+		state:   fsutil.FirstLine(filepath.Join(dir, "state")),
 	}
 }
 
@@ -866,15 +864,6 @@ func readFile(p string) string {
 		return ""
 	}
 	return string(b)
-}
-
-func firstLine(p string) string {
-	for _, line := range strings.Split(readFile(p), "\n") {
-		if v := strings.TrimSpace(line); v != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 func pinnedKatzenpost(repo string) string {

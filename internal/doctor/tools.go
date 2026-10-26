@@ -205,11 +205,6 @@ var Tools = []Tool{
 		Version: []string{"--version"},
 	},
 	{
-		Name: "visudo", GOOS: "linux", Package: "sudo", Scope: ScopeNode, For: "kno bootstrap",
-		Why:     "checks the generated sudoers drop-in before it replaces the installed one; an unparsable drop-in is a host nobody can sudo on",
-		Version: []string{"-V"},
-	},
-	{
 		Name: "systemctl", GOOS: "linux", Package: "systemd", Scope: ScopeNode, For: "kno status, kno verify, kno doctor, kno schedule",
 		Why:     "reads and restarts the units the services run as",
 		Version: []string{"--version"},
@@ -234,7 +229,7 @@ var Tools = []Tool{
 	{
 		Name: "ssh-keygen", Package: "openssh-client", Scope: ScopeNode,
 		For: "kno activate, kno release",
-		Why: "verifies the release signature against this host's allowed_signers before anything is installed; a host with an allowlist and no ssh-keygen refuses to install rather than installing unverified",
+		Why: "checks the release signature against this host's allowed_signers before kno installs anything. Without ssh-keygen, kno warns and installs a release whose digests match the record",
 	},
 	{
 		Name: "podman", Scope: ScopeNode, GOOS: "linux", For: "kno activate (container backend)",
@@ -261,7 +256,7 @@ var Tools = []Tool{
 	},
 	{
 		Name: "runuser", GOOS: "linux", Package: "util-linux", Scope: ScopeNode, For: "kno doctor",
-		Why: "re-runs a failing unit's config validation as the account systemd would, so a config the service user cannot read is caught",
+		Why: "runs --validate-only on a failing unit's config as the account that systemd uses, so a config the service user cannot read is caught",
 	},
 	{
 		Name: "journalctl", GOOS: "linux", Package: "systemd", Scope: ScopeNode, For: "kno doctor",

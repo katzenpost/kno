@@ -40,7 +40,7 @@ func reportGenerate(r *Result, e config.Config) {
 		}
 		r.line("           sudo usermod --add-subuids %s \\", rng)
 		r.line("             --add-subgids %s %s", rng, acct)
-		r.line("       That range is free on THIS host; a fixed one would collide with")
+		r.line("       That range is free on THIS host. A fixed one would collide with")
 		r.line("       whatever already holds it.")
 		return
 	}

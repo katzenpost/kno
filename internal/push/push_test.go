@@ -3,15 +3,16 @@ package push
 import (
 	"bytes"
 	"context"
-	"github.com/katzenpost/kno/internal/cli"
-	"github.com/katzenpost/kno/internal/pkg/deb"
-	"github.com/katzenpost/kno/internal/sshx"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/katzenpost/kno/internal/cli"
+	"github.com/katzenpost/kno/internal/pkg/deb"
+	"github.com/katzenpost/kno/internal/sshx"
 
 	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/knopath"
@@ -65,6 +66,7 @@ const knoPkg = "kno_0.0.104-1_ppc64el.deb"
 
 func TestMain(m *testing.M) {
 	os.Setenv("KNO_SSH_MULTIPLEX", "0")
+	sshx.Bounds = nil
 	os.Exit(m.Run())
 }
 
@@ -283,31 +285,15 @@ func TestFullRestartsResolvedUnits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	const installSteps = 4
 	cmds := p.Commands()
-	restarts := cmds[installSteps:]
-
-	want := []string{
-
-		"ssh annares.example export LC_ALL=C; " + sshx.AsRoot("systemctl reset-failed kpserver@oneeyedman-pq-mixserver") +
-			" || true; " + sshx.AsRoot("systemctl restart kpserver@oneeyedman-pq-mixserver"),
-
-		"ssh annares.example export LC_ALL=C; " + sshx.AsRoot("systemctl reset-failed kpreplica@annares-pq-storagenode-0") +
-			" || true; " + sshx.AsRoot("systemctl restart kpreplica@annares-pq-storagenode-0"),
+	last := cmds[len(cmds)-1]
+	want := sshx.AsRoot("kno activate --restart=kpserver@oneeyedman-pq-mixserver," +
+		"kpreplica@annares-pq-storagenode-0 ")
+	if !strings.Contains(last, want) {
+		t.Errorf("the last step does not activate and restart through kno:\n  got  %s\n  want %s", last, want)
 	}
-	if len(restarts) != len(want) {
-		t.Fatalf("expected %d restart steps, got %q", len(want), restarts)
-	}
-	for i := range want {
-		if restarts[i] != want[i] {
-			t.Errorf("restart step %d:\n  got  %s\n  want %s", i, restarts[i], want[i])
-		}
-	}
-	for _, s := range p.Steps[installSteps:] {
-		if !s.BestEffort {
-			t.Errorf("restart step must be best effort (the shell's || true): %q", s.Argv)
-		}
+	if strings.Contains(strings.Join(cmds, "\n"), "systemctl restart") {
+		t.Errorf("a full push restarts outside kno activate:\n%s", strings.Join(cmds, "\n"))
 	}
 }
 
@@ -480,46 +466,30 @@ func TestNoServicesIsAnError(t *testing.T) {
 	}
 }
 
-func TestCopyArgv(t *testing.T) {
-	rel := staged(t)
-	touch(t, filepath.Join(rel, "bin", "server"))
-	touch(t, filepath.Join(rel, "configs", "oneeyedman-pq-mixserver.toml"))
-
-	p, err := PlanFor(opts(t, rel, ModeCopy, "oneeyedman-pq-mixserver"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	want := []string{
-		"ssh annares.example export LC_ALL=C; " + sshx.AsRoot("mkdir -p /usr/bin /etc/katzenpost/server"),
-		"rsync -a --rsync-path=" + sshx.AsRoot("rsync") + " " + filepath.Join(rel, "bin", "server") +
-			" annares.example:/usr/bin/kpserver",
-		"rsync -a --rsync-path=" + sshx.AsRoot("rsync") + " " + filepath.Join(rel, "configs", "oneeyedman-pq-mixserver.toml") +
-			" annares.example:/etc/katzenpost/server/oneeyedman-pq-mixserver.toml",
-	}
-	assertCommands(t, p, want)
-	if got := strings.Join(p.Commands(), "\n"); strings.Contains(got, "systemctl") {
-		t.Errorf("copy mode restarted a service:\n%s", got)
-	}
-}
-
-func TestCopyModeFailsOnAReleaseStagedByKnoBuild(t *testing.T) {
+func TestCopyStagesThePackagesWithoutRoot(t *testing.T) {
 	rel := staged(t,
 		"katzenpost_0.0.104+ubuntu26.04_ppc64el.deb",
 		"namenlos-config-annares-pq-authority_0.0.104_ppc64el.deb",
 	)
-	touch(t, filepath.Join(rel, "configs", "annares-pq-authority.toml"))
-
-	_, err := PlanFor(opts(t, rel, ModeCopy, "annares-pq-authority"))
-	if err == nil {
-		t.Fatal("expected copy mode to fail: no release directory has a bin/")
+	p, err := PlanFor(opts(t, rel, ModeCopy, "annares-pq-authority"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	wantPath := filepath.Join(rel, "bin", "dirauth")
-	if !strings.Contains(err.Error(), "missing built binary "+wantPath) {
-		t.Errorf("error should name the binary the shell looks for:\n  got  %v\n  want it to mention %s", err, wantPath)
+	want := []string{
+		"ssh annares.example export LC_ALL=C; mkdir -p .local/share/katzenpost/kno/pkgs/v0.0.104/pkgs",
+		"rsync -av --partial" +
+			" --include=katzenpost_0.0.104+ubuntu26.04_ppc64el.deb" +
+			" --include=namenlos-config-annares-pq-authority_0.0.104_ppc64el.deb" +
+			" --include=" + knoPkg +
+			" --exclude=* " + filepath.Join(rel, "pkgs") + "/" +
+			" annares.example:.local/share/katzenpost/kno/pkgs/v0.0.104/pkgs/",
 	}
-	if _, statErr := os.Stat(filepath.Join(rel, "bin")); !os.IsNotExist(statErr) {
-		t.Errorf("the fixture was supposed to have no bin/ dir: %v", statErr)
+	assertCommands(t, p, want)
+	got := strings.Join(p.Commands(), "\n")
+	for _, root := range []string{sshx.AsRoot(""), "sudo", "dpkg", "activate", "systemctl"} {
+		if root != "" && strings.Contains(got, root) {
+			t.Errorf("copy mode runs %q:\n%s", root, got)
+		}
 	}
 }
 
@@ -723,11 +693,11 @@ func TestBestEffortFailureIsReported(t *testing.T) {
 
 	log := failingSSH(t, "systemctl restart")
 	rel := staged(t,
-		"katzenpost_0.0.107+ubuntu26.04_ppc64el.deb",
-		"namenlos-config-annares-pq-authority_0.0.107_ppc64el.deb",
+		"katzenpost_0.0.106+ubuntu26.04_ppc64el.deb",
+		"namenlos-config-annares-pq-authority_0.0.106_ppc64el.deb",
 	)
 	o := opts(t, rel, ModeFull, "annares-pq-authority")
-	o.Tag = "v0.0.107"
+	o.Tag = "v0.0.106"
 	p, err := PlanFor(o)
 	if err != nil {
 		t.Fatal(err)
@@ -737,11 +707,11 @@ func TestBestEffortFailureIsReported(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a best-effort failure must not fail the push: %v", err)
 	}
-	if warnings != 1 {
-		t.Errorf("warnings = %d, want 1", warnings)
+	if warnings != 2 {
+		t.Errorf("warnings = %d, want 2", warnings)
 	}
 	if !strings.Contains(out.String(), "WARN: ") ||
-		!strings.Contains(out.String(), sshx.AsRoot("systemctl restart kpauthority@annares-pq-authority")) {
+		!strings.Contains(out.String(), sshx.AsRoot("systemctl restart ")) {
 		t.Errorf("the failed step is not named in the output:\n%s", out.String())
 	}
 	b, _ := os.ReadFile(log)
@@ -1345,7 +1315,7 @@ func TestAKnoOnlyPushLeavesTheReleaseAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	cmds := strings.Join(p.Commands(), "\n")
-	for _, never := range []string{"katzenpost_0.0.104", "namenlos-config-", "kno activate", "systemctl restart"} {
+	for _, never := range []string{"katzenpost_0.0.104", "namenlos-config-", "kno activate .", "systemctl restart"} {
 		if strings.Contains(cmds, never) {
 			t.Errorf("a kno-only push touches %q:\n%s", never, cmds)
 		}
@@ -1353,4 +1323,16 @@ func TestAKnoOnlyPushLeavesTheReleaseAlone(t *testing.T) {
 	if !strings.Contains(cmds, "--include="+knoPkg) || !strings.Contains(cmds, "dpkg -i") {
 		t.Errorf("a kno-only push does not install kno:\n%s", cmds)
 	}
+}
+
+func (p Plan) Commands() []string {
+	out := make([]string, len(p.Steps))
+	for i, s := range p.Steps {
+		out[i] = strings.Join(s.Argv, " ")
+	}
+	return out
+}
+
+func Apply(ctx context.Context, p Plan, l track.Logger, dry bool) (int, error) {
+	return ApplyLabelled(ctx, p, l, dry, "")
 }

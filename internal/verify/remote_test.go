@@ -12,6 +12,7 @@ import (
 
 	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/config"
+	"github.com/katzenpost/kno/internal/sshx"
 	"github.com/katzenpost/kno/internal/track"
 )
 
@@ -101,14 +102,14 @@ func TestAHostWithNoSSHIsReachedAtItsLabel(t *testing.T) {
 		t.Fatalf("exit = %d:\n%s", code, out.String())
 	}
 	b, err := os.ReadFile(filepath.Join(filepath.Dir(os.Getenv("SSH")), "argv"))
-	if err != nil || !strings.HasPrefix(string(b), "mixy ") {
+	if err != nil || !strings.HasPrefix(string(b), strings.Join(append(sshx.Bounds, "mixy "), " ")) {
 		t.Errorf("ssh got %q (%v), want the label as the target", b, err)
 	}
 
 	t.Setenv("KNO_HOST", "mixy")
 	out.Reset()
 	if code := runHost(&out, l, e, "mixy", false, "kno verify"); code != CodeNotYet ||
-		!strings.Contains(out.String(), "is this machine") {
-		t.Errorf("exit = %d: this machine must not be reached over ssh:\n%s", code, out.String())
+		!strings.Contains(out.String(), "is this host") {
+		t.Errorf("exit = %d: this host must not be reached over ssh:\n%s", code, out.String())
 	}
 }

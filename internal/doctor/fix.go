@@ -221,7 +221,7 @@ func ApplyFixes(ctx context.Context, w io.Writer, e track.Env, f hostFacts, dry 
 				continue
 			}
 			if i > 0 && len(fx.Undo) > 0 {
-				fmt.Fprintln(w, "    the repair did not complete; undoing it")
+				fmt.Fprintln(w, "    the repair did not complete. kno undoes it")
 				undo(ctx, w, fx)
 			}
 			return fmt.Errorf("%s: %w", strings.Join(argv, " "), err)
@@ -296,7 +296,7 @@ func confirmOrUndo(ctx context.Context, w io.Writer, fx fixable, label string) {
 		fmt.Fprintf(w, "    %s is active\n", strings.Join(fx.Units, ", "))
 		return
 	}
-	fmt.Fprintf(w, "    %s did NOT come back; undoing this repair\n", strings.Join(down, ", "))
+	fmt.Fprintf(w, "    %s did NOT come back. kno undoes this repair\n", strings.Join(down, ", "))
 	if !undo(ctx, w, fx) {
 		return
 	}

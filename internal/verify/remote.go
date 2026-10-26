@@ -54,7 +54,7 @@ func runHost(w io.Writer, l track.Logger, e track.Env, label string, verbose boo
 	}
 	node := config.SSHTarget(e.Config, label)
 	if node == "" {
-		l.Errorf("%s is this machine; run 'kno verify' without --host", label)
+		l.Errorf("%s is this host. Run 'kno verify' without --host", label)
 		return CodeNotYet
 	}
 	if err := argcheck.Target("ssh target", node); err != nil {

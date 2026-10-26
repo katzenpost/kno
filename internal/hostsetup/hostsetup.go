@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 type Step struct {
@@ -28,8 +29,6 @@ type File struct {
 
 	Source string
 	Mode   os.FileMode
-
-	Validate []string
 
 	Owner string
 
@@ -52,16 +51,6 @@ func (s Step) String() string {
 }
 
 type Plan []Step
-
-func (p Plan) Argv() [][]string {
-	var out [][]string
-	for _, s := range p {
-		if s.File == nil {
-			out = append(out, s.Argv)
-		}
-	}
-	return out
-}
 
 func (p Plan) Lines() []string {
 	out := make([]string, len(p))
@@ -109,17 +98,21 @@ func (f File) write(_ context.Context, _ io.Writer) error {
 	if err := os.MkdirAll(filepath.Dir(f.Path), 0o755); err != nil {
 		return err
 	}
-	if err := f.put(content); err != nil {
-		return err
-	}
+	return f.put(content)
+}
 
-	if err := os.Chmod(f.Path, f.Mode); err != nil {
+func (f File) settle(fh *os.File) error {
+	if err := fh.Chmod(f.Mode); err != nil {
 		return err
 	}
 	if f.Owner == "" {
 		return nil
 	}
-	return chown(f.Path, f.Owner)
+	uid, gid, err := ids(f.Owner)
+	if err != nil {
+		return fmt.Errorf("chown %s: %w", f.Path, err)
+	}
+	return fh.Chown(uid, gid)
 }
 
 func (f File) put(content []byte) error {
@@ -137,11 +130,18 @@ func (f File) put(content []byte) error {
 	if len(have) > 0 && have[len(have)-1] != '\n' {
 		add = append([]byte("\n"), add...)
 	}
-	fh, err := os.OpenFile(f.Path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, f.Mode)
+	if fi, err := os.Lstat(f.Path); err == nil && !fi.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file. kno does not write through it", f.Path)
+	}
+	fh, err := os.OpenFile(f.Path, os.O_CREATE|os.O_WRONLY|os.O_APPEND|syscall.O_NOFOLLOW, f.Mode)
 	if err != nil {
 		return err
 	}
 	if _, err := fh.Write(add); err != nil {
+		fh.Close()
+		return err
+	}
+	if err := f.settle(fh); err != nil {
 		fh.Close()
 		return err
 	}
@@ -163,27 +163,27 @@ func missingLines(have, content []byte) []byte {
 	return []byte(b.String())
 }
 
-func chown(path, spec string) error {
+func ids(spec string) (int, int, error) {
 	name, group, _ := strings.Cut(spec, ":")
 	u, err := user.Lookup(name)
 	if err != nil {
-		return fmt.Errorf("chown %s: %w", path, err)
+		return 0, 0, err
 	}
 	uid, err := strconv.Atoi(u.Uid)
 	if err != nil {
-		return fmt.Errorf("chown %s: uid %q: %w", path, u.Uid, err)
+		return 0, 0, fmt.Errorf("uid %q: %w", u.Uid, err)
 	}
 	gid := -1
 	if group != "" {
 		g, err := user.LookupGroup(group)
 		if err != nil {
-			return fmt.Errorf("chown %s: %w", path, err)
+			return 0, 0, err
 		}
 		if gid, err = strconv.Atoi(g.Gid); err != nil {
-			return fmt.Errorf("chown %s: gid %q: %w", path, g.Gid, err)
+			return 0, 0, fmt.Errorf("gid %q: %w", g.Gid, err)
 		}
 	}
-	return os.Chown(path, uid, gid)
+	return uid, gid, nil
 }
 
 func (f File) putAtomic(content []byte) error {
@@ -197,19 +197,12 @@ func (f File) putAtomic(content []byte) error {
 		tmp.Close()
 		return err
 	}
+	if err := f.settle(tmp); err != nil {
+		tmp.Close()
+		return err
+	}
 	if err := tmp.Close(); err != nil {
 		return err
-	}
-	if err := os.Chmod(staged, f.Mode); err != nil {
-		return err
-	}
-	if len(f.Validate) > 0 {
-		argv := append(append([]string{}, f.Validate...), staged)
-		out, err := exec.Command(argv[0], argv[1:]...).CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("%s rejected the generated %s: %v\n%s",
-				argv[0], f.Path, err, out)
-		}
 	}
 	return os.Rename(staged, f.Path)
 }

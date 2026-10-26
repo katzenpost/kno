@@ -3,7 +3,6 @@ package fsutil
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"io/fs"
@@ -13,10 +12,30 @@ import (
 	"strings"
 )
 
-var SecretKeyName = regexp.MustCompile(`(?i)([^/]*private[^/]*\.pem|[^/]*secret[^/]*\.pem|^\.?mixkey-[0-9]+(\.bin)?$)`)
+var SecretKeyName = regexp.MustCompile(`(?i)([^/]*private[^/]*\.pem|[^/]*secret[^/]*\.pem|(^\.?|-)mixkey-[0-9]+(\.bin)?$)`)
 
 func IsSecretKey(name string) bool {
 	return SecretKeyName.MatchString(name)
+}
+
+const secretMark = "PRIVATE KEY-----"
+
+func HasSecretContent(r io.Reader) bool {
+	buf := make([]byte, 64<<10)
+	var tail []byte
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			chunk := append(tail, buf[:n]...)
+			if strings.Contains(strings.ToUpper(string(chunk)), secretMark) {
+				return true
+			}
+			tail = append([]byte{}, chunk[max(0, len(chunk)-len(secretMark)):]...)
+		}
+		if err != nil {
+			return false
+		}
+	}
 }
 
 func IsSecretKeyFile(path string) bool {
@@ -28,26 +47,7 @@ func IsSecretKeyFile(path string) bool {
 		return false
 	}
 	defer f.Close()
-	b, err := io.ReadAll(io.LimitReader(f, 1<<20))
-	if err != nil {
-		return false
-	}
-
-	if strings.Contains(strings.ToUpper(string(b)), "PRIVATE KEY-----") {
-		return true
-	}
-
-	for rest := b; len(rest) > 0; {
-		var blk *pem.Block
-		blk, rest = pem.Decode(rest)
-		if blk == nil {
-			return false
-		}
-		if strings.Contains(strings.ToUpper(blk.Type), "PRIVATE") {
-			return true
-		}
-	}
-	return false
+	return HasSecretContent(f)
 }
 
 func SHA256File(path string) (string, int64, error) {
@@ -62,6 +62,19 @@ func SHA256File(path string) (string, int64, error) {
 		return "", 0, err
 	}
 	return hex.EncodeToString(h.Sum(nil)), n, nil
+}
+
+func FirstLine(p string) string {
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if v := strings.TrimSpace(line); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func IsDir(p string) bool {
@@ -125,11 +138,11 @@ func CopyTreeGuarded(src, dst string) error {
 		}
 
 		if d.Type()&fs.ModeSymlink != 0 {
-			return fmt.Errorf("key source holds a symlink (%s); kno stages regular"+
+			return fmt.Errorf("key source holds a symlink (%s). kno stages regular"+
 				" files only, because a link's name says nothing about what it points at", p)
 		}
-		if IsSecretKey(d.Name()) {
-			return fmt.Errorf("key source holds a secret key (%s); kno never stages secrets", p)
+		if IsSecretKeyFile(p) {
+			return fmt.Errorf("key source holds a secret key (%s). kno never stages secrets", p)
 		}
 		return CopyFile(p, target)
 	})
@@ -158,7 +171,7 @@ func CopyFileMode(src, dst string, mode os.FileMode) error {
 func FindSecret(root string) (string, error) {
 	var found string
 	err := filepath.Walk(root, func(p string, fi os.FileInfo, err error) error {
-		if err == nil && !fi.IsDir() && IsSecretKey(fi.Name()) && found == "" {
+		if err == nil && fi.Mode().IsRegular() && found == "" && IsSecretKeyFile(p) {
 			found = p
 		}
 		return nil

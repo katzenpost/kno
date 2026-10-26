@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/katzenpost/kno/internal/adopt"
+	"github.com/katzenpost/kno/internal/attest"
 
 	"github.com/spf13/cobra"
 
@@ -106,10 +107,11 @@ func newRootCommand() *cobra.Command {
 		hostsetup.BootstrapCommand(),
 		knodeb.Command(),
 		adopt.Command(),
+		attest.Command(),
 	)
 
 	honoured := []string{
-		"activate", "adopt", "backup-keys", "bootstrap", "build", "build warped",
+		"activate", "adopt", "attest", "backup-keys", "bootstrap", "build", "build warped",
 		"clean", "contribute", "deps", "doctor", "edit", "push",
 		"schedule",
 		"update",

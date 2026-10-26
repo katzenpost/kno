@@ -75,7 +75,7 @@ func Run(w io.Writer, verbose bool) int {
 	r.section("repository data")
 	if r.remote && r.verbose {
 		r.line("       the per-key lint is the same data on every host, so it is counted")
-		r.line("       here and not listed; 'kno doctor package -v' lists it once.")
+		r.line("       here and not listed. 'kno doctor package -v' lists it once.")
 	}
 	checkPackage(r, e)
 
@@ -99,7 +99,7 @@ func reportBuildEnv(r *Result, native bool) {
 
 		if r.remote {
 			r.line("       no container engine here (%s), which is expected on a host"+
-				" that receives pushes; the machine you are asking from builds.", engine)
+				" that receives pushes. The machine you are asking from builds.", engine)
 			return
 		}
 		r.warn("container engine", "%s is not usable here, so builds will not run (%s)",
@@ -132,10 +132,10 @@ func reportBuildEnv(r *Result, native bool) {
 	if home != "" && strings.HasPrefix(wd, home) {
 		r.check("workdir shared", true, "%s is under $HOME (bind-mountable)", wd)
 	} else {
-		r.warn("workdir shared", "%s may not be shared into the podman machine; keep work dirs under $HOME", wd)
+		r.warn("workdir shared", "%s may not be shared into the podman machine. Keep work dirs under $HOME", wd)
 	}
 	if arch != "" && arch != "amd64" {
-		r.warn("platform", "machine arch %s; pin --platform for amd64 deploy targets", arch)
+		r.warn("platform", "machine arch %s. Pin --platform for amd64 deploy targets", arch)
 	}
 }
 

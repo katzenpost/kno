@@ -2,13 +2,15 @@ package hostsetup
 
 import (
 	"fmt"
-	"github.com/katzenpost/kno/internal/service"
 	"io/fs"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
 	"strings"
+
+	"github.com/katzenpost/kno/internal/fsutil"
+	"github.com/katzenpost/kno/internal/service"
 
 	repodata "github.com/katzenpost/kno/data"
 	"github.com/katzenpost/kno/internal/config"
@@ -62,8 +64,6 @@ func DefaultBootstrapOptions(repo string) BootstrapOptions {
 	}
 }
 
-const SudoersPath = "/etc/sudoers.d/kno-activate"
-
 const SystemConfPath = "/etc/katzenpost/kno.toml"
 
 const (
@@ -111,8 +111,8 @@ func Probe(o BootstrapOptions) Facts {
 		GitShell:         findGitShell(),
 		UserShell:        shell,
 		UserExists:       userErr == nil,
-		BareRepoExists:   isDir(o.Bare),
-		KatzenpostCloned: isDir(filepath.Join(o.Home, "katzenpost", ".git")),
+		BareRepoExists:   fsutil.IsDir(o.Bare),
+		KatzenpostCloned: fsutil.IsDir(filepath.Join(o.Home, "katzenpost", ".git")),
 		HasSystemd:       systemctlErr == nil,
 		Kpclientd:        wantsKpclientd(),
 	}
@@ -170,11 +170,6 @@ func clientWanted(e track.Env) bool {
 	}
 
 	return true
-}
-
-func isDir(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && fi.IsDir()
 }
 
 func exists(p string) bool {
@@ -284,22 +279,6 @@ func BootstrapPlan(o BootstrapOptions, f Facts) (Plan, error) {
 	p = append(p, Step{Desc: "create the system config dir", Argv: []string{
 		"install", "-d", "-m", "0755", filepath.Dir(SystemConfPath)}})
 
-	if (config.Host{Privilege: o.Privilege}).WritesSudoers() {
-		p = append(p, Step{Desc: "allow the updater the commands a deploy issues", File: &File{
-			Path:     SudoersPath,
-			Content:  Sudoers(o.User, o.BinDir),
-			Mode:     0o440,
-			Validate: []string{"visudo", "-cf"},
-		}})
-	} else if exists(under(SudoersPath)) {
-
-		p = append(p, Step{
-			Desc:       "leave the updater no path to root (privilege = " + privLabel(o.Privilege) + ")",
-			Argv:       []string{"rm", "-f", SudoersPath},
-			BestEffort: true,
-		})
-	}
-
 	if f.HasSystemd {
 		p = append(p,
 			Step{Desc: "install the updater unit", File: &File{
@@ -353,7 +332,7 @@ func EnvBootstrapOptions(repo string) BootstrapOptions {
 	}
 
 	if o.Privilege != "" && !config.ValidPrivilege(o.Privilege) {
-		fmt.Fprintf(os.Stderr, "kno: privilege %q (from %s) is not one of %s; using %s\n",
+		fmt.Fprintf(os.Stderr, "kno: privilege %q (from %s) is not one of %s. kno uses %s\n",
 			o.Privilege, privSource, strings.Join(config.Privileges, ", "), config.PrivNone)
 		o.Privilege = config.PrivNone
 	}
@@ -391,28 +370,4 @@ func checkRevision(repo, rev string) error {
 		return fmt.Errorf("%s has changes that are not in %s, so --rev does not describe it:\n%s", repo, rev, changed)
 	}
 	return nil
-}
-
-func privLabel(mode string) string {
-	return config.Host{Privilege: mode}.PrivilegeMode()
-}
-
-func Sudoers(user, binDir string) string {
-	kno := binDir + "/kno"
-	lines := []string{
-		"# Written by kno bootstrap. Each line is a command a deploy issues.",
-
-		user + " ALL=(root) NOPASSWD: " + kno + " activate *",
-
-		user + " ALL=(root) NOPASSWD: " + kno + " doctor, " + kno + " doctor *",
-
-		user + " ALL=(root) NOPASSWD: /usr/bin/dpkg -i *",
-
-		user + " ALL=(root) NOPASSWD: /usr/bin/systemctl restart *, /usr/bin/systemctl reset-failed *",
-		user + " ALL=(root) NOPASSWD: /bin/systemctl restart *, /bin/systemctl reset-failed *",
-
-		user + " ALL=(root) NOPASSWD: /usr/bin/rsync",
-		user + " ALL=(root) NOPASSWD: /usr/bin/mkdir -p *, /bin/mkdir -p *",
-	}
-	return strings.Join(lines, "\n") + "\n"
 }

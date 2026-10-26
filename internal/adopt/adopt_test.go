@@ -153,3 +153,12 @@ func TestAdoptRefusesADirtyCheckout(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+func TestAnExplicitTagNeedsItsSignatureWhenSignaturesAreRequired(t *testing.T) {
+	e, _ := fixture(t)
+	e.VerifyTag = true
+	var calls []string
+	if _, err := Run(Options{Env: e, Tag: "v0.0.108", Out: io.Discard}, steps(t, &calls, "")); err == nil {
+		t.Error("an unsigned --tag was adopted with require_signed_tag on")
+	}
+}

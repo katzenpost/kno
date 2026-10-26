@@ -1,17 +1,15 @@
 package sign
 
 import (
-	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/katzenpost/kno/internal/knopath"
+	"github.com/katzenpost/kno/internal/sshsig"
 )
 
 const Namespace = "kno-release"
@@ -33,7 +31,7 @@ func RepoPath(repo, network string) string {
 	return filepath.Join(knopath.EditableDir(repo, network), AllowedSignersName)
 }
 
-const timeout = 30 * time.Second
+const timeout = sshsig.Timeout
 
 func Sign(sumsPath, key string) (string, error) {
 	body, err := os.ReadFile(sumsPath)
@@ -45,7 +43,7 @@ func Sign(sumsPath, key string) (string, error) {
 	if err := os.Remove(sig); err != nil && !os.IsNotExist(err) {
 		return "", err
 	}
-	out, err := run(timeout, body, "ssh-keygen", "-Y", "sign",
+	out, err := sshsig.Run(timeout, body, "ssh-keygen", "-Y", "sign",
 		"-n", Namespace, "-f", key, sumsPath)
 	if err != nil {
 		return "", fmt.Errorf("ssh-keygen -Y sign: %w\n%s", err, out)
@@ -70,16 +68,16 @@ func Verify(sumsPath, sigPath, allowed string) (Result, error) {
 	if _, err := os.Stat(sigPath); err != nil {
 		return Result{}, fmt.Errorf("no signature at %s: this release is unsigned", sigPath)
 	}
-	names, err := Principals(allowed)
+	names, err := sshsig.Principals(allowed)
 	if err != nil {
 		return Result{}, err
 	}
 	if len(names) == 0 {
-		return Result{}, fmt.Errorf("%s names no signers, so nothing can verify", allowed)
+		return Result{}, fmt.Errorf("%s names no signers, so kno can check nothing", allowed)
 	}
 	var last string
 	for _, p := range names {
-		out, err := run(timeout, body, "ssh-keygen", "-Y", "verify",
+		out, err := sshsig.Run(timeout, body, "ssh-keygen", "-Y", "verify",
 			"-f", allowed, "-I", p, "-n", Namespace, "-s", sigPath)
 		if err == nil {
 			return Result{Principal: p, Checked: len(names)}, nil
@@ -87,52 +85,7 @@ func Verify(sumsPath, sigPath, allowed string) (Result, error) {
 		last = strings.TrimSpace(out)
 	}
 	return Result{Checked: len(names)}, fmt.Errorf(
-		"no signer in %s verifies this release (%d tried): %s", allowed, len(names), last)
-}
-
-func Principals(path string) ([]string, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	var out []string
-	seen := map[string]bool{}
-	for _, line := range strings.Split(string(b), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		f := strings.Fields(line)
-		if len(f) < 2 {
-			continue
-		}
-		name := f[0]
-		if strings.HasPrefix(name, `"`) {
-
-			continue
-		}
-		for _, n := range strings.Split(name, ",") {
-			if n != "" && !seen[n] {
-				seen[n] = true
-				out = append(out, n)
-			}
-		}
-	}
-	return out, nil
-}
-
-func run(d time.Duration, stdin []byte, name string, args ...string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), d)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Stdin = bytes.NewReader(stdin)
-	var buf bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &buf, &buf
-	err := cmd.Run()
-	if ctx.Err() != nil {
-		return buf.String(), fmt.Errorf("%s did not answer within %s", name, d)
-	}
-	return buf.String(), err
+		"no signer in %s signed this release (%d tried): %s", allowed, len(names), last)
 }
 
 func Available() bool {

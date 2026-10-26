@@ -147,3 +147,30 @@ func TestARevisionTagIsVerifiedByItsUpstreamTag(t *testing.T) {
 		t.Errorf("%s-3 passed, but %s is not signed", unsigned, unsigned)
 	}
 }
+
+func TestASignedTagMustResolveToThePinnedCommit(t *testing.T) {
+	repo, signed, _ := gpgRepo(t)
+	data := t.TempDir()
+	pins := filepath.Join(data, "thirdparty", "pins.env")
+	if err := os.MkdirAll(filepath.Dir(pins), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	e := Env{Repo: data, VerifyTag: true}
+	for _, c := range []struct {
+		sha  string
+		want bool
+	}{{"0000000000000000000000000000000000000000", false}, {"", true}} {
+		sha := c.sha
+		if sha == "" {
+			out, _ := GitOutput(repo, "rev-parse", signed+"^{commit}")
+			sha = strings.TrimSpace(out)
+		}
+		body := "KATZENPOST_REF=" + signed + "\nKATZENPOST_SHA=" + sha + "\n"
+		if err := os.WriteFile(pins, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if got := e.TagVerified(repo, signed); got != c.want {
+			t.Errorf("pinned %s: verified %v, want %v", sha, got, c.want)
+		}
+	}
+}

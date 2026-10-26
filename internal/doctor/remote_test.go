@@ -138,7 +138,7 @@ func TestAHostWithNoSSHIsReachedAtItsLabel(t *testing.T) {
 		t.Fatalf("nodeFor = %q %v, want the label, as kno update and kno push use", got, err)
 	}
 	t.Setenv("KNO_HOST", "mixy")
-	if _, err := nodeFor(e, "mixy"); err == nil || !strings.Contains(err.Error(), "is this machine") {
-		t.Errorf("err = %v, want this machine to be refused", err)
+	if _, err := nodeFor(e, "mixy"); err == nil || !strings.Contains(err.Error(), "is this host") {
+		t.Errorf("err = %v, want this host to be refused", err)
 	}
 }

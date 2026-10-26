@@ -197,33 +197,10 @@ func TestBootstrapFileContents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sudoers := fileStep(t, p, SudoersPath)
-
-	for _, want := range []string{
-		"/usr/bin/kno activate *",
-		"/usr/bin/kno doctor",
-		"/usr/bin/dpkg -i *",
-		"systemctl restart *",
-		"systemctl reset-failed *",
-		"/usr/bin/rsync",
-	} {
-		if !strings.Contains(sudoers.Content, want) {
-			t.Errorf("sudoers does not allow %q:\n%s", want, sudoers.Content)
+	for _, st := range p {
+		if st.File != nil && strings.HasPrefix(st.File.Path, "/etc/sudoers") {
+			t.Errorf("bootstrap writes sudo's config: %s", st.File.Path)
 		}
-	}
-
-	for _, never := range []string{
-		"ALL=(root) NOPASSWD: ALL", "/bin/sh", "/bin/bash", "/usr/bin/tee",
-		"/usr/bin/vi", "/usr/bin/find", "/usr/bin/cp",
-	} {
-		if strings.Contains(sudoers.Content, never) {
-			t.Errorf("sudoers hands out %q, which is a root shell in one step:\n%s",
-				never, sudoers.Content)
-		}
-	}
-
-	if sudoers.Mode != 0o440 {
-		t.Errorf("sudoers mode = %04o, want 0440", sudoers.Mode)
 	}
 	svc := fileStep(t, p, ServicePath)
 
@@ -406,17 +383,6 @@ func TestAKeyIsAuthorizedOnce(t *testing.T) {
 	}
 }
 
-func TestSudoersCitesOnlyFilesThatExist(t *testing.T) {
-	root := testutil.ModuleRoot(t)
-	for _, f := range strings.Fields(Sudoers("kno", "/usr/bin")) {
-		if strings.HasPrefix(f, "docs/") {
-			if _, err := os.Stat(filepath.Join(root, f)); err != nil {
-				t.Errorf("the sudoers header cites %s: %v", f, err)
-			}
-		}
-	}
-}
-
 func TestClientWantedReadsTheDefaults(t *testing.T) {
 	t.Setenv("KNO_HOST", "mixy")
 	c := config.Config{Hosts: map[string]config.Host{"mixy": {}}}
@@ -441,8 +407,7 @@ func TestBothInstallersWriteTheSameUnits(t *testing.T) {
 		t.Fatal(err)
 	}
 	sp, err := schedule.PlanFor(schedule.Options{
-		Repo: testutil.RepoRoot(t), Mode: schedule.ModeTimer, Host: "node.example",
-		SSH: "ssh", User: o.User,
+		Repo: testutil.RepoRoot(t), Mode: schedule.ModeTimer, User: o.User,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -450,8 +415,12 @@ func TestBothInstallersWriteTheSameUnits(t *testing.T) {
 	if got, want := fileStep(t, p, ServicePath).Content, sp.Steps[0].Stdin; got != want {
 		t.Errorf("bootstrap writes the service\n%s\nand kno schedule writes\n%s", got, want)
 	}
-	if got, want := fileStep(t, p, TimerPath).Content, sp.Steps[1].Stdin; got != want {
-		t.Errorf("bootstrap writes the timer\n%s\nand kno schedule writes\n%s", got, want)
+	timer, err := os.ReadFile(sp.Steps[2].Argv[len(sp.Steps[2].Argv)-2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fileStep(t, p, TimerPath).Content; got != string(timer) {
+		t.Errorf("bootstrap writes the timer\n%s\nand kno schedule installs\n%s", got, timer)
 	}
 }
 
@@ -578,48 +547,17 @@ func TestBootstrapStartsNoClientDaemonWhenTheHostDidNotAsk(t *testing.T) {
 	}
 }
 
-func TestPrivilegeModeDecidesSudoers(t *testing.T) {
-	cases := []struct {
-		mode  string
-		grant bool
-	}{
-		{"", false},
-		{config.PrivNone, false},
-		{config.PrivApt, false},
-		{config.PrivSudo, false},
-		{config.PrivKno, true},
-		{"nonsense-that-is-not-a-mode", false},
-	}
-	for _, c := range cases {
+func TestBootstrapNeverTouchesSudoConfig(t *testing.T) {
+	for _, mode := range []string{"", config.PrivNone, config.PrivApt, config.PrivSudo,
+		config.PrivKno, "nonsense-that-is-not-a-mode"} {
 		staleRootForTest(t)
-
-		put(t, SudoersPath, "kno ALL=(root) NOPASSWD: /usr/bin/kno activate *\n")
+		put(t, "/etc/sudoers.d/kno-activate", "kno ALL=(root) NOPASSWD: /usr/bin/kno activate *\n")
 		o := testOptions()
-		o.Privilege = c.mode
+		o.Privilege = mode
 		lines := strings.Join(planLines(t, o, Facts{HasSystemd: true}), "\n")
-		writes := strings.Contains(lines, "write "+SudoersPath)
-		removes := strings.Contains(lines, "rm -f "+SudoersPath)
-		if c.grant && !writes {
-			t.Errorf("privilege=%q should write the sudoers rule", c.mode)
+		if strings.Contains(lines, "sudoers") {
+			t.Errorf("privilege=%q: the plan touches sudo's config:\n%s", mode, lines)
 		}
-		if !c.grant {
-			if writes {
-				t.Errorf("privilege=%q must not write a sudoers rule", c.mode)
-			}
-			if !removes {
-				t.Errorf("privilege=%q must remove any sudoers rule already there", c.mode)
-			}
-		}
-	}
-}
-
-func TestNoSudoersRuleMeansNoRemovalStep(t *testing.T) {
-	staleRootForTest(t)
-	o := testOptions()
-	o.Privilege = config.PrivNone
-	lines := strings.Join(planLines(t, o, Facts{HasSystemd: true}), "\n")
-	if strings.Contains(lines, "rm -f "+SudoersPath) {
-		t.Errorf("the plan removes a sudoers rule that is not there:\n%s", lines)
 	}
 }
 

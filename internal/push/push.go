@@ -1,16 +1,21 @@
 package push
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/katzenpost/kno/internal/argcheck"
 	"github.com/katzenpost/kno/internal/build"
+	"github.com/katzenpost/kno/internal/cli"
+	"github.com/katzenpost/kno/internal/compile"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/layout"
 	"github.com/katzenpost/kno/internal/pkg/deb"
@@ -66,19 +71,30 @@ type Plan struct {
 	Steps           []Step
 }
 
-func (p Plan) Commands() []string {
-	out := make([]string, len(p.Steps))
-	for i, s := range p.Steps {
-		out[i] = strings.Join(s.Argv, " ")
-	}
-	return out
-}
-
 func NodeOf(svc string) string {
 	if i := strings.Index(svc, "-pq-"); i > 0 {
 		return svc[:i]
 	}
 	return svc
+}
+
+var probeTimeout = 3 * time.Second
+
+type limitWriter struct {
+	w io.Writer
+	n int
+}
+
+func (l *limitWriter) Write(b []byte) (int, error) {
+	if l.n <= 0 {
+		return len(b), nil
+	}
+	k := min(len(b), l.n)
+	l.n -= k
+	if _, err := l.w.Write(b[:k]); err != nil {
+		return 0, err
+	}
+	return len(b), nil
 }
 
 func ProbeArgv(ssh, node string) []string {
@@ -113,10 +129,16 @@ func Probe(ctx context.Context, o Options, warn func(format string, a ...interfa
 		return o
 	}
 	argv := ProbeArgv(o.SSH, o.Node)
-	out, err := exec.CommandContext(ctx, argv[0], argv[1:]...).Output()
-	if err != nil {
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	cmd.WaitDelay = time.Second
+	var buf bytes.Buffer
+	cmd.Stdout = &limitWriter{w: &buf, n: 64 << 10}
+	if err := cmd.Run(); err != nil {
 		return o
 	}
+	out := buf.Bytes()
 	arch, osName, rsync, answered := ParseProbe(string(out))
 	if !isFreeBSD(o) {
 		o = applyProbe(o, arch, osName, warn)
@@ -129,15 +151,23 @@ func Probe(ctx context.Context, o Options, warn func(format string, a ...interfa
 }
 
 func applyProbe(o Options, arch, osName string, warn func(format string, a ...interface{})) Options {
+	if _, _, err := compile.ArchToGo(arch); arch != "" && err != nil {
+		warn("%s reports the arch %q, which kno does not know. kno uses machines/%s.toml", o.Node, cli.Clean(arch), o.Label)
+		arch = ""
+	}
+	if osName != "" && osName != "-" && !compile.IsOSToken(compile.OSToken(osName)) {
+		warn("%s reports the OS %q, which kno does not know. kno uses machines/%s.toml", o.Node, cli.Clean(osName), o.Label)
+		osName = ""
+	}
 	if arch != "" && arch != o.Arch {
 		if o.Arch != "" {
-			warn("machines/%s.toml says %s is %s but %s reports %s; using %s", o.Label, o.Label, o.Arch, o.Node, arch, arch)
+			warn("machines/%s.toml says %s is %s but %s reports %s. kno uses %s", o.Label, o.Label, o.Arch, o.Node, arch, arch)
 		}
 		o.Arch = arch
 	}
 	if osName != "" && osName != "-" && osName != o.OS {
 		if o.OS != "" {
-			warn("machines/%s.toml says %s runs %s but %s reports %s; using %s", o.Label, o.Label, o.OS, o.Node, osName, osName)
+			warn("machines/%s.toml says %s runs %s but %s reports %s. kno uses %s", o.Label, o.Label, o.OS, o.Node, osName, osName)
 		}
 		o.OS = osName
 	}
@@ -191,7 +221,7 @@ func configArch(o Options) string {
 
 func PlanFor(o Options) (Plan, error) {
 	if len(o.Services) == 0 {
-		return Plan{}, fmt.Errorf("host %q has no services placed on it; nothing to push", o.Label)
+		return Plan{}, fmt.Errorf("host %q has no services placed on it. Nothing to push", o.Label)
 	}
 	if err := checkRemote(o); err != nil {
 		return Plan{}, err
@@ -201,21 +231,14 @@ func PlanFor(o Options) (Plan, error) {
 	}
 	p := Plan{Node: o.Node, Tag: o.Tag, Mode: o.Mode}
 	switch o.Mode {
-	case ModeCopy:
-		if isFreeBSD(o) {
-			return Plan{}, fmt.Errorf("host %q runs the freebsd-ezjail backend (%s); copy mode"+
-				" writes loose binaries, and a jail installs packages: push with mode install",
-				o.Label, strings.Join(o.Services, ", "))
-		}
-		return planCopy(o, p)
-	case ModeInstall, ModeFull:
+	case ModeCopy, ModeInstall, ModeFull:
 		if isFreeBSD(o) {
 			return planInstallFreeBSD(o, p)
 		}
 		return planInstall(o, p)
 	case ModeKno:
 		if isFreeBSD(o) {
-			return Plan{}, fmt.Errorf("host %q runs the freebsd-ezjail backend; it updates its own kno"+
+			return Plan{}, fmt.Errorf("host %q runs the freebsd-ezjail backend. It updates its own kno"+
 				" with kno update on the host", o.Label)
 		}
 		return planKno(o, p)
@@ -269,7 +292,7 @@ func backendOf(o Options) (string, error) {
 			b = "systemd"
 		}
 		if backend != "" && b != backend {
-			return "", fmt.Errorf("host %q mixes the %s and %s backends; kno push installs one", o.Label, backend, b)
+			return "", fmt.Errorf("host %q mixes the %s and %s backends. kno push installs one", o.Label, backend, b)
 		}
 		backend = b
 	}
@@ -299,34 +322,6 @@ func requireSystemd(o Options) error {
 	return nil
 }
 
-func planCopy(o Options, p Plan) (Plan, error) {
-	for _, svc := range o.Services {
-		s, err := resolve(o, svc)
-		if err != nil {
-			return Plan{}, err
-		}
-		bin := filepath.Join(o.Rel, "bin", filepath.Base(s.BinarySrc))
-		cfg := filepath.Join(o.Rel, "configs", filepath.Base(s.ConfigSrc))
-		if !exists(bin) {
-			return Plan{}, fmt.Errorf("missing built binary %s", bin)
-		}
-		if !exists(cfg) {
-			return Plan{}, fmt.Errorf("the build has no config %s", cfg)
-		}
-		p.Packages = append(p.Packages, bin, cfg)
-		p.Steps = append(p.Steps,
-			Step{Argv: sshx.SSH(o.SSH, o.Node,
-				sshx.AsRoot("mkdir -p "+filepath.Dir(s.BinaryDst)+" "+filepath.Dir(s.ConfigDst)))},
-			Step{Argv: rsync(o, bin, s.BinaryDst)},
-			Step{
-				Argv: rsync(o, cfg, s.ConfigDst),
-				Note: "  copied " + svc + " -> " + s.BinaryDst + " + " + s.ConfigDst,
-			},
-		)
-	}
-	return p, nil
-}
-
 func planInstall(o Options, p Plan) (Plan, error) {
 	pkgs := filepath.Join(o.Rel, "pkgs")
 
@@ -343,7 +338,7 @@ func planInstall(o Options, p Plan) (Plan, error) {
 	if len(bins) == 0 && o.OS != "" {
 
 		if other, _ := filepath.Glob(filepath.Join(pkgs, "katzenpost_*_"+binArch+".deb")); len(other) > 0 {
-			return Plan{}, fmt.Errorf("no katzenpost built for %s on %s; the release"+
+			return Plan{}, fmt.Errorf("no katzenpost built for %s on %s. The release"+
 				" has %s (build it: kno build --host %s)",
 				binArch, o.OS, strings.Join(baseNames(other), " "), o.Label)
 		}
@@ -382,26 +377,39 @@ func planInstall(o Options, p Plan) (Plan, error) {
 
 	p.Steps = append(p.Steps, transfer(o, pkgs, append(slices.Clone(p.Packages), sumsFiles(pkgs)...),
 		remote+"/pkgs", false)...)
+	if o.Mode == ModeCopy {
+		return p, nil
+	}
 	p.Steps = append(p.Steps,
 
 		Step{Argv: sshx.SSH(o.SSH, o.Node, bootstrapCmd(remote, bootstrapNames(p.Packages))),
 			Note: "installed kno on " + o.Node},
 	)
+	var units []string
+	if o.Mode == ModeFull {
+		for _, svc := range o.Services {
+			s, err := resolve(o, svc)
+			if err != nil {
+				return Plan{}, err
+			}
+			unit := layout.Unit(s, o.Tag)
+			if unit == "" {
+				unit = svc
+			}
+			units = append(units, unit)
+		}
+	}
+	activate := "kno activate "
+	if len(units) > 0 && !layout.Legacy(o.Tag) {
+		activate += "--restart=" + strings.Join(units, ",") + " "
+	}
 	p.Steps = append(p.Steps,
-		Step{Argv: sshx.SSH(o.SSH, o.Node, sshx.AsRoot("kno activate "+remote+" "+o.Tag))},
+		Step{Argv: sshx.SSH(o.SSH, o.Node, sshx.AsRoot(activate+remote+" "+o.Tag))},
 	)
-	if o.Mode != ModeFull {
+	if o.Mode != ModeFull || !layout.Legacy(o.Tag) {
 		return p, nil
 	}
-	for _, svc := range o.Services {
-		s, err := resolve(o, svc)
-		if err != nil {
-			return Plan{}, err
-		}
-		unit := layout.Unit(s, o.Tag)
-		if unit == "" {
-			unit = svc
-		}
+	for _, unit := range units {
 		p.Steps = append(p.Steps, Step{
 
 			Argv: sshx.SSH(o.SSH, o.Node,
@@ -432,7 +440,7 @@ func knoPackages(o Options, pkgs string) ([]string, error) {
 		return nil, err
 	}
 	if len(tools) == 0 {
-		return nil, fmt.Errorf("no kno package for %s in %s; the far side needs"+
+		return nil, fmt.Errorf("no kno package for %s in %s. The far side needs"+
 			" kno to install a release (build it: kno build --host %s)",
 			arch, pkgs, o.Label)
 	}
@@ -529,12 +537,6 @@ func resolve(o Options, svc string) (service.Service, error) {
 	return service.ResolveService(o.Repo, o.Network, svc)
 }
 
-func rsync(o Options, src, dst string) []string {
-	argv := []string{o.RSYNC, "-a", "--rsync-path=" + sshx.AsRoot("rsync")}
-	argv = append(argv, sshx.RsyncArgs(o.SSH)...)
-	return append(argv, src, o.Node+":"+dst)
-}
-
 func bootstrapCmd(remote string, names []string) string {
 	pkgs := remote + "/pkgs"
 
@@ -550,9 +552,12 @@ func bootstrapCmd(remote string, names []string) string {
 		sigCheck(sums, sign.NodePathFor("linux"))
 	listed := "for p in " + strings.Join(names, " ") + "; do " +
 		`grep -q "^[0-9a-f]\{64\}  $p\$" ` + sums + " || " +
-		`{ echo "kno: $p is not in ` + sums + `; refusing to install it" >&2; exit 1; }; done; `
+		`{ echo "kno: $p is not in ` + sums + `. kno does not install it" >&2; exit 1; }; done; `
+	debs := strings.Join(names, " ")
 	return "set -e; cd " + pkgs + "; " + verify + listed +
-		sshx.AsRoot("dpkg -i "+strings.Join(names, " ")) + "; " +
+		"if kno activate --help 2>&1 | grep -q -- --kno; then " +
+		sshx.AsRoot("kno activate --kno "+debs) + "; else " +
+		sshx.AsRoot("dpkg -i "+debs) + "; fi; " +
 		"command -v kno >/dev/null || " +
 		`{ echo "kno: installed the package but kno is not on PATH" >&2; exit 1; }`
 }

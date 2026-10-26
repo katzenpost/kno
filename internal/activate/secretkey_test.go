@@ -38,7 +38,7 @@ func TestScanSecretKeysRefusesUnreadableArchive(t *testing.T) {
 	if err == nil {
 		t.Fatal("want an error when the archive cannot be listed")
 	}
-	if !strings.Contains(err.Error(), "refusing to install") {
+	if !strings.Contains(err.Error(), "kno does not install") {
 		t.Errorf("error should refuse, not just report: %v", err)
 	}
 }

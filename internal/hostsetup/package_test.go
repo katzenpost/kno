@@ -77,9 +77,8 @@ func TestPackagePlanPreparesTheHost(t *testing.T) {
 		}
 	}
 
-	if strings.Contains(joined, SudoersPath) {
-		t.Errorf("the package plan touches %s on a host with no rule:\n%s",
-			SudoersPath, joined)
+	if strings.Contains(joined, "sudoers") {
+		t.Errorf("the package plan touches sudo's config:\n%s", joined)
 	}
 }
 

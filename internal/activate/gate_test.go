@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/katzenpost/kno/internal/sign"
@@ -161,7 +162,7 @@ func TestAPackageNotNamedInTheDigestListIsRefused(t *testing.T) {
 	}
 	l := track.Logger{Tool: "activate", W: io.Discard}
 	if rc := verifyPackageDigests(l, Options{Rel: rel, Tag: "v0.0.104"}, []string{deb}); rc == 0 {
-		t.Error("a package absent from the digest list was accepted")
+		t.Error("a package absent from the record was accepted")
 	}
 }
 
@@ -194,10 +195,6 @@ func TestAStagedManifestCannotChooseTheBackend(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(rel, "manifest", "mixy-pq-mixserver.conf"),
 		[]byte("BACKEND=\"docker\"\nDOCKER_IMAGE=\"katzenpost/mix\"\n"), 0o644); err != nil {
 		t.Fatal(err)
-	}
-
-	if got := ReleaseBackend(rel); got != "docker" {
-		t.Fatalf("the fixture does not claim docker: %q", got)
 	}
 
 	o := Options{
@@ -242,7 +239,7 @@ func TestTheCallersDirectoryCannotChooseTheBackend(t *testing.T) {
 	}
 }
 
-func TestWithNoEmbeddedDataTheBackendIsUnknownAndTheListIsRequired(t *testing.T) {
+func TestWithNoGeneratedServiceTheListIsRequired(t *testing.T) {
 
 	t.Setenv("KNO_CACHE", filepath.Join(os.DevNull, "nope"))
 	fake := t.TempDir()
@@ -261,10 +258,51 @@ func TestWithNoEmbeddedDataTheBackendIsUnknownAndTheListIsRequired(t *testing.T)
 		Network:  "namenlos",
 		Services: []string{"mixy-pq-mixserver"},
 	}
-	if got := hostBackend(o); got != "" {
-		t.Errorf("hostBackend = %q with no embedded data, want unknown", got)
+	if got := hostBackend(o); got == "docker" {
+		t.Errorf("an editable source file chose the backend %q", got)
 	}
 	if rc := checkRelease(track.Logger{Tool: "activate", W: io.Discard}, o); rc == 0 {
 		t.Error("an unreadable cache turned off the digest requirement")
+	}
+}
+
+func TestOneKeyUnderTwoNamesCountsOnce(t *testing.T) {
+	if !sign.Available() {
+		t.Skip("no ssh-keygen")
+	}
+	dir := t.TempDir()
+	pub, _, err := sign.TestKey(filepath.Join(dir, "k"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := os.ReadFile(pub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	allow := filepath.Join(dir, "allowed_signers")
+	if err := os.WriteFile(allow, []byte("alice "+string(key)+"bob "+string(key)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sums := filepath.Join(dir, "SHA256SUMS")
+	if err := os.WriteFile(sums, []byte("x  a.deb\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sig, err := sign.Sign(sums, strings.TrimSuffix(pub, ".pub"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "sigs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(sig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "sigs", "bob.sig"), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	who, errs := validSigners(sums, allow)
+	if len(errs) > 0 || len(who) != 1 {
+		t.Errorf("one key under two names counted as %v (errors %v)", who, errs)
 	}
 }

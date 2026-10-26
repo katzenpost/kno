@@ -14,6 +14,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/katzenpost/kno/internal/fsutil"
+
 	"github.com/BurntSushi/toml"
 
 	knorepo "github.com/katzenpost/kno/data"
@@ -68,7 +70,7 @@ var Privileges = []string{PrivNone, PrivSudo, PrivKno, PrivApt}
 var PrivilegeHelp = []string{
 	"none  kno prints the commands; you run them  (default)",
 	"sudo  kno runs them with YOUR sudo rights; no new policy",
-	"kno   kno runs them unattended; installs a sudoers rule for its account",
+	"kno   kno runs them unattended, with the sudo rights you give its account",
 	"apt   this host's apt policy installs; kno only publishes",
 }
 
@@ -80,8 +82,6 @@ func privilegeOr(v, fallback string) string {
 	}
 	return fallback
 }
-
-func (h Host) WritesSudoers() bool { return h.PrivilegeMode() == PrivKno }
 
 func (c Config) Privilege(label string) string {
 	if h, ok := c.Hosts[label]; ok && h.Privilege != "" {
@@ -181,6 +181,8 @@ type Config struct {
 		Policy           string `toml:"policy"`
 		RequireSignedTag bool   `toml:"require_signed_tag"`
 
+		RequireSignatures bool `toml:"require_signatures,omitempty"`
+
 		Threshold int `toml:"threshold,omitempty"`
 	} `toml:"update"`
 	Push struct {
@@ -251,6 +253,9 @@ func Write(c Config, path string) error {
 		c.Update.Policy, c.Update.RequireSignedTag)
 	if c.Update.Threshold > 0 {
 		fmt.Fprintf(&b, "threshold = %d\n", c.Update.Threshold)
+	}
+	if c.Update.RequireSignatures {
+		b.WriteString("require_signatures = true\n")
 	}
 	b.WriteString("\n")
 	fmt.Fprintf(&b, "[push]\nmode = %q\n", c.Push.Mode)
@@ -331,17 +336,19 @@ func exists(p string) bool {
 	return err == nil
 }
 
+var rootTrusts = func(p string) bool { return os.Geteuid() != 0 || fsutil.RootOwned(p) }
+
 func ResolvePath(flagPath string) string {
-	if flagPath != "" {
+	if flagPath != "" && rootTrusts(flagPath) {
 		return flagPath
 	}
-	if e := os.Getenv("KNO_CONFIG"); e != "" {
+	if e := os.Getenv("KNO_CONFIG"); e != "" && rootTrusts(e) {
 		return e
 	}
 
 	if h, _ := os.UserHomeDir(); h != "" && !runningAsUpdater() {
 		p := filepath.Join(h, ".local", "katzenpost", "kno.toml")
-		if exists(p) {
+		if exists(p) && rootTrusts(p) {
 			return p
 		}
 	}
@@ -933,7 +940,8 @@ func Summary(w io.Writer, path string, c Config, repo string) {
 	fmt.Fprintf(w, "config:  %s\n", path)
 	fmt.Fprintf(w, "network: %s\n", NetworkOf(c))
 	fmt.Fprintf(w, "nodes:   %s\n", strings.Join(c.Nodes, " "))
-	fmt.Fprintf(w, "update:  policy=%s require_signed_tag=%v\n", c.Update.Policy, c.Update.RequireSignedTag)
+	fmt.Fprintf(w, "update:  policy=%s require_signed_tag=%v require_signatures=%v\n",
+		c.Update.Policy, c.Update.RequireSignedTag, c.Update.RequireSignatures)
 	fmt.Fprintf(w, "push:    mode=%s\n", c.Push.Mode)
 	locLabel, _, haveLocal := LocalHost(c)
 	names := make([]string, 0, len(c.Hosts))
@@ -978,11 +986,11 @@ func Summary(w io.Writer, path string, c Config, repo string) {
 		}
 	}
 	if !haveLocal {
-		fmt.Fprintf(w, "host:    none: this machine runs no node, and it organizes the hosts above\n")
+		fmt.Fprintf(w, "host:    none: this host runs no node, and it organizes the hosts above\n")
 		if hn, err := os.Hostname(); err == nil && os.Getenv("KNO_HOST") == "" {
 			if _, many := hostNamed(c, hn); len(many) > 0 {
-				fmt.Fprintf(w, "WARN:    the hosts %s all have the hostname of this machine (%s);"+
-					" set KNO_HOST to the one this machine is\n", strings.Join(many, " "), hn)
+				fmt.Fprintf(w, "WARN:    the hosts %s all have the hostname of this host (%s)."+
+					" Set KNO_HOST to the one this host is\n", strings.Join(many, " "), hn)
 			}
 		}
 	}
@@ -1016,31 +1024,4 @@ func (c Config) SignatureThreshold() int {
 		return c.Update.Threshold
 	}
 	return DefaultThreshold
-}
-
-func NetworkPlatforms(repo, network string) map[string][2]string {
-	a, _ := readNetworkFile(repo, network)
-
-	nodes := map[string]bool{}
-	for n := range a.Arch {
-		nodes[n] = true
-	}
-	for n := range a.OS {
-		nodes[n] = true
-	}
-	out := map[string][2]string{}
-	for n := range nodes {
-		arch, osName := a.Arch[n], a.OS[n]
-		if arch == "" {
-			arch = a.Default
-		}
-		if osName == "" {
-			osName = a.DefaultOS
-		}
-		if arch == "" || osName == "" {
-			continue
-		}
-		out[osName+"-"+arch] = [2]string{osName, arch}
-	}
-	return out
 }

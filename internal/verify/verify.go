@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
@@ -81,15 +82,8 @@ type Options struct {
 	Label string
 }
 
-func (o Options) FetchConsensus() (string, int) {
-	if o.Fetch == "" {
-		return "", 127
-	}
-	return o.run(o.FetchTimeout, o.Fetch, o.fetchArgs()...)
-}
-
 func (o Options) fetchArgs() []string {
-	return []string{"-f", o.Thinclient, "-l", "ERROR"}
+	return []string{"-f", o.Thinclient, "-l", "ERROR", "--format", "json"}
 }
 
 func (o Options) checksUnits() bool {
@@ -477,7 +471,7 @@ func showChild(l track.Logger, tool, out string) {
 			l.Logf("  %s: (further output suppressed)", name)
 			return
 		}
-		l.Logf("  %s: %s", name, ln)
+		l.Logf("  %s: %s", name, cli.Clean(ln))
 	}
 	if n == 0 {
 		l.Logf("  %s: said nothing at all", name)
@@ -548,8 +542,8 @@ func units(e track.Env, release string) ([]string, error) {
 		return manifestUnits(filepath.Join(release, "manifest")), nil
 	}
 	if len(e.Services) == 0 {
-		return nil, errors.New("This machine runs no services. To check a host," +
-			" run kno verify --host <label>. To make this machine a node, run kno" +
+		return nil, errors.New("This host runs no services. To check a host," +
+			" run kno verify --host <label>. To make this host a node, run kno" +
 			" setup or install kno-host-config.")
 	}
 	var out []string

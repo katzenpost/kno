@@ -26,9 +26,8 @@ var dynamicPrograms = map[string][]string{
 
 	"internal/hostsetup/hostsetup.go: s.Argv[0]": {"apt", "env", "pkg", "useradd", "install", "git", "chown", "sudo", "systemctl", "rm", "rmdir"},
 
-	"internal/hostsetup/hostsetup.go: argv[0]": {"visudo"},
-	"internal/push/run.go: s.Argv[0]":          {"ssh", "scp", "rsync", "kno"},
-	"internal/schedule/run.go: s.Argv[0]":      {"sudo", "install", "systemctl", "rm", "tee", "ssh", "scp"},
+	"internal/push/run.go: s.Argv[0]":     {"ssh", "scp", "rsync", "kno"},
+	"internal/schedule/run.go: s.Argv[0]": {"sudo", "install", "systemctl", "rm", "tee", "ssh", "scp"},
 
 	"internal/compile/containers.go: Podman()": {"podman", "docker"},
 	"internal/compile/compile.go: e":           {"podman", "docker"},
@@ -51,7 +50,7 @@ var dynamicPrograms = map[string][]string{
 
 	"internal/clean/hosts.go: argv[0]": {"ssh"},
 
-	"internal/sign/sign.go: name": {"ssh-keygen"},
+	"internal/sshsig/sshsig.go: name": {"ssh-keygen"},
 
 	"internal/build/build.go: compile.Podman()":    {"podman"},
 	"internal/build/upstream.go: compile.Podman()": {"podman"},
@@ -67,7 +66,6 @@ var dynamicPrograms = map[string][]string{
 
 	"internal/update/self.go: s.Sudo": {"sudo"},
 
-	"internal/compile/compile.go: Podman()":           {"podman"},
 	"internal/compile/platform.go: Podman()":          {"podman"},
 	"internal/check/repro.go: compile.Podman()":       {"podman"},
 	"internal/pkg/deb/build.go: compile.Podman()":     {"podman"},
@@ -84,7 +82,6 @@ var dynamicPrograms = map[string][]string{
 	"internal/hostsetup/deps.go: m":   {"apt", "pkg"},
 	"internal/source/source.go: name": {"git"},
 	"internal/source/pins.go: name":   {"git"},
-	"internal/status/status.go: cmd":  {"systemctl"},
 
 	"internal/activate/activate.go: p.Needs": {"dpkg", "podman"},
 
@@ -271,7 +268,7 @@ func TestRemoteAndVendoredToolsAreNotProbed(t *testing.T) {
 		switch s.Scope {
 		case ScopeRemote, ScopeVendored:
 			if s.Checked {
-				t.Errorf("%s is scope %s but was probed on this machine", s.Name, s.Scope)
+				t.Errorf("%s is scope %s but was probed on this host", s.Name, s.Scope)
 			}
 		default:
 			if !s.Checked {

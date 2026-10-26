@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/katzenpost/kno/internal/config"
-	"github.com/katzenpost/kno/internal/fsutil"
-	"github.com/katzenpost/kno/internal/pkg/deb"
-	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/katzenpost/kno/internal/config"
+	"github.com/katzenpost/kno/internal/fsutil"
+	"github.com/katzenpost/kno/internal/pkg/deb"
+	"github.com/katzenpost/kno/internal/pkg/freebsd"
 
 	"github.com/katzenpost/kno/internal/release"
 	"github.com/katzenpost/kno/internal/sign"
@@ -22,17 +23,13 @@ func CommittedDir(repo, network, tag string) string {
 	return release.Dir(repo, network, tag)
 }
 
-func CommittedSums(repo, network, tag string) (sums, sig string) {
-	return release.Sums(repo, network, tag)
-}
-
 func CommittedEpoch(repo, network, tag string) string {
 	return release.Epoch(repo, network, tag)
 }
 
-var ErrNoCommittedSums = errors.New("no committed digest list for this release")
+var ErrNoCommittedSums = errors.New("the repository has no record of this release")
 
-var ErrNoneNamed = errors.New("the committed digest list names none of these packages")
+var ErrNoneNamed = errors.New("the record names none of these packages")
 
 func selfPackage(name string) bool {
 	if n, ok := freebsd.SplitPkgName(name); ok {
@@ -70,10 +67,6 @@ type CommittedDiff struct {
 	Named int
 }
 
-func (d CommittedDiff) Empty() bool {
-	return len(d.Mismatched) == 0 && len(d.Unnamed) == 0
-}
-
 func DiffAgainstCommitted(repo, network, tag, dir, allowlist string) (CommittedDiff, error) {
 	var d CommittedDiff
 	kind := buildKind(dir)
@@ -90,7 +83,11 @@ func DiffAgainstCommitted(repo, network, tag, dir, allowlist string) (CommittedD
 		return d, err
 	}
 	want := make(map[string]string, len(entries))
+	split := map[string]bool{}
 	for _, e := range entries {
+		if s, ok := want[e.Name]; ok && s != e.Sha256 {
+			split[e.Name] = true
+		}
 		want[e.Name] = e.Sha256
 	}
 	var built []string
@@ -113,6 +110,10 @@ func DiffAgainstCommitted(repo, network, tag, dir, allowlist string) (CommittedD
 			continue
 		}
 		d.Named++
+		if split[name] {
+			d.Mismatched = append(d.Mismatched, name+": the node records give different digests")
+			continue
+		}
 		got, _, err := fsutil.SHA256File(p)
 		if err != nil {
 			return d, err
@@ -159,10 +160,10 @@ func checkCommittedSignature(sums, sig, allowlist, tag string) error {
 		return nil
 	}
 	if _, err := sign.Verify(sums, sig, allowlist); err != nil {
-		return fmt.Errorf("the committed digest list for %s carries a signature"+
-			" this host rejects: %w\n"+
-			"  An absent signature is allowed here; a wrong one is not. Delete"+
-			" %s\n  if it is stale, or add the signer to %s.",
+		return fmt.Errorf("the record of %s has a signature"+
+			" that this host refuses: %w\n"+
+			"  kno accepts a record with no signature here, but not one with a wrong signature."+
+			" Delete %s\n  if it is old, or add the signer to %s.",
 			tag, err, filepath.Base(sig), allowlist)
 	}
 	return nil
@@ -198,7 +199,7 @@ func record(repo, network, tag, dir string, prune bool) ([]string, error) {
 		if !strings.HasSuffix(rev, "+dirty") {
 			continue
 		}
-		return nil, fmt.Errorf("refusing to record %s: it was built at"+
+		return nil, fmt.Errorf("kno does not record %s: it was built at"+
 			" revision %s.\n"+
 			"  A dirty tree is not a release. Commit or stash the changes and"+
 			" build again;\n  otherwise the recorded revision describes an"+
@@ -217,7 +218,7 @@ func record(repo, network, tag, dir string, prune bool) ([]string, error) {
 		}
 	}
 	if len(dirty) > 0 {
-		return nil, fmt.Errorf("refusing to record %s: %d package name(s) have the"+
+		return nil, fmt.Errorf("kno does not record %s: %d package name(s) have the"+
 			" dirty mark:\n  %s\n"+
 			"  A name is dirty when its inputs have changes that are not committed."+
 			" Commit them, build again, then record.",

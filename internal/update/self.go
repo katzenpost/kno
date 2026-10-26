@@ -64,14 +64,13 @@ func newSelfUpgrade(e track.Env, l track.Logger, sudo string) selfUpgrade {
 }
 
 func (s selfUpgrade) installArgv(pkg string) []string {
-	argv := []string{"env", "DEBIAN_FRONTEND=noninteractive", "dpkg", "-i", pkg}
-	if strings.HasSuffix(pkg, ".pkg") {
-		argv = freebsd.PkgAdd("", pkg)
+	switch {
+	case s.Sudo != "":
+		return []string{s.Sudo, s.installed, "activate", "--kno", pkg}
+	case strings.HasSuffix(pkg, ".pkg"):
+		return freebsd.PkgAdd("", pkg)
 	}
-	if s.Sudo != "" {
-		argv = append([]string{s.Sudo}, argv...)
-	}
-	return argv
+	return []string{"env", "DEBIAN_FRONTEND=noninteractive", "dpkg", "-i", pkg}
 }
 
 func (s selfUpgrade) Run() error {
@@ -90,7 +89,7 @@ func (s selfUpgrade) Run() error {
 		return nil
 	}
 	if deb.CompareVersions(want, s.have) <= 0 {
-		s.Log.Logf("kno %s runs here, and this repository builds the older %s; keeping it", s.have, want)
+		s.Log.Logf("kno %s runs here, and this repository builds the older %s. kno keeps it", s.have, want)
 		return nil
 	}
 	s.Log.Logf("upgrading kno %s -> %s", s.have, want)
@@ -108,11 +107,11 @@ func (s selfUpgrade) Run() error {
 	}
 	if got := s.version(s.installed); !strings.Contains(got, want) {
 		if kept != "" {
-			s.Log.Errorf("the new kno says %q, not %s; reinstalling the kno this host had", got, want)
+			s.Log.Errorf("the new kno says %q, not %s. kno installs again the kno that this host had", got, want)
 			if err := s.run(s.installArgv(kept)); err != nil {
 				return fmt.Errorf("the new kno does not run, and reinstalling %s failed too: %w", kept, err)
 			}
-			return fmt.Errorf("kno %s did not run here; this host keeps %s", want, s.have)
+			return fmt.Errorf("kno %s did not run here. This host keeps %s", want, s.have)
 		}
 		return fmt.Errorf("the new kno says %q, not %s, and no earlier kno package is kept here", got, want)
 	}

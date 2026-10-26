@@ -483,3 +483,7 @@ func TestAJailedConfigNamesKeysInsideItsJail(t *testing.T) {
 		t.Errorf("no key scanned")
 	}
 }
+
+func ScanKeys(stateDir, configPath string) KeyReport {
+	return ScanKeysIn(stateDir, configPath, nil)
+}

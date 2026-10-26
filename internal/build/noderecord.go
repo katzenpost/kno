@@ -77,12 +77,20 @@ func committedEntries(repo, network, tag, kind string) ([]PackageSum, error) {
 	if err != nil {
 		return nil, err
 	}
+	named := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		named[e.Name] = true
+	}
 	for _, d := range nodeRecordDirs(CommittedDir(repo, network, tag)) {
 		more, err := SumsEntries(filepath.Join(d, SumsName))
 		if err != nil {
 			continue
 		}
-		entries = append(entries, more...)
+		for _, e := range more {
+			if !named[e.Name] {
+				entries = append(entries, e)
+			}
+		}
 	}
 	return entries, nil
 }

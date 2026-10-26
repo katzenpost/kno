@@ -48,7 +48,7 @@ Default: true
 Description: Is kno being configured to run on this host, \${hostname}?
  Answer yes if \${hostname} runs katzenpost node(s) that kno should build and
  update here -- you will be asked which nodes and how to update them. Answer no
- only if this machine is used to push updates to other hosts.
+ only if this host is used to push updates to other hosts.
 
 Template: kno-host-config/network
 Type: string
@@ -87,7 +87,7 @@ Type: select
 Choices: copy, install, full
 Default: full
 Description: Operator-side push mode.
- copy = rsync binaries/configs only; install = also dpkg-install; full = both.
+ copy stages the packages on the host without root. install also installs them. full also restarts the services.
 
 Template: kno-host-config/privilege
 Type: select
@@ -96,7 +96,7 @@ Default: none
 Description: Who runs the steps that need root on this host?
  none = nobody automatically; kno prints the commands and you run them.
  sudo = you do, with the sudo rights you already have; no new policy is written.
- kno = kno does, unattended, through a sudoers rule installed for its account.
+ kno = kno does, unattended, with the sudo rights that you give its account.
  apt = this host's apt policy installs from kno's local repository.
  .
  none is the default and grants nothing. A host that grants nothing still

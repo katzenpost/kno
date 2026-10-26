@@ -129,10 +129,6 @@ func (k KeyReport) Coverage() string {
 	return s
 }
 
-func ScanKeys(stateDir, configPath string) KeyReport {
-	return ScanKeysIn(stateDir, configPath, nil)
-}
-
 func ScanKeysIn(stateDir, configPath string, host func(string) string) KeyReport {
 	k := KeyReport{host: host}
 

@@ -100,15 +100,19 @@ func TestAKnoThatDoesNotRunIsReplacedByTheKeptOne(t *testing.T) {
 }
 
 func TestDebianInstallUsesSudoForAUser(t *testing.T) {
-	s := selfUpgrade{Sudo: "sudo"}
-	if got := strings.Join(s.installArgv("/r/kno_1_amd64.deb"), " "); got != "sudo env DEBIAN_FRONTEND=noninteractive dpkg -i /r/kno_1_amd64.deb" {
+	s := selfUpgrade{Sudo: "sudo", installed: "/usr/bin/kno"}
+	if got := strings.Join(s.installArgv("/r/kno_1_amd64.deb"), " "); got != "sudo /usr/bin/kno activate --kno /r/kno_1_amd64.deb" {
 		t.Errorf("argv = %q", got)
+	}
+	s.Sudo = ""
+	if got := strings.Join(s.installArgv("/r/kno_1_amd64.deb"), " "); got != "env DEBIAN_FRONTEND=noninteractive dpkg -i /r/kno_1_amd64.deb" {
+		t.Errorf("argv as root = %q", got)
 	}
 }
 
 func TestFreeBSDInstallUsesSudoForAUser(t *testing.T) {
-	s := selfUpgrade{Sudo: "sudo"}
-	if got := strings.Join(s.installArgv("/r/kno-1.pkg"), " "); got != "sudo env ASSUME_ALWAYS_YES=yes pkg add -f /r/kno-1.pkg" {
+	s := selfUpgrade{Sudo: "sudo", installed: "/usr/local/bin/kno"}
+	if got := strings.Join(s.installArgv("/r/kno-1.pkg"), " "); got != "sudo /usr/local/bin/kno activate --kno /r/kno-1.pkg" {
 		t.Errorf("argv = %q", got)
 	}
 	s.Sudo = ""

@@ -62,7 +62,7 @@ func goTarball(pins map[string]string) (version, url, sum string, err error) {
 	key := "GO_SHA256_" + strings.ToUpper(runtime.GOARCH)
 	version, sum = pins["GO_VERSION"], pins[key]
 	if version == "" || sum == "" {
-		return "", "", "", fmt.Errorf("pins.env has no GO_VERSION or no %s; add the sha256"+
+		return "", "", "", fmt.Errorf("pins.env has no GO_VERSION or no %s. Add the sha256"+
 			" from https://go.dev/dl/?mode=json", key)
 	}
 	return version, fmt.Sprintf("https://go.dev/dl/go%s.linux-%s.tar.gz", version, runtime.GOARCH), sum, nil
@@ -131,8 +131,8 @@ func BaseImageFor(arch, osName string) (string, error) {
 	}
 	img, ok := baseImages[Platform{Arch: goarch, OS: osName}]
 	if !ok {
-		return "", fmt.Errorf("no pinned base image for %s on %s;"+
-			" add its digest to baseImages (podman manifest inspect) or correct"+
+		return "", fmt.Errorf("no pinned base image for %s on %s."+
+			" Add its digest to baseImages (podman manifest inspect) or correct"+
 			" the node's os in its machines/<node>.toml", osName, arch)
 	}
 	return img, nil

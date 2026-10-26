@@ -82,7 +82,7 @@ func TestReportHostsNeverDeployed(t *testing.T) {
 		t.Errorf("want both hosts UPDATE, got %d:\n%s", n, out)
 	}
 	if !strings.Contains(out, "no record that this") {
-		t.Errorf("want 'no record that this machine installed on it':\n%s", out)
+		t.Errorf("want 'no record that this host installed on it':\n%s", out)
 	}
 }
 

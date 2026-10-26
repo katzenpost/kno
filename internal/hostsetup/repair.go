@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/schedule"
 )
 
@@ -54,7 +55,7 @@ func RepairSteps(o BootstrapOptions) Plan {
 		})
 	}
 	for _, d := range staleDirs {
-		if isDir(under(d)) {
+		if fsutil.IsDir(under(d)) {
 
 			p = append(p, Step{
 				Desc:       "remove the empty " + under(d),
