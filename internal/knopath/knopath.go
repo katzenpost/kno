@@ -2,6 +2,7 @@ package knopath
 
 import (
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 )
@@ -47,6 +48,25 @@ func Releases(home string) string {
 		return filepath.Join(home, "releases")
 	}
 	return filepath.Join(Dist(), "releases")
+}
+
+func InvokerArtifacts() string {
+	return invokerArtifacts(os.Geteuid(), os.Getenv("SUDO_USER"))
+}
+
+func invokerArtifacts(euid int, name string) string {
+	if euid != 0 || name == "" {
+		return ""
+	}
+	u, err := user.Lookup(name)
+	if err != nil || u.Uid == "0" {
+		return ""
+	}
+	d := filepath.Join(u.HomeDir, ".local", "share", vendor, tool)
+	if _, err := os.Stat(d); err != nil {
+		return ""
+	}
+	return d
 }
 
 func State(home string) string {

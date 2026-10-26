@@ -62,6 +62,13 @@ func repoDir(home string) string {
 	return CloneDir(home)
 }
 
+func under(dir, name string) string {
+	if dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, name)
+}
+
 func LoadEnv() (Env, error) {
 	home := os.Getenv("KNO_HOME")
 	if home == "" {
@@ -82,10 +89,13 @@ func LoadEnv() (Env, error) {
 	}
 	e.KatzenpostRepo = cmp.Or(os.Getenv("KATZENPOST_REPO"), filepath.Join(home, "katzenpost"))
 
-	e.StateDir = cmp.Or(os.Getenv("UPDATER_STATE_DIR"), knopath.State(home))
+	inv := knopath.InvokerArtifacts()
+	e.StateDir = cmp.Or(os.Getenv("UPDATER_STATE_DIR"), under(inv, "state"),
+		knopath.State(home))
 	e.QuarantineFile = cmp.Or(os.Getenv("QUARANTINE_FILE"), filepath.Join(e.StateDir, "quarantine"))
 	e.CurrentFile = cmp.Or(os.Getenv("CURRENT_FILE"), filepath.Join(e.StateDir, "current"))
-	e.ReleasesDir = cmp.Or(os.Getenv("RELEASES_DIR"), knopath.Releases(home))
+	e.ReleasesDir = cmp.Or(os.Getenv("RELEASES_DIR"), under(inv, "releases"),
+		knopath.Releases(home))
 
 	if p := config.ResolvePath(""); p != "" {
 		c, err := config.Load(p)
