@@ -39,6 +39,12 @@ jobs:
             echo "PKGS=$RUNNER_TEMP/artifacts/releases/$t/pkgs"
           } >> "$GITHUB_ENV"
 
+      - name: free disk
+        if: ${{ !env.ACT }}
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
+          docker image prune -af >/dev/null
+
       - name: build kno
         run: go build -o "$RUNNER_TEMP/kno" ./cmd/kno
 
