@@ -208,7 +208,7 @@ func builtDeb(tree, arch string) (string, error) {
 }
 
 func (u upstreamDeb) runArgs(goarch, tree, image string) []string {
-	platform, script := goarch, "packaging/debian/build.sh"
+	platform, script := goarch, "packaging/debian/build.sh -jauto"
 	if u.Cross {
 		platform, script = "amd64", script+" -a "+u.Arch
 	}

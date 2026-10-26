@@ -9,7 +9,7 @@ func TestACrossBuildRunsOnAmd64WithTheTargetCompiler(t *testing.T) {
 	u := upstreamDeb{Arch: "ppc64el", Cross: true}
 	argv := strings.Join(u.runArgs("ppc64le", t.TempDir(), "img"), " ")
 	for _, want := range []string{"--platform linux/amd64", "GOARCH=ppc64le",
-		"CGO_ENABLED=1", "CC=powerpc64le-linux-gnu-gcc", "build.sh -a ppc64el"} {
+		"CGO_ENABLED=1", "CC=powerpc64le-linux-gnu-gcc", "-jauto -a ppc64el"} {
 		if !strings.Contains(argv, want) {
 			t.Errorf("the cross build lacks %q: %s", want, argv)
 		}
