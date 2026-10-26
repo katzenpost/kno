@@ -79,8 +79,8 @@ func protectedTags(e track.Env) []string {
 		}
 	}
 
-	add(firstLine(e.CurrentFile))
-	add(firstLine(filepath.Join(e.StateDir, "last-known-good")))
+	add(fsutil.FirstLine(e.CurrentFile))
+	add(fsutil.FirstLine(filepath.Join(e.StateDir, "last-known-good")))
 	labels := map[string]bool{}
 	for label := range e.Config.Hosts {
 		labels[label] = true
@@ -94,8 +94,8 @@ func protectedTags(e track.Env) []string {
 	}
 	for label := range labels {
 		dir := knopath.HostState(e.StateDir, label)
-		add(firstLine(filepath.Join(dir, "current")))
-		add(firstLine(filepath.Join(dir, "last-known-good")))
+		add(fsutil.FirstLine(filepath.Join(dir, "current")))
+		add(fsutil.FirstLine(filepath.Join(dir, "last-known-good")))
 	}
 	out := make([]string, 0, len(seen))
 	for t := range seen {
@@ -103,19 +103,6 @@ func protectedTags(e track.Env) []string {
 	}
 	sort.Strings(out)
 	return out
-}
-
-func firstLine(path string) string {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	for _, line := range strings.Split(string(b), "\n") {
-		if v := strings.TrimSpace(line); v != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 const (
@@ -171,7 +158,7 @@ func Remove(w io.Writer, e track.Env, items []Item, dry bool) error {
 			return err
 		}
 		if !allowed[abs] {
-			return fmt.Errorf("refusing to remove %s: not one of the directories kno owns", it.Path)
+			return fmt.Errorf("kno does not remove %s: it is not one of the directories kno owns", it.Path)
 		}
 		if err := mayRemove(e, abs); err != nil {
 			return err
@@ -197,7 +184,7 @@ func mayRemove(e track.Env, dir string) error {
 	resolved := fsutil.Resolve(dir)
 	for _, marker := range []string{".git", "networks"} {
 		if _, err := os.Lstat(filepath.Join(resolved, marker)); err == nil {
-			return fmt.Errorf("refusing to remove %s: it holds %s, so it is a checkout and not a directory kno owns", dir, marker)
+			return fmt.Errorf("kno does not remove %s: it holds %s, so it is a checkout and not a directory kno owns", dir, marker)
 		}
 	}
 	keep := []string{"/", e.Home, e.KatzenpostRepo, e.StateDir, backupkeys.DefaultDest(e)}
@@ -215,7 +202,7 @@ func mayRemove(e track.Env, dir string) error {
 			continue
 		}
 		if abs, err := filepath.Abs(k); err == nil && within(resolved, fsutil.Resolve(abs)) {
-			return fmt.Errorf("refusing to remove %s: it holds %s, and kno does not own that", dir, k)
+			return fmt.Errorf("kno does not remove %s: it holds %s, and kno does not own that", dir, k)
 		}
 	}
 	return nil
@@ -250,17 +237,6 @@ func removeTree(root string) error {
 		return nil
 	})
 	return os.RemoveAll(root)
-}
-
-func Images(ctx context.Context, engine string) (string, error) {
-	if _, err := exec.LookPath(engine); err != nil {
-		return "", err
-	}
-	out, err := exec.CommandContext(ctx, engine, "system", "df").Output()
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
 }
 
 func PruneImages(ctx context.Context, w io.Writer, engine string, dry bool) error {

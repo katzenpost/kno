@@ -214,7 +214,7 @@ func ReportVerify(w io.Writer, s PackageSums, bad []SumsError, dir string, verbo
 			fmt.Fprintf(w, "  FAILED  %s\n", e)
 		}
 		fmt.Fprintf(w, "kno build: the packages changed after they were built."+
-			" Do not install or ship them; build again.\n")
+			" Do not install or ship them. Build again.\n")
 		return
 	}
 	mine := map[string]bool{}

@@ -56,7 +56,7 @@ func Command() *cobra.Command {
 	f.StringVar(&v.host, "host", "", "scope the build to these hosts (comma separated labels from kno.toml)")
 	f.StringVar(&v.group, "group", "", "scope the build to an operator's node group, comma separated for several")
 	f.BoolVar(&v.allHosts, "all-hosts", false, "scope the build to every host in the config")
-	f.StringVar(&v.svcList, "services", "", "explicit service list, comma separated; a build jail has no host config to scope from")
+	f.StringVar(&v.svcList, "services", "", "explicit service list, comma separated. A build jail has no host config to scope from")
 	f.StringVar(&v.arches, "arches", "", "arch list, space or comma separated (default: the arches of the selected services' nodes)")
 	f.StringVar(&v.export, "export", "", "also copy the finished packages into this directory")
 	f.StringVar(&v.network, "network", "namenlos", "network name")
@@ -71,7 +71,7 @@ func Command() *cobra.Command {
 	f.BoolVar(&v.skipDocker, "skip-docker", false, "do not build the container images")
 	f.BoolVar(&v.skipTarball, "skip-tarball", false, "do not build the binary and source tarballs")
 	f.BoolVar(&v.native, "native", compile.NativeBuild(),
-		"build with the host Go toolchain and emit the host package format, no container; default on freebsd")
+		"build with the host Go toolchain and emit the host package format, no container. Default on freebsd")
 	f.BoolVar(&v.qemu, "qemu", false, "build each katzenpost package in a"+
 		" container of its own arch under qemu, not with a cross compiler")
 	f.BoolVar(&v.imagesOnly, "images", false,
@@ -127,7 +127,7 @@ func recordCommand() *cobra.Command {
 	var prune bool
 	cmd := &cobra.Command{
 		Use:          "record",
-		Short:        "record this build's digest list in the network repository",
+		Short:        "record the digests of this build in the network repository",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -166,7 +166,7 @@ func recordCommand() *cobra.Command {
 			for _, p := range wrote {
 				fmt.Fprintf(w, "wrote %s\n", p)
 			}
-			fmt.Fprintf(w, "\nCommit the files. Later builds then compare their packages with this digest list:\n")
+			fmt.Fprintf(w, "\nCommit the files. Later builds then compare their packages with this record:\n")
 			fmt.Fprintf(w, "  git -C %s add %s\n", repo, CommittedDir(repo, network, tag))
 			fmt.Fprintf(w, "  git -C %s commit -m 'Record %s'\n", repo, tag)
 			return nil
@@ -179,8 +179,8 @@ func recordCommand() *cobra.Command {
 		"the directory holding this build's "+ManifestName+
 			" (default: this tag's release directory)")
 	f.BoolVar(&prune, "prune", false,
-		"drop recorded packages this build does not produce; only from the"+
-			" machine that builds the whole release")
+		"drop recorded packages that this build does not make."+
+			" Use it only on the host that builds the whole release")
 	return cmd
 }
 
@@ -194,14 +194,14 @@ func reportStrangers(w io.Writer, repo, network, tag string) {
 	if len(strangers) == 0 {
 		return
 	}
-	fmt.Fprintf(w, "kno build record: The digest list of %s has config packages for %d"+
+	fmt.Fprintf(w, "kno build record: The record of %s has config packages for %d"+
 		" services that are not in your nodes list:\n", tag, len(strangers))
 	for _, s := range strangers {
 		fmt.Fprintf(w, "  %s\n", s)
 	}
 	fmt.Fprint(w, "  If another operator built them, this is correct. If a node left your\n"+
-		"  list, nobody builds its package again. Then the digest list names a\n"+
-		"  package that no machine can make. To remove those entries, run:\n"+
+		"  list, nobody builds its package again. Then the record names a\n"+
+		"  package that no host can make. To remove those entries, run:\n"+
 		"    kno build record --prune\n")
 }
 
@@ -313,7 +313,7 @@ func selectHosts(repo string, v flags, c config.Config) ([]string, error) {
 		}
 	}
 	if len(given) > 1 {
-		return nil, fmt.Errorf("%s are alternatives; pass one", strings.Join(given, " and "))
+		return nil, fmt.Errorf("%s are alternatives. Pass one", strings.Join(given, " and "))
 	}
 	if len(given) == 0 {
 		return nil, nil
@@ -364,7 +364,7 @@ func configScope(repo string, c config.Config) ([]string, string) {
 	if len(hosts) == 0 {
 		return nil, ""
 	}
-	note := fmt.Sprintf("This machine is the organizer. kno builds for its %d hosts: %s.",
+	note := fmt.Sprintf("This host is the organizer. kno builds for its %d hosts: %s.",
 		len(hosts), strings.Join(hosts, " "))
 	if skipped := config.UnclaimedHosts(repo, c); len(skipped) > 0 {
 		note += fmt.Sprintf("\nkno build: kno does not build for %s. kno.toml lists it in"+
@@ -468,8 +468,8 @@ func runBuild(cmd *cobra.Command, v flags) {
 					fmt.Fprintf(os.Stderr, "kno build: %v\n", gerr)
 					os.Exit(1)
 				}
-				fmt.Fprintf(os.Stderr, "kno build: no host in your config runs %s;"+
-					" building its %d service(s) from the network data"+
+				fmt.Fprintf(os.Stderr, "kno build: no host in your config runs %s."+
+					" kno builds its %d service(s) from the network data"+
 					" (no per-host config package)\n", v.group, len(svcs))
 				o.Services = svcs
 				scopeNote = "group " + v.group + ", not hosted here"

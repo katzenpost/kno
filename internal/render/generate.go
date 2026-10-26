@@ -114,7 +114,7 @@ func writeKeys(netDir, out string) error {
 			return err
 		}
 		if fsutil.IsSecretKeyFile(p) {
-			return fmt.Errorf("%s is a secret key; it does not belong in the network data", p)
+			return fmt.Errorf("%s is a secret key. It does not belong in the network data", p)
 		}
 		rel, err := filepath.Rel(src, p)
 		if err != nil {
@@ -135,7 +135,7 @@ func writeNetworkFile(netDir, out string) error {
 		return err
 	}
 	if len(n.Arch) > 0 || len(n.OS) > 0 {
-		return fmt.Errorf("arch.toml lists nodes; a node's arch and os belong in %s/<node>.toml",
+		return fmt.Errorf("arch.toml lists nodes. A node's arch and os belong in %s/<node>.toml",
 			nodefile.MachinesDir)
 	}
 	ms, err := nodefile.Machines(src)

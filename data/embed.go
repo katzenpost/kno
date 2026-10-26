@@ -44,20 +44,6 @@ func Materialize(dir string) error {
 	})
 }
 
-func Networks() ([]string, error) {
-	ents, err := fs.ReadDir(files, "networks")
-	if err != nil {
-		return nil, err
-	}
-	var out []string
-	for _, e := range ents {
-		if e.IsDir() {
-			out = append(out, e.Name())
-		}
-	}
-	return out, nil
-}
-
 func Digest() (string, error) {
 	h := sha256.New()
 	err := fs.WalkDir(files, ".", func(p string, d fs.DirEntry, err error) error {

@@ -60,7 +60,7 @@ func Render(o RenderOptions) (Result, error) {
 	}
 	subject := "parity " + refNet + " vs reference"
 	if _, err := os.Stat(ref); err != nil {
-		r.add("render", subject, Skip, "no reference configs at %s; parity against the upstream reference not checked", ref)
+		r.add("render", subject, Skip, "no reference configs at %s. Parity against the upstream reference not checked", ref)
 		return r, nil
 	}
 	c, err := compareDirs(knopath.ConfigsDir(o.Repo, refNet), ref)

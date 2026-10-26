@@ -17,7 +17,7 @@ func Command() *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if system {
 				if out != "" {
-					return fmt.Errorf("--system and --out name different files; pass one")
+					return fmt.Errorf("--system and --out name different files. Pass one")
 				}
 				out = systemConfigPath
 			}

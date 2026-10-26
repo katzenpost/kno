@@ -95,7 +95,7 @@ func fetchComponent(work, name, url, ref, wantSHA, src string) error {
 		from, local = url, false
 	}
 	if strings.HasPrefix(from, "-") {
-		return fmt.Errorf("%s: source %q begins with '-'; git would read it as an option", name, from)
+		return fmt.Errorf("%s: source %q begins with '-'. git would read it as an option", name, from)
 	}
 	args := []string{"clone", "-q", "--no-checkout"}
 	if local {
@@ -127,8 +127,8 @@ func fetchComponent(work, name, url, ref, wantSHA, src string) error {
 			return fmt.Errorf("checkout %s: %w (and its pinned sha %s: %v)", ref, err, wantSHA, err2)
 		}
 		fmt.Fprintf(os.Stderr,
-			"kno: %s has no ref %s here; using the pinned sha %s\n"+
-				"  (expected before the tag is pushed; the sha is what is verified)\n",
+			"kno: %s has no ref %s here. kno uses the pinned sha %s\n"+
+				"  (this is expected before the tag is pushed. kno checks the sha)\n",
 			name, ref, wantSHA)
 	}
 	return verifyPinnedSHA(dest, name, ref, wantSHA)

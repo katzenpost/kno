@@ -3,12 +3,12 @@ package record
 import (
 	"bytes"
 	"fmt"
-	"github.com/katzenpost/kno/internal/knopath"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
+
+	"github.com/katzenpost/kno/internal/knopath"
 
 	"github.com/BurntSushi/toml"
 )
@@ -171,21 +171,6 @@ func isTimeLine(line string) bool {
 	return false
 }
 
-func Hosts(repo, network string) []string {
-	ents, err := os.ReadDir(Dir(repo, network))
-	if err != nil {
-		return nil
-	}
-	var out []string
-	for _, e := range ents {
-		if n := strings.TrimSuffix(e.Name(), ".toml"); n != e.Name() {
-			out = append(out, n)
-		}
-	}
-	sort.Strings(out)
-	return out
-}
-
 func (r Record) Summary() string {
 	switch {
 	case r.Deploying != nil && r.Deploying.Held:
@@ -250,33 +235,4 @@ type Witness struct {
 	Host string
 	Arch string
 	OS   string
-}
-
-func Witnesses(repo, network, tag string) ([]Witness, error) {
-	ents, err := os.ReadDir(Dir(repo, network))
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var out []Witness
-	for _, e := range ents {
-		name := strings.TrimSuffix(e.Name(), ".toml")
-		if e.IsDir() || name == e.Name() {
-			continue
-		}
-		r, err := Load(repo, network, name)
-		if err != nil {
-			continue
-		}
-		for _, x := range r.Reproduced {
-			if x.Tag == tag {
-				out = append(out, Witness{Host: name, Arch: x.Arch, OS: x.OS})
-				break
-			}
-		}
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Host < out[j].Host })
-	return out, nil
 }

@@ -83,7 +83,7 @@ func TestAMistypedHostIsRefusedRatherThanIgnored(t *testing.T) {
 		t.Fatal("an unknown host must be refused")
 	}
 	if !strings.Contains(err.Error(), "alpha beta gamma") {
-		t.Errorf("error = %q, want it to list the hosts this machine organizes", err)
+		t.Errorf("error = %q, want it to list the hosts this organizer has", err)
 	}
 	if _, err := Labels(e, Flags{Host: "alpha,alhpa"}); err == nil {
 		t.Fatal("one unknown host among known ones must still be refused")

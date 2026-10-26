@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/katzenpost/kno/internal/fsutil"
+
 	"github.com/katzenpost/kno/internal/compile"
 	"github.com/katzenpost/kno/internal/pkg/deb"
 )
@@ -29,10 +31,10 @@ func ReadLocalState(stateDir, releasesDir string) LocalState {
 		return s
 	}
 	s.Exists = true
-	s.Current = firstLine(filepath.Join(stateDir, "current"))
+	s.Current = fsutil.FirstLine(filepath.Join(stateDir, "current"))
 
-	s.LKG = firstLine(filepath.Join(stateDir, "last-known-good"))
-	if st := firstLine(filepath.Join(stateDir, "state")); st == "pending" {
+	s.LKG = fsutil.FirstLine(filepath.Join(stateDir, "last-known-good"))
+	if st := fsutil.FirstLine(filepath.Join(stateDir, "state")); st == "pending" {
 		kv := readKV(filepath.Join(stateDir, "pending"))
 		s.Pending = kv["tag"]
 		if s.Pending == "" {
@@ -60,15 +62,6 @@ func (s LocalState) Usable(releasesDir, tag string) bool {
 	}
 	fi, err := os.Stat(filepath.Join(releasesDir, tag, "manifest"))
 	return err == nil && fi.IsDir()
-}
-
-func firstLine(p string) string {
-	for _, ln := range lines(p) {
-		if ln != "" {
-			return ln
-		}
-	}
-	return ""
 }
 
 func lines(p string) []string {

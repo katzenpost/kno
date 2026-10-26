@@ -25,7 +25,7 @@ func Topology(o TopologyOptions) (Result, error) {
 		known, err = topology.KnownFindings(o.Repo)
 		if err != nil {
 			r.add("topology", "known findings", Warn,
-				"cannot read the allowlist (%v); every finding counts as new", err)
+				"cannot read the allowlist (%v). Every finding counts as new", err)
 		}
 	}
 
@@ -38,7 +38,7 @@ func Topology(o TopologyOptions) (Result, error) {
 		}
 		if len(nets) == 0 {
 			r.add("topology", "networks", Fail,
-				"no networks/<name>/editable-configs/manifest.toml under %s; nothing was linted", o.Repo)
+				"no networks/<name>/editable-configs/manifest.toml under %s. Nothing was linted", o.Repo)
 			return r, nil
 		}
 	}
@@ -59,7 +59,7 @@ func Topology(o TopologyOptions) (Result, error) {
 				continue
 			}
 			r.add("topology", n+" "+f.Subject, Fail,
-				"%s; fix the network data, or add the line %q to data/topology-findings.txt",
+				"%s. Fix the network data, or add the line %q to data/topology-findings.txt",
 				f.Detail, f.Subject)
 		}
 		if len(found) == 0 {
@@ -80,7 +80,7 @@ func Topology(o TopologyOptions) (Result, error) {
 		}
 		if !covered {
 			r.add("topology", "resolved "+k, Pass,
-				"no network reports it any more; drop it from data/topology-findings.txt")
+				"no network reports it any more. Drop it from data/topology-findings.txt")
 		}
 	}
 	return r, nil

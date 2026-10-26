@@ -67,7 +67,7 @@ func Pick(mine []Node, want string) (Node, error) {
 		if len(mine) == 1 {
 			return mine[0], nil
 		}
-		return Node{}, fmt.Errorf("this config claims %d nodes; name one"+
+		return Node{}, fmt.Errorf("this config claims %d nodes. Name one"+
 			" with --node", len(mine))
 	}
 	var names, hits []string

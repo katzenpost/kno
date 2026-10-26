@@ -72,7 +72,7 @@ func TestCompareRefusesTwoDifferentReleases(t *testing.T) {
 	if rc := ReportCompare(&out, ref, got, nil); rc == 0 {
 		t.Error("comparing two different tags passed")
 	}
-	if !strings.Contains(out.String(), "would say nothing") {
+	if !strings.Contains(out.String(), "proves nothing") {
 		t.Errorf("it does not explain why: %s", out.String())
 	}
 }

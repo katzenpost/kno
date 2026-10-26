@@ -41,35 +41,11 @@ func allowlist(t *testing.T, pairs ...string) string {
 	return p
 }
 
-func mustRename(t *testing.T, from, to string) {
-	t.Helper()
-	if err := os.Rename(from, to); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func needTools(t *testing.T, names ...string) {
 	t.Helper()
 	for _, n := range names {
 		if _, err := exec.LookPath(n); err != nil {
 			t.Skipf("%s not available", n)
 		}
-	}
-}
-
-func buildDeb(t *testing.T, dir, name, version, arch string) {
-	t.Helper()
-	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "DEBIAN"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	ctl := "Package: " + name + "\nVersion: " + version + "\nArchitecture: " + arch +
-		"\nMaintainer: t <t@example>\nDescription: test\n"
-	if err := os.WriteFile(filepath.Join(root, "DEBIAN", "control"), []byte(ctl), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	out := filepath.Join(dir, name+"_"+version+"_"+arch+".deb")
-	if b, err := exec.Command("dpkg-deb", "--build", root, out).CombinedOutput(); err != nil {
-		t.Fatalf("dpkg-deb: %v\n%s", err, b)
 	}
 }

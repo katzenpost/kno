@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/katzenpost/kno/internal/fsutil"
@@ -53,7 +54,7 @@ func Run(o Options) ([]Result, error) {
 		return nil, fmt.Errorf("no backup destination")
 	}
 	if len(o.Services) == 0 {
-		return nil, fmt.Errorf("no services resolve for this machine; name one," +
+		return nil, fmt.Errorf("no services resolve for this host. Name one," +
 			" or run 'kno setup' so kno knows what this host runs")
 	}
 	var out []Result
@@ -194,11 +195,14 @@ func sameKey(src, dst string) (bool, error) {
 }
 
 func put(src, dst string) error {
-	in, err := os.Open(src)
+	in, err := os.OpenFile(src, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
 	if err != nil {
 		return err
 	}
 	defer in.Close()
+	if fi, err := in.Stat(); err != nil || !fi.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file. kno backs up regular files only", src)
+	}
 	dir := filepath.Dir(dst)
 	tmp, err := os.CreateTemp(dir, "."+filepath.Base(dst)+".tmp-*")
 	if err != nil {
@@ -217,7 +221,7 @@ func put(src, dst string) error {
 		return err
 	}
 	if _, err := os.Lstat(dst); err == nil {
-		return fmt.Errorf("%s exists and holds another key; kno does not overwrite a key backup", dst)
+		return fmt.Errorf("%s exists and holds another key. kno does not overwrite a key backup", dst)
 	} else if !os.IsNotExist(err) {
 		return err
 	}
@@ -251,13 +255,13 @@ func secrets(s service.Service) ([]string, error) {
 			return nil, err
 		}
 		for _, p := range m {
-			if fi, err := os.Stat(p); err == nil && fi.Mode().IsRegular() {
+			if fi, err := os.Lstat(p); err == nil && fi.Mode().IsRegular() {
 				add(p)
 			}
 		}
 	}
 	for _, e := range ents {
-		if !e.IsDir() && fsutil.IsSecretKey(e.Name()) {
+		if e.Type().IsRegular() && fsutil.IsSecretKey(e.Name()) {
 			add(filepath.Join(root, e.Name()))
 		}
 	}

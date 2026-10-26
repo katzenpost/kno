@@ -163,7 +163,7 @@ func AssembleHostRoot(c config.Config, label, version, rootParent, repo, network
 		arch = deb.ArchAll
 	}
 	if !debNameSafe(label) {
-		return "", fmt.Errorf("host label %q cannot be a Debian package name; use lowercase letters, digits, - + .", label)
+		return "", fmt.Errorf("host label %q cannot be a Debian package name. Use lowercase letters, digits, - + .", label)
 	}
 	if version == "" {
 		version = "0.0.0"

@@ -23,7 +23,7 @@ func Command() *cobra.Command {
 				return fmt.Errorf("kno cannot read the config: %v", err)
 			}
 			if _, err := os.Stat(e.Repo); err != nil || e.Repo == "" {
-				return fmt.Errorf("adopt needs a kno checkout; run it inside one")
+				return fmt.Errorf("adopt needs a kno checkout. Run it inside one")
 			}
 			o.Env, o.Out, o.Verbose = e, cmd.ErrOrStderr(), cli.Verbose()
 			if cli.DryRun() {

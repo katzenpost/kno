@@ -1,6 +1,8 @@
 package record
 
 import (
+	"os"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -82,4 +84,33 @@ func TestWitnessesAcrossHosts(t *testing.T) {
 	if err != nil || len(none) != 0 {
 		t.Errorf("a tag nobody reproduced returned %+v (%v)", none, err)
 	}
+}
+
+func Witnesses(repo, network, tag string) ([]Witness, error) {
+	ents, err := os.ReadDir(Dir(repo, network))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var out []Witness
+	for _, e := range ents {
+		name := strings.TrimSuffix(e.Name(), ".toml")
+		if e.IsDir() || name == e.Name() {
+			continue
+		}
+		r, err := Load(repo, network, name)
+		if err != nil {
+			continue
+		}
+		for _, x := range r.Reproduced {
+			if x.Tag == tag {
+				out = append(out, Witness{Host: name, Arch: x.Arch, OS: x.OS})
+				break
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Host < out[j].Host })
+	return out, nil
 }

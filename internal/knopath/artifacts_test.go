@@ -137,26 +137,6 @@ func TestSelfIsThePathSudoWasToldAbout(t *testing.T) {
 	}
 }
 
-func TestFreeBSDCacheHonoursTheLegacyDirectory(t *testing.T) {
-	for _, have := range []string{"base.txz", "base.qcow2"} {
-		t.Run(have, func(t *testing.T) {
-			home := t.TempDir()
-			t.Setenv("HOME", home)
-			t.Setenv("KNO_FREEBSD_CACHE", "")
-			legacy := filepath.Join(home, ".cache", "kno-freebsd")
-			if err := os.MkdirAll(legacy, 0o755); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(legacy, have), []byte("x"), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			if got := FreeBSDCache(); got != legacy {
-				t.Errorf("with %s present, cache = %q, want %q", have, got, legacy)
-			}
-		})
-	}
-}
-
 func TestFreeBSDCacheDefaultsToTheCacheRootWhenEmpty(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

@@ -2,6 +2,7 @@ package build
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/katzenpost/kno/internal/pkg/deb"
@@ -197,4 +198,12 @@ func TestAFreeBSDPackageHasAStableIDAndItsVersion(t *testing.T) {
 	if id := ID("kno-0.0.107.20261023181749.g9815162_1.pkg"); id.Name != "kno" {
 		t.Errorf("the kno package has ID %+v", id)
 	}
+}
+
+func PackageName(file string) string {
+	base := strings.TrimSuffix(file, ".deb")
+	if i := strings.Index(base, "_"); i > 0 {
+		return base[:i]
+	}
+	return base
 }

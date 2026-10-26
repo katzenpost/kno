@@ -232,7 +232,7 @@ func ask(r *bufio.Reader, w io.Writer, mix string, layers [][]string, def int) (
 			return i, nil
 		}
 	}
-	return 0, fmt.Errorf("invalid layer %q; this network has %d", line, len(layers))
+	return 0, fmt.Errorf("invalid layer %q. This network has %d", line, len(layers))
 }
 
 func Write(p Proposal, path string) error {

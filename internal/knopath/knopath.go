@@ -32,6 +32,11 @@ func Cache() string {
 	if v := os.Getenv(cacheEnv); v != "" {
 		return v
 	}
+	if os.Geteuid() == 0 {
+		if u, err := user.Current(); err == nil {
+			return filepath.Join(u.HomeDir, ".cache", vendor, tool)
+		}
+	}
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		return filepath.Join(os.TempDir(), vendor, tool)
@@ -90,19 +95,9 @@ func Archive(tag string) string {
 
 func PushReceipts(tag string) string { return filepath.Join(Artifacts(), "pushed", tag) }
 
-var legacyFreeBSDArtifacts = []string{"base.txz", "base.qcow2"}
-
 func FreeBSDCache() string {
 	if v := os.Getenv("KNO_FREEBSD_CACHE"); v != "" {
 		return v
-	}
-	if home, err := os.UserHomeDir(); err == nil {
-		legacy := filepath.Join(home, ".cache", "kno-freebsd")
-		for _, f := range legacyFreeBSDArtifacts {
-			if _, err := os.Stat(filepath.Join(legacy, f)); err == nil {
-				return legacy
-			}
-		}
 	}
 	return filepath.Join(Cache(), "freebsd")
 }

@@ -45,7 +45,7 @@ func Command() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:          "update",
-		Short:        "install and verify the target version, one host at a time",
+		Short:        "install the target version and run kno verify, one host at a time",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -59,8 +59,8 @@ func Command() *cobra.Command {
 				return cli.Exit(organizeGroup(cmd.ErrOrStderr(), e, v))
 			}
 			if v.Hosts != "" {
-				fmt.Fprintln(cmd.ErrOrStderr(), "kno update: --host works only on the organizer;"+
-					" this machine runs services and updates itself")
+				fmt.Fprintln(cmd.ErrOrStderr(), "kno update: --host works only on the organizer."+
+					" This host runs services and updates itself")
 				return cli.Exit(1)
 			}
 			if v.Dry {

@@ -2,12 +2,13 @@ package build
 
 import (
 	"errors"
-	"github.com/katzenpost/kno/internal/fsutil"
-	"github.com/katzenpost/kno/internal/knopath"
-	"github.com/katzenpost/kno/internal/pkg/deb"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/katzenpost/kno/internal/fsutil"
+	"github.com/katzenpost/kno/internal/knopath"
+	"github.com/katzenpost/kno/internal/pkg/deb"
 
 	"github.com/katzenpost/kno/internal/testutil"
 )

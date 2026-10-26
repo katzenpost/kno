@@ -36,7 +36,7 @@ func KnoPackage(repo, network, tag, rel string) (string, error) {
 
 func knoDeb(o Options, rel, toolVer, arch string) (string, error) {
 	if p := builtKno(o, rel, "kno_"+toolVer+"_"+arch+".deb"); p != "" {
-		note("%s is already built; reusing it", filepath.Base(p))
+		note("%s is already built. kno uses it again", filepath.Base(p))
 		return p, nil
 	}
 	ko, err := knodeb.DefaultOptions(o.Repo)

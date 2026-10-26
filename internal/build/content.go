@@ -74,14 +74,6 @@ func (s *Stable) Version(id deb.PkgID, content, want string) (string, string) {
 		id.Name, prev.Version, prev.Version, want)
 }
 
-func PackageName(file string) string {
-	base := strings.TrimSuffix(file, ".deb")
-	if i := strings.Index(base, "_"); i > 0 {
-		return base[:i]
-	}
-	return base
-}
-
 func versionOlder(a, b string) bool {
 	ea, au, ar := deb.SplitVersion(a)
 	eb, bu, br := deb.SplitVersion(b)

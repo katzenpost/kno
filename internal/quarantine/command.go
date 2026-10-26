@@ -25,6 +25,6 @@ func Command() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&host, "host", "", "clear this organized host's quarantine")
-	f.BoolVar(&all, "all", false, "clear it for every host this machine organizes")
+	f.BoolVar(&all, "all", false, "clear it for every host this organizer has")
 	return cmd
 }

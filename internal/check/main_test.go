@@ -58,7 +58,7 @@ func TestMainReportsAndExits(t *testing.T) {
 
 		{
 			name: "nothing to lint fails", what: "topology", repo: unreadable,
-			want: "nothing was linted", exit: 1,
+			want: "Nothing was linted", exit: 1,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

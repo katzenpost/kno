@@ -3,10 +3,12 @@ package contribute
 import (
 	"fmt"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/katzenpost/kno/internal/config"
+	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/track"
 )
 
@@ -93,6 +95,10 @@ func Collect(o Options) (Plan, error) {
 	for _, ln := range strings.Split(out, "\x00") {
 		rel := statusPath(ln)
 		if rel == "" {
+			continue
+		}
+		if fsutil.IsSecretKeyFile(filepath.Join(root, rel)) {
+			p.Skipped = append(p.Skipped, rel+": a secret key. kno contribute never commits one")
 			continue
 		}
 		switch {

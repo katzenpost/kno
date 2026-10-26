@@ -62,7 +62,7 @@ func (r *run) ensureEmulation(plats []platform) error {
 		name := qemuName(p.Goarch)
 		entry, err := os.ReadFile(binfmtDir + "/" + name)
 		if err != nil {
-			return fmt.Errorf("--emulate needs a binfmt handler for %s, and this machine has none"+
+			return fmt.Errorf("--emulate needs a binfmt handler for %s, and this host has none"+
 				" (%s); install qemu-user-static or qemu-user-binfmt", p.Goarch, err)
 		}
 		line, err := registerLine(name, string(entry))
