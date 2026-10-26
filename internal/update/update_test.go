@@ -730,6 +730,20 @@ func TestToolRunnerActivateDoesNotPassACrossBuildTarget(t *testing.T) {
 	}
 }
 
+func TestOnlyTheInstallRunsThroughSudo(t *testing.T) {
+	r := ToolRunner{ActivateCmd: []string{"/usr/bin/kno", "activate"},
+		Env: track.Env{Repo: "/home/op/kno/data", ConfigPath: "/etc/katzenpost/kno.toml"}}
+	if got := strings.Join(r.activateArgv("/rel", "v0.0.2"), " "); got != "/usr/bin/kno activate /rel v0.0.2" {
+		t.Errorf("root: %s", got)
+	}
+	r.Sudo = "sudo"
+	want := "sudo env KNO_REPO=/home/op/kno/data KNO_CONFIG=/etc/katzenpost/kno.toml" +
+		" /usr/bin/kno activate /rel v0.0.2"
+	if got := strings.Join(r.activateArgv("/rel", "v0.0.2"), " "); got != want {
+		t.Errorf("a user:\n got %s\nwant %s", got, want)
+	}
+}
+
 func TestToolRunnerVerifyTellsACrashApartFromANo(t *testing.T) {
 	dir := t.TempDir()
 	script := func(code int) string {

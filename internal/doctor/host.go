@@ -188,7 +188,7 @@ func reportUpdate(r *Result, force bool) {
 	r.line("       On the organizer, run:")
 	r.line("           kno update --host %s%s", r.label, opt)
 	r.line("       On a host that updates itself, run:")
-	r.line("           sudo kno update%s", opt)
+	r.line("           kno update%s", opt)
 	if force {
 		r.line("       This installs the packages again and starts a new verify window.")
 	}
@@ -343,7 +343,7 @@ func reportUnits(r *Result, units []unitReport) {
 		unmanaged := reportProvenance(r, u.Prov)
 		if !u.Installed {
 			r.warn(u.Service, "%s is not installed on this host. On the organizer, run:"+
-				" kno update --host %s. On a host that updates itself, run: sudo kno update.", u.Unit, r.label)
+				" kno update --host %s. On a host that updates itself, run: kno update.", u.Unit, r.label)
 			continue
 		}
 		if u.Shadow != "" {

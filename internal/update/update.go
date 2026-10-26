@@ -714,7 +714,7 @@ func (r ToolRunner) Activate(tag, rel string) error {
 	if len(r.ActivateCmd) == 0 {
 		return fmt.Errorf("no activate command configured")
 	}
-	argv := append(r.prefix(r.ActivateCmd), rel, tag)
+	argv := r.activateArgv(rel, tag)
 	if err := r.escalation(argv); err != nil {
 		return err
 	}
@@ -828,10 +828,14 @@ func (r ToolRunner) replay(buf *bytes.Buffer) {
 	}
 }
 
-func (r ToolRunner) prefix(cmd []string) []string {
-	var argv []string
-	if r.Sudo != "" {
-		argv = append(argv, r.Sudo)
+func (r ToolRunner) activateArgv(rel, tag string) []string {
+	cmd := append(append([]string{}, r.ActivateCmd...), rel, tag)
+	if r.Sudo == "" {
+		return cmd
+	}
+	argv := []string{r.Sudo, "env", "KNO_REPO=" + r.Env.Repo}
+	if r.Env.ConfigPath != "" {
+		argv = append(argv, "KNO_CONFIG="+r.Env.ConfigPath)
 	}
 	return append(argv, cmd...)
 }

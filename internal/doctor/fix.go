@@ -192,7 +192,7 @@ func ApplyFixes(ctx context.Context, w io.Writer, e track.Env, f hostFacts, dry 
 		fmt.Fprintln(w, "status and the last lines of the service log, which give the cause.")
 		fmt.Fprintln(w, "If the packages on this host are older than the newest build, install them.")
 		fmt.Fprintf(w, "On the organizer, run: kno update --host %s\n", f.Label)
-		fmt.Fprintln(w, "On a host that updates itself, run: sudo kno update")
+		fmt.Fprintln(w, "On a host that updates itself, run: kno update")
 		return nil
 	}
 	if !dry && euid() != 0 {

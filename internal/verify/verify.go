@@ -408,7 +408,7 @@ func (o Options) host() string {
 
 func reinstall(label string) string {
 	return "On the organizer, run: kno update --host " + label + " --force." +
-		" On a host that updates itself, run: sudo kno update --force." +
+		" On a host that updates itself, run: kno update --force." +
 		" This installs the packages again and starts a new verify window."
 }
 
