@@ -14,10 +14,10 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: gates
+  configs:
+    name: configs
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
         with:
@@ -28,56 +28,23 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: install linters
+      - name: build amd64
         run: |
-          sudo apt-get update && sudo apt-get install -y shellcheck
-          go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@v0.52.0
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-
-      - name: gates
-        run: make test
-
-  install:
-    name: the packages install
-    runs-on: ubuntu-26.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-
-      - name: install test
-        run: make install-test
-
-  sim:
-    name: configs load
-    runs-on: ubuntu-26.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-
-      - name: build katzenpost
-        run: go run ./cmd/kno build --binary-only --arches "$(go env GOARCH)"
+          KNO_ARTIFACTS="$RUNNER_TEMP/artifacts" go run ./cmd/kno build \
+            --binary-only --arches amd64
 
       - name: validate configs
         run: go run ./cmd/kno sim validate
 
-  simnet:
-    name: the network runs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: amd64
+          path: ${{ runner.temp }}/artifacts/releases/*/pkgs/katzenpost_*.deb
+
+  build:
+    name: build
     runs-on: ubuntu-26.04
-    timeout-minutes: 240
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
         with:
@@ -94,6 +61,41 @@ jobs:
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
           docker image prune -af >/dev/null
 
+      - name: install linters
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@v0.52.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: test
+        run: make test
+
+      - name: build all
+        run: KNO_ARTIFACTS="$RUNNER_TEMP/artifacts" go run ./cmd/kno build
+
+      - name: install test
+        run: make install-test
+
+  sim:
+    name: sim
+    needs: configs
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: amd64
+          path: ${{ runner.temp }}/amd64
+
       - name: build kno
         run: go build -o "$RUNNER_TEMP/kno" ./cmd/kno
 
@@ -104,18 +106,27 @@ jobs:
           sudo sed -i 's/^}$/  signal receive set=term peer=podman,\n}/' "$p"
           sudo apparmor_parser -r "$p"
 
-      - name: build packages
-        run: |
-          KNO_REPO="$PWD" KNO_ARTIFACTS="$RUNNER_TEMP/artifacts" \
-            "$RUNNER_TEMP/kno" build
-
       - name: sim
         run: |
-          t=$(sed -n 's/^KATZENPOST_REF=//p' data/thirdparty/pins.env)
+          mkdir "$RUNNER_TEMP/pkgs"
+          find "$RUNNER_TEMP/amd64" -name 'katzenpost_*.deb' \
+            -exec mv {} "$RUNNER_TEMP/pkgs" \;
           "$RUNNER_TEMP/kno" sim all --epoch 2m --net cisim \
-            --pkgs "$RUNNER_TEMP/artifacts/releases/$t/pkgs"
+            --pkgs "$RUNNER_TEMP/pkgs"
 
       - name: sim mutation
         run: |
           KNO="$RUNNER_TEMP/kno" SIM_PKGS="/var/tmp/kno-sim-$(id -u)-cisim/pkgs" \
             sh scripts/sim-mutation.sh
+
+  gate:
+    name: gate
+    needs: [configs, build, sim]
+    if: ${{ always() }}
+    runs-on: ubuntu-26.04
+    steps:
+      - name: gate
+        run: |
+          test "${{ needs.configs.result }}" = success
+          test "${{ needs.build.result }}" = success
+          test "${{ needs.sim.result }}" = success
