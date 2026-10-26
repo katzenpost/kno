@@ -61,7 +61,7 @@ func stateReady(l track.Logger, out io.Writer, e track.Env, target string, hosts
 	if !blocked {
 		return true
 	}
-	l.Errorf("refusing to upgrade: a host is in a state %s will not accept,"+
+	l.Errorf("kno does not upgrade: a host is in a state that %s does not accept,"+
 		" or one a failed install could not be undone from", target)
 	preflightpkg.ReportAll(out, reports)
 	l.Logf("  Nothing was changed. 'kno preflight' repeats this check, and")
@@ -297,8 +297,8 @@ func (r *RemoteRunner) sshWithin(d time.Duration, remote string) (string, int, e
 	c := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	b, err := c.CombinedOutput()
 	if ctx.Err() != nil {
-		return string(b), 0, fmt.Errorf("no answer from %s within %s;"+
-			" if this repeats, KNO_SSH_MULTIPLEX=0 turns off the shared"+
+		return string(b), 0, fmt.Errorf("no answer from %s within %s."+
+			" If this repeats, KNO_SSH_MULTIPLEX=0 turns off the shared"+
 			" connection and KNO_SSH_TIMEOUT changes the wait",
 			r.Host.Node, d)
 	}
@@ -341,7 +341,7 @@ func runRemote(out io.Writer, e track.Env, v Flags) int {
 	l := track.Logger{Tool: "update", W: out}
 	hosts := organizedHosts(e)
 	if len(hosts) == 0 {
-		l.Errorf("this machine organizes no host that carries a service; run 'kno setup'")
+		l.Errorf("this organizer has no host that carries a service. Run 'kno setup'")
 		return 1
 	}
 	if v.Hosts != "" {
@@ -353,7 +353,7 @@ func runRemote(out io.Writer, e track.Env, v Flags) int {
 	}
 	v, apply := remotePolicy(e, v)
 	if !apply {
-		l.Logf("update policy is 'off'; not applying updates")
+		l.Logf("update policy is 'off'. kno applies no update")
 		return 0
 	}
 	dry, force := v.Dry, v.Force
@@ -501,10 +501,10 @@ func waitHosts(out io.Writer, l track.Logger, e track.Env, v Flags, hosts []remo
 		rc = worse(rc, hrc)
 	}
 	if len(skipped) > 0 {
-		l.Logf("kno installed nothing on %s; run kno update again later", strings.Join(skipped, " "))
+		l.Logf("kno installed nothing on %s. Run kno update again later", strings.Join(skipped, " "))
 	}
 	if len(unsettled) > 0 {
-		l.Logf("  run the same kno update again for %s; it continues from the state on disk", strings.Join(unsettled, " "))
+		l.Logf("  run the same kno update again for %s. It continues from the state on disk", strings.Join(unsettled, " "))
 	}
 	return rc
 }
@@ -627,10 +627,10 @@ func (t *ticker) tick(first bool) int {
 		Runner:         runner,
 	})
 	if code == 0 && !t.v.Dry && wasSteady && knoDiffers(t.he, t.target, t.before) {
-		t.l.Logf("%s: has %s and its config packages; its kno %s is not %s, so kno installs only kno",
+		t.l.Logf("%s: has %s and its config packages. Its kno %s is not %s, so kno installs only kno",
 			t.h.Label, t.target, t.before.Packages["kno"], push.KnoVersionFor(t.e.Repo, t.target))
 		if push.Run(t.out, t.h.Label, t.target, push.ModeKno, t.v.Dry) != 0 {
-			t.l.Warnf("%s: the kno-only push failed; katzenpost and the services on the host are as they were", t.h.Label)
+			t.l.Warnf("%s: the kno-only push failed. Katzenpost and the services on the host are as they were", t.h.Label)
 			code = 1
 		}
 	}
@@ -656,7 +656,7 @@ func (t *ticker) wait() {
 		if !ok {
 			return
 		}
-		t.l.Logf("%s: %s; next check %s", t.h.Label, progress(kv), clockShort(next.Unix()))
+		t.l.Logf("%s: %s. Next check %s", t.h.Label, progress(kv), clockShort(next.Unix()))
 		t.sleep(next.Sub(now))
 		if t.step(false) != 0 && t.closed() {
 			return
@@ -865,7 +865,7 @@ func selectHosts(all []remoteHost, only string) ([]remoteHost, error) {
 		for _, h := range all {
 			known = append(known, h.Label)
 		}
-		return nil, fmt.Errorf("no such host: %s (this machine organizes %s)",
+		return nil, fmt.Errorf("no such host: %s (this organizer has %s)",
 			strings.Join(missing, " "), strings.Join(known, " "))
 	}
 	if len(out) == 0 {

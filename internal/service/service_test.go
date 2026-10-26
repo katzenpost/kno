@@ -10,18 +10,6 @@ import (
 	"github.com/katzenpost/kno/internal/testutil"
 )
 
-func goResolve(t *testing.T, repo, network, svc string) string {
-	t.Helper()
-	s, err := ResolveService(repo, network, svc)
-	if err != nil {
-		t.Fatalf("ResolveService %s: %v", svc, err)
-	}
-	return strings.Join([]string{
-		s.Build, s.BinarySrc, s.BinaryDst, s.Unit,
-		s.ConfigDst, s.StateDir, s.ServiceUser, strings.Join(s.KeysSrc, " "),
-	}, "|")
-}
-
 func services(t *testing.T, repo, network string) []string {
 	t.Helper()
 	gc := knopath.ConfigsDir(repo, network)

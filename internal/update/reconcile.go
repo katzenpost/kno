@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/push"
@@ -43,7 +44,7 @@ func (t *ticker) reconcile(r *RemoteRunner) bool {
 		t.stateFile("state"):           "steady",
 		configsFile(t.he.StateDir):     r.Configs(),
 	} {
-		if err := os.WriteFile(path, []byte(v+"\n"), 0o644); err != nil {
+		if err := fsutil.WriteFileAtomic(path, []byte(v+"\n"), 0o644); err != nil {
 			t.l.Warnf("%s: could not correct %s: %v", t.h.Label, path, err)
 			return false
 		}

@@ -47,7 +47,7 @@ func TestErrorsNameTheCommandThatFailed(t *testing.T) {
 	}
 
 	if os.Geteuid() == 0 {
-		t.Skip("as root, a bootstrap that passed --rev would change this machine")
+		t.Skip("as root, a bootstrap that passed --rev would change this host")
 	}
 	bin := t.TempDir()
 	if err := os.WriteFile(filepath.Join(bin, "useradd"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {

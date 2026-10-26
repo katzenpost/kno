@@ -1,11 +1,12 @@
 package build
 
 import (
-	"github.com/katzenpost/kno/internal/knopath"
 	"os"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/katzenpost/kno/internal/knopath"
 
 	"github.com/katzenpost/kno/internal/testutil"
 )

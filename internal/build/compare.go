@@ -194,12 +194,12 @@ func LoadBuild(p string) (PackageSums, error) {
 
 func ReportCompare(w io.Writer, ref, got PackageSums, diffs []Difference) int {
 	if ref.Tag != "" && got.Tag != "" && ref.Tag != got.Tag {
-		fmt.Fprintf(w, "kno build: the reference is for %s and this build is %s;"+
-			" comparing them would say nothing\n", ref.Tag, got.Tag)
+		fmt.Fprintf(w, "kno build: the reference is for %s and this build is %s."+
+			" A comparison of them proves nothing\n", ref.Tag, got.Tag)
 		return 1
 	}
 	if len(ref.Packages) == 0 {
-		fmt.Fprintln(w, "kno build: the reference names no package; a comparison with it proves nothing")
+		fmt.Fprintln(w, "kno build: the reference names no package. A comparison with it proves nothing")
 		return 1
 	}
 	if len(diffs) == 0 {

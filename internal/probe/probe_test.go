@@ -160,7 +160,7 @@ PKI document for epoch 2438938 signed by 2 directory authorities:
 `
 
 func TestParseConsensus(t *testing.T) {
-	c, ok := ParseConsensus(fetchDump)
+	c, ok := ParseConsensus(withDoc(fetchDump))
 	if !ok {
 		t.Fatal("a dump carrying a signed document must parse")
 	}
@@ -289,7 +289,7 @@ func TestProbeTable(t *testing.T) {
 		Timeout:      time.Second,
 		KnownOrphans: KnownOrphans("eknown"),
 		Dial:         func(addr string, _ time.Duration) bool { return up[addr] },
-		Fetch:        func() string { return dump },
+		Fetch:        func() string { return withDoc(dump) },
 	})
 	if rc != 1 {
 		t.Fatalf("exit = %d, want 1 (discrepancies present)", rc)
@@ -367,7 +367,7 @@ func TestProbeAllGreen(t *testing.T) {
 		Timeout:    time.Second,
 		Dial:       func(string, time.Duration) bool { return true },
 		Fetch: func() string {
-			return "{cgood aaaaaaaa map[tcp4:[tcp://10.0.0.3:3]]}\nsigned by 1 directory authorities:\n  asigner (0000)\n"
+			return withDoc("{cgood aaaaaaaa map[tcp4:[tcp://10.0.0.3:3]]}\nsigned by 1 directory authorities:\n  asigner (0000)\n")
 		},
 	})
 	if rc != 0 {
@@ -521,7 +521,7 @@ func TestOrphansAreSettlingAndFaultsAreNot(t *testing.T) {
 	rc := Probe(&out, Options{
 		ConfigsDir: dir, Thinclient: "/sim/thinclient.toml", Timeout: time.Second,
 		Dial:  func(a string, _ time.Duration) bool { return up[a] },
-		Fetch: func() string { return signed },
+		Fetch: func() string { return withDoc(signed) },
 	})
 	if rc != CodeSettling {
 		t.Fatalf("an orphan exited %d, want CodeSettling (%d):\n%s", rc, CodeSettling, out.String())
@@ -535,7 +535,7 @@ func TestOrphansAreSettlingAndFaultsAreNot(t *testing.T) {
 		ConfigsDir: dir, Thinclient: "/sim/thinclient.toml", Timeout: time.Second,
 		Dial: func(a string, _ time.Duration) bool { return a == "10.0.0.1:1" },
 		Fetch: func() string {
-			return "{dorphan bbbbbbbb map[tcp4:[tcp://10.0.0.4:4]]}\n" + signed
+			return withDoc("{dorphan bbbbbbbb map[tcp4:[tcp://10.0.0.4:4]]}\n" + signed)
 		},
 	})
 	if rc != CodeDiscrepancy {

@@ -93,3 +93,28 @@ func TestABuildKindWithNoRecordIsComparedOnlyWithItself(t *testing.T) {
 		t.Errorf("a cross build with no cross record failed as a mismatch: %v", err)
 	}
 }
+
+func TestANodeRecordCannotOverrideTheTopRecord(t *testing.T) {
+	repo := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "pkgs")
+	built := writePkg(t, dir, kindDeb, "what an attacker built")
+	top := CommittedDir(repo, "namenlos", kindTag)
+	node := NodeRecordDir(top, "mixy")
+	for _, d := range []string{top, node} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	signed := writePkg(t, t.TempDir(), kindDeb, "what the release records")
+	if err := os.WriteFile(filepath.Join(top, SumsName),
+		[]byte(signed+"  "+kindDeb+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(node, SumsName),
+		[]byte(built+"  "+kindDeb+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyKind(repo, dir); err == nil {
+		t.Error("a node record overrode the digest the top-level record names")
+	}
+}

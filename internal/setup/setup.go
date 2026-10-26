@@ -16,6 +16,7 @@ import (
 
 	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/config"
+	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/schedule"
 )
@@ -32,7 +33,7 @@ func ask(r *bufio.Reader, q, def string) string {
 	}
 	line, err := r.ReadString('\n')
 	if err != nil && line == "" {
-		fmt.Fprintln(os.Stderr, "\nkno setup: the input ended; nothing written")
+		fmt.Fprintln(os.Stderr, "\nkno setup: the input ended. Nothing written")
 		quit(1)
 	}
 	line = strings.TrimSpace(line)
@@ -219,7 +220,7 @@ func pickNodeDef(r *bufio.Reader, all []string, prompt, def string) string {
 				return n
 			}
 		}
-		fmt.Fprintln(os.Stderr, "  not a listed node; try again")
+		fmt.Fprintln(os.Stderr, "  not a listed node. Try again")
 	}
 }
 
@@ -428,7 +429,7 @@ func placedHost(prior config.Host, odd map[string]config.Host, label, ssh, hostn
 
 const sharedRepoNote = `  shared repo (networks/): unchanged. To change a node or the topology, run
   'kno topology-propose'. The change reaches everyone through the committed
-  version. The claim stays on this machine.`
+  version. The claim stays on this host.`
 
 func installConfig(src, dst string) error {
 	b, err := os.ReadFile(src)
@@ -438,15 +439,12 @@ func installConfig(src, dst string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(dst, b, 0o644); err != nil {
-		return err
-	}
-	return os.Chmod(dst, 0o644)
+	return fsutil.WriteFileAtomic(dst, b, 0o644)
 }
 
 func run(out string) {
 	if !cli.IsTerminal(os.Stdin) || !cli.IsTerminal(os.Stderr) {
-		fmt.Fprintln(os.Stderr, "kno setup needs a terminal; install the kno-host-config package for an unattended setup")
+		fmt.Fprintln(os.Stderr, "kno setup needs a terminal. Install the kno-host-config package for an unattended setup")
 		os.Exit(1)
 	}
 
@@ -478,7 +476,7 @@ func run(out string) {
 	if masked := config.Masked(userPath, sysPath); len(masked) > 0 {
 		fmt.Fprintf(os.Stderr,
 			"Your config does not mention %s, which %s sets.\n"+
-				"Taking the system answers as the defaults below; what you write is yours.\n\n",
+				"Taking the system answers as the defaults below. What you write is yours.\n\n",
 			strings.Join(masked, ", "), sysPath)
 	}
 
@@ -668,7 +666,7 @@ func run(out string) {
 	fmt.Fprintln(os.Stderr, sharedRepoNote)
 	fmt.Fprintln(os.Stderr, "")
 	if !yes(ask(r, "write this config?", "y")) {
-		fmt.Fprintln(os.Stderr, "aborted; nothing written")
+		fmt.Fprintln(os.Stderr, "aborted. Nothing written")
 		os.Exit(1)
 	}
 

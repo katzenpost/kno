@@ -57,14 +57,6 @@ func FindEngine() (string, error) {
 		Engines[0], Engines[1])
 }
 
-func BuildImage(repo, image string) error {
-	cmd := exec.Command(Podman(), "build", "-q", "-t", image,
-		"-f", filepath.Join(repo, "packaging", "Containerfile.build"),
-		filepath.Join(repo, "packaging"))
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
 func Mount(hostPath, spec string) (string, error) {
 	abs, err := filepath.Abs(hostPath)
 	if err != nil {

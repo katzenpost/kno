@@ -143,7 +143,7 @@ func TestNoSystemdDoesNotFail(t *testing.T) {
 	if failed {
 		t.Errorf("doctor failed a host with no systemd:\n%s", out)
 	}
-	if !strings.Contains(flat(out), "unit state is unknown") {
+	if !strings.Contains(flat(out), "Unit state is unknown") {
 		t.Errorf("the report does not say why it could not check:\n%s", out)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/katzenpost/kno/internal/config"
+	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/sshx"
@@ -42,8 +43,8 @@ func PlanHosts(e track.Env, labels []string, ssh string) []HostPlan {
 		keep := hostProtected(e, label)
 		if len(keep) == 0 {
 
-			p.Err = fmt.Errorf("no recorded current or last-known-good for %s;"+
-				" refusing to guess what it may lose", label)
+			p.Err = fmt.Errorf("no recorded current or last-known-good for %s."+
+				" kno does not guess what it can lose", label)
 			out = append(out, p)
 			continue
 		}
@@ -175,7 +176,7 @@ func hostProtected(e track.Env, label string) []string {
 	var out []string
 	seen := map[string]bool{}
 	for _, f := range []string{"current", "last-known-good"} {
-		v := strings.TrimSpace(firstLine(filepath.Join(dir, f)))
+		v := fsutil.FirstLine(filepath.Join(dir, f))
 		if v != "" && !seen[v] {
 			seen[v] = true
 			out = append(out, v)

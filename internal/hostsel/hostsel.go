@@ -34,7 +34,7 @@ func (f Flags) Chose() bool { return f.Host != "" || f.Group != "" }
 func Labels(e track.Env, f Flags) ([]string, error) {
 	all := Organized(e)
 	if len(all) == 0 {
-		return nil, fmt.Errorf("no hosts in %s; run 'kno setup'", orNone(e.ConfigPath))
+		return nil, fmt.Errorf("no hosts in %s. Run 'kno setup'", orNone(e.ConfigPath))
 	}
 
 	var out []string
@@ -69,7 +69,7 @@ func Labels(e track.Env, f Flags) ([]string, error) {
 			add(l)
 		}
 		if len(missing) > 0 {
-			return nil, fmt.Errorf("no such host: %s (this machine organizes %s)",
+			return nil, fmt.Errorf("no such host: %s (this organizer has %s)",
 				strings.Join(missing, " "), strings.Join(all, " "))
 		}
 	}

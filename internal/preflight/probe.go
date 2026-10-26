@@ -64,14 +64,14 @@ func Probe(stateDirs map[string]string, units []string) string {
 
 	for svc, dir := range stateDirs {
 		fmt.Fprintf(&b, "D=%s\n", shq(dir))
-		fmt.Fprintf(&b, "p dir:%s \"$(test -d \"$D\" && echo yes || echo no)\"\n", svc)
-		fmt.Fprintf(&b, "p idpub:%s \"$(test -f \"$D\"/identity.public.pem && echo yes || echo no)\"\n", svc)
-		fmt.Fprintf(&b, "p idkey:%s \"$(test -f \"$D\"/identity.private.pem && echo yes || echo no)\"\n", svc)
+		fmt.Fprintf(&b, "p %s \"$(test -d \"$D\" && echo yes || echo no)\"\n", shq("dir:"+svc))
+		fmt.Fprintf(&b, "p %s \"$(test -f \"$D\"/identity.public.pem && echo yes || echo no)\"\n", shq("idpub:"+svc))
+		fmt.Fprintf(&b, "p %s \"$(test -f \"$D\"/identity.private.pem && echo yes || echo no)\"\n", shq("idkey:"+svc))
 
-		fmt.Fprintf(&b, "p legacydb:%s \"$(test -e \"$D\"/replica.db && echo yes || echo no)\"\n", svc)
+		fmt.Fprintf(&b, "p %s \"$(test -e \"$D\"/replica.db && echo yes || echo no)\"\n", shq("legacydb:"+svc))
 	}
 	for _, u := range units {
-		fmt.Fprintf(&b, "p unit:%s \"$(systemctl is-active %s 2>/dev/null || true)\"\n", u, shq(u))
+		fmt.Fprintf(&b, "p %s \"$(systemctl is-active %s 2>/dev/null || true)\"\n", shq("unit:"+u), shq(u))
 	}
 	b.WriteString(`p pkgs "$(dpkg-query -W -f '${Package}=${Version};' katzenpost kno 'namenlos-config-*' 'kno-host-config*' 2>/dev/null)"` + "\n")
 	b.WriteString("m=\n")

@@ -4,12 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/katzenpost/kno/internal/fsutil"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/katzenpost/kno/internal/fsutil"
 
 	knorepo "github.com/katzenpost/kno/data"
 	"github.com/katzenpost/kno/internal/knopath"

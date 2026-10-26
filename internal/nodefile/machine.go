@@ -40,7 +40,7 @@ func Machines(editable string) (map[string]Machine, error) {
 			return nil, fmt.Errorf("%s/%s: %w", MachinesDir, e.Name(), err)
 		}
 		if extra := md.Undecoded(); len(extra) > 0 {
-			return nil, fmt.Errorf("%s/%s: unknown key %s; a machine file has operator,"+
+			return nil, fmt.Errorf("%s/%s: unknown key %s. A machine file has operator,"+
 				" arch, os and lan", MachinesDir, e.Name(), extra[0])
 		}
 		out[name] = m

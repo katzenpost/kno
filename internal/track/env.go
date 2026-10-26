@@ -34,6 +34,8 @@ type Env struct {
 	PushMode     string
 	VerifyTag    bool
 
+	RequireSignatures bool
+
 	ConfigPath string
 	LegacyConf string
 	Config     config.Config
@@ -43,17 +45,21 @@ func CloneDir(home string) string {
 	return filepath.Join(home, "network-organizer")
 }
 
+var euid = os.Geteuid
+
+func rootTrusts(d string) bool { return euid() != 0 || fsutil.RootOwned(d) }
+
 func repoDir(home string) string {
-	if r := os.Getenv("KNO_REPO"); r != "" {
+	if r := os.Getenv("KNO_REPO"); r != "" && rootTrusts(r) {
 		if d, ok := config.DataRootOf(r); ok {
 			return d
 		}
 		return r
 	}
-	if d, ok := config.CheckoutDir(); ok {
+	if d, ok := config.CheckoutDir(); ok && euid() != 0 {
 		return d
 	}
-	if d, ok := config.OwnClone(home, os.Getenv("HOME")); ok {
+	if d, ok := config.OwnClone(home, os.Getenv("HOME")); ok && rootTrusts(d) {
 		return d
 	}
 	if d, err := config.EmbeddedRepo(); err == nil {
@@ -161,6 +167,7 @@ func (e *Env) applyConfig(c config.Config) {
 	e.UpdatePolicy = c.Update.Policy
 	e.PushMode = c.Push.Mode
 	e.VerifyTag = c.Update.RequireSignedTag
+	e.RequireSignatures = c.Update.RequireSignatures
 }
 
 func (e *Env) applyLegacyConf() error {

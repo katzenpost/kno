@@ -122,7 +122,7 @@ func updaterHint(w io.Writer, e track.Env, tag string) {
 func Run(w io.Writer, tag, host string, all bool) int {
 	e, err := track.LoadEnv()
 	if err != nil {
-		fmt.Fprintf(w, "kno: config error (%v); fix your kno.toml or unset it\n", err)
+		fmt.Fprintf(w, "kno: config error (%v). Fix your kno.toml or unset it\n", err)
 		return 1
 	}
 	return run(w, e, tag, host, all)
@@ -142,7 +142,7 @@ func run(w io.Writer, e track.Env, tag, host string, all bool) int {
 	switch {
 	case host != "":
 		if _, ok := e.Config.Hosts[host]; !ok && len(e.Config.Hosts) > 0 {
-			fmt.Fprintf(w, "kno: no such host %q (this machine organizes %s)\n",
+			fmt.Fprintf(w, "kno: no such host %q (this organizer has %s)\n",
 				host, strings.Join(hostLabels(e), " "))
 			return 1
 		}
@@ -153,7 +153,7 @@ func run(w io.Writer, e track.Env, tag, host string, all bool) int {
 	default:
 
 		if len(e.Services) == 0 && len(e.Config.Hosts) > 0 {
-			fmt.Fprintf(w, "kno: this machine runs no services; name the host whose"+
+			fmt.Fprintf(w, "kno: this host runs no services. Name the host whose"+
 				" quarantine to clear: kno unquarantine %s --host <label>\n", tag)
 			fmt.Fprintf(w, "  or --all for every host it organizes (%s)\n",
 				strings.Join(hostLabels(e), " "))
@@ -175,13 +175,13 @@ func run(w io.Writer, e track.Env, tag, host string, all bool) int {
 		}
 	}
 	if cleared == 0 {
-		fmt.Fprintf(w, "kno: %s is not quarantined anywhere this machine keeps state for\n", tag)
+		fmt.Fprintf(w, "kno: %s is not quarantined anywhere this host keeps state for\n", tag)
 		if host == "" && !all {
 			updaterHint(w, e, tag)
 		}
 		return 1
 	}
-	fmt.Fprintln(w, "  the next 'kno update' will attempt it; repair what broke it first,")
+	fmt.Fprintln(w, "  the next 'kno update' will attempt it. Repair what broke it first,")
 	fmt.Fprintln(w, "  or it is quarantined again once the verify window passes.")
 	return 0
 }

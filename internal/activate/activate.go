@@ -2,8 +2,8 @@ package activate
 
 import (
 	"archive/tar"
-	"bufio"
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -25,6 +25,7 @@ import (
 	"github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/release"
+	"github.com/katzenpost/kno/internal/schedule"
 	"github.com/katzenpost/kno/internal/service"
 	"github.com/katzenpost/kno/internal/sign"
 	"github.com/katzenpost/kno/internal/track"
@@ -54,6 +55,8 @@ type Step struct {
 
 	Log string
 
+	Warn bool
+
 	Path    string
 	Content string
 	Mode    os.FileMode
@@ -68,14 +71,6 @@ type Plan struct {
 	Steps []Step
 
 	Packages []string
-}
-
-func (p Plan) Argv() [][]string {
-	out := make([][]string, 0, len(p.Steps))
-	for _, s := range p.Steps {
-		out = append(out, s.Argv)
-	}
-	return out
 }
 
 type Options struct {
@@ -115,16 +110,16 @@ func (o Options) allowlist() string {
 
 func PlanFor(o Options) (Plan, error) {
 
-	if !isDir(filepath.Join(o.Rel, "manifest")) && !isDir(filepath.Join(o.Rel, "pkgs")) {
+	if !fsutil.IsDir(filepath.Join(o.Rel, "manifest")) && !fsutil.IsDir(filepath.Join(o.Rel, "pkgs")) {
 		return Plan{}, fmt.Errorf("not a release dir: %s (no pkgs/ and no manifest/)", o.Rel)
 	}
 	if len(o.Services) == 0 {
-		return Plan{}, fmt.Errorf("no services resolve for this machine; run 'kno setup'" +
+		return Plan{}, fmt.Errorf("no services resolve for this host. Run 'kno setup'" +
 			" (or install kno-host-config), or deploy to a node with 'kno push <host> <tag>'")
 	}
 	backend := o.Backend
 	if backend == "" {
-		backend = ReleaseBackend(o.Rel)
+		backend = cmp.Or(hostBackend(o), "systemd")
 	}
 	switch backend {
 	case "systemd":
@@ -173,7 +168,11 @@ func systemdPlan(o Options, backend string) (Plan, error) {
 	}
 
 	for _, svc := range o.Services {
-		if st, ok := copyForward(o.Rel, svc); ok {
+		st, ok, err := copyForward(o, svc)
+		if err != nil {
+			return Plan{}, err
+		}
+		if ok {
 			p.Steps = append(p.Steps, st)
 		}
 	}
@@ -194,23 +193,28 @@ func systemdPlan(o Options, backend string) (Plan, error) {
 	return p, nil
 }
 
-const copyForwardScript = `old=$1 new=$2 spool=$3; [ -e "$old/identity.private.pem" ] && [ ! -e "$new/identity.private.pem" ] || exit 0; ` +
-	`mkdir -p "$new" && chmod 700 "$new" && cp -p "$old"/*.pem "$new"/ && { [ -z "$spool" ] || [ ! -e "$old/$spool" ] || cp -p "$old/$spool" "$new"/; } && ` +
-	`echo "copied the keys from $old to $new; $old stays as it is"`
+const copyForwardScript = `old=$1 new=$2 spool=$3; k="$old/identity.private.pem"; ` +
+	`[ -f "$k" ] && [ ! -L "$k" ] && [ ! -e "$new/identity.private.pem" ] || exit 0; [ ! -L "$new" ] || exit 1; ` +
+	`mkdir -p "$new" && chmod 700 "$new" && for f in "$old"/*.pem; do [ -f "$f" ] && [ ! -L "$f" ] || continue; cp -p "$f" "$new"/ || exit 1; done && ` +
+	`{ [ -z "$spool" ] || [ ! -f "$old/$spool" ] || [ -L "$old/$spool" ] || cp -p "$old/$spool" "$new"/; } && ` +
+	`echo "copied the keys from $old to $new. $old stays as it is"`
 
-func copyForward(rel, svc string) (Step, bool) {
-	s, err := readManifest(filepath.Join(rel, "manifest", svc+".conf"))
-	if err != nil || s.LegacyStateDir == "" || s.StateDir == "" || s.LegacyStateDir == s.StateDir {
-		return Step{}, false
+func copyForward(o Options, svc string) (Step, bool, error) {
+	s, err := o.service(svc)
+	if err != nil {
+		return Step{}, false, err
+	}
+	if s.LegacyStateDir == "" || s.StateDir == "" || s.LegacyStateDir == s.StateDir {
+		return Step{}, false, nil
 	}
 	spool := ""
-	if b, err := os.ReadFile(filepath.Join(rel, "configs", filepath.Base(s.ConfigSrc))); err == nil {
+	if b, err := os.ReadFile(filepath.Join(o.Rel, "configs", filepath.Base(s.ConfigSrc))); err == nil {
 		if m := spoolDB.FindSubmatch(b); m != nil && filepath.Dir(string(m[1])) == s.StateDir {
 			spool = filepath.Base(string(m[1]))
 		}
 	}
 	return Step{Kind: StepRun, Log: "copy the keys of " + svc + " from " + s.LegacyStateDir + " if " + s.StateDir + " has none",
-		Argv: []string{"sh", "-c", copyForwardScript, "sh", s.LegacyStateDir, s.StateDir, spool}}, true
+		Argv: []string{"sh", "-c", copyForwardScript, "sh", s.LegacyStateDir, s.StateDir, spool}}, true, nil
 }
 
 var debControl = func(path string) (string, string) {
@@ -306,9 +310,7 @@ func ezjailPlan(o Options, backend string) (Plan, error) {
 	if err := refusePackagedSecret(kp); err != nil {
 		return Plan{}, err
 	}
-	specs, err := freebsd.Specs(o.ClientJail, o.Services, func(svc string) (service.Service, error) {
-		return readManifest(filepath.Join(o.Rel, "manifest", svc+".conf"))
-	})
+	specs, err := freebsd.Specs(o.ClientJail, o.Services, o.service)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -390,11 +392,11 @@ var jailRuns = func(name string) bool { return exec.Command("jls", "-j", name, "
 func refusePackagedSecret(pkg string) error {
 	found, err := freebsd.SecretKeyIn(pkg)
 	if err != nil {
-		return fmt.Errorf("refusing to install %s: %v", filepath.Base(pkg), err)
+		return fmt.Errorf("kno does not install %s: %v", filepath.Base(pkg), err)
 	}
 	if found != "" {
-		return fmt.Errorf("refusing to install %s: it ships a private key (%s);"+
-			" kno never deploys or overwrites secret keys", pkg, found)
+		return fmt.Errorf("kno does not install %s. It contains the private key %s,"+
+			" and kno never deploys or overwrites secret keys", pkg, found)
 	}
 	return nil
 }
@@ -416,7 +418,7 @@ func dockerPlan(o Options, backend string) (Plan, error) {
 	p := Plan{Backend: backend, Tag: o.Tag, Needs: engine}
 	var compose []composeService
 	for _, svc := range o.Services {
-		s, err := readManifest(filepath.Join(o.Rel, "manifest", svc+".conf"))
+		s, err := o.service(svc)
 		if err != nil {
 			return Plan{}, fmt.Errorf("docker activate failed for %s: %v", svc, err)
 		}
@@ -432,7 +434,7 @@ func dockerPlan(o Options, backend string) (Plan, error) {
 
 		if !filepath.IsAbs(s.DockerDir) {
 			return Plan{}, fmt.Errorf(
-				"docker service %s has a relative DOCKER_DIR (%s); it is a bind-mount source and"+
+				"docker service %s has a relative DOCKER_DIR (%s). It is a bind-mount source and"+
 					" must be absolute, or the engine mounts an empty named volume over it",
 				svc, s.DockerDir)
 		}
@@ -501,8 +503,12 @@ func Apply(ctx context.Context, p Plan, o Options, w io.Writer) error {
 				fmt.Fprintf(w, "DRYRUN: %s\n", strings.Join(s.Argv, " "))
 				continue
 			}
-			if err := runStep(ctx, s, w); err != nil && s.Kind == StepRun {
+			err := runStep(ctx, s, w)
+			if err != nil && s.Kind == StepRun {
 				return fmt.Errorf("%s: %v", s.Argv[0], err)
+			}
+			if err != nil && s.Warn {
+				l.Warnf("kno could not run %s: %v. The packages are installed", strings.Join(s.Argv, " "), err)
 			}
 		case StepWrite:
 			if o.DryRun {
@@ -512,7 +518,7 @@ func Apply(ctx context.Context, p Plan, o Options, w io.Writer) error {
 			if err := os.MkdirAll(filepath.Dir(s.Path), 0o755); err != nil {
 				return err
 			}
-			if err := os.WriteFile(s.Path, []byte(s.Content), s.Mode); err != nil {
+			if err := fsutil.WriteFileAtomic(s.Path, []byte(s.Content), s.Mode); err != nil {
 				return err
 			}
 		case StepScanSecretKeys:
@@ -536,17 +542,17 @@ func scanSecretKeys(ctx context.Context, s Step) error {
 	pkg := filepath.Base(last(s.Argv))
 	out, err := exec.CommandContext(ctx, s.Argv[0], s.Argv[1:]...).Output()
 	if err != nil {
-		return fmt.Errorf("refusing to install %s: cannot list its contents to"+
+		return fmt.Errorf("kno does not install %s. kno cannot list its contents to"+
 			" check for private keys (%v)", pkg, err)
 	}
 	found, err := tarSecretKey(out)
 	if err != nil {
 
-		return fmt.Errorf("refusing to install %s: cannot read its contents (%v)", pkg, err)
+		return fmt.Errorf("kno does not install %s. kno cannot read its contents (%v)", pkg, err)
 	}
 	if found != "" {
-		return fmt.Errorf("refusing to install %s: it ships a private key (%s);"+
-			" kno never deploys or overwrites secret keys", pkg, found)
+		return fmt.Errorf("kno does not install %s. It contains the private key %s,"+
+			" and kno never deploys or overwrites secret keys", pkg, found)
 	}
 	return nil
 }
@@ -561,74 +567,15 @@ func tarSecretKey(stream []byte) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if fsutil.IsSecretKey(path.Base(h.Name)) {
+		if fsutil.IsSecretKey(path.Base(h.Name)) || h.Typeflag == tar.TypeReg && fsutil.HasSecretContent(tr) {
 			return h.Name, nil
 		}
 	}
 }
 
-func ReleaseBackend(rel string) string {
-	m, _ := filepath.Glob(filepath.Join(rel, "manifest", "*.conf"))
-	if len(m) > 0 {
-		if s, err := readManifest(m[0]); err == nil && s.Backend != "" {
-			return s.Backend
-		}
-	}
-
-	return "systemd"
-}
-
 func DebVersion(tag string) string { return strings.TrimPrefix(tag, "v") }
 
-func readManifest(path string) (service.Service, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return service.Service{}, err
-	}
-	defer f.Close()
-	m := map[string]string{}
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		k, v, ok := strings.Cut(sc.Text(), "=")
-		if !ok {
-			continue
-		}
-		m[strings.TrimSpace(k)] = strings.Trim(v, `"`)
-	}
-	if err := sc.Err(); err != nil {
-		return service.Service{}, err
-	}
-	s := service.Service{
-		Name:           strings.TrimSuffix(filepath.Base(path), ".conf"),
-		Backend:        m["BACKEND"],
-		Unit:           m["UNIT"],
-		Build:          m["BUILD"],
-		BinarySrc:      m["BINARY_SRC"],
-		BinaryDst:      m["BINARY_DST"],
-		ConfigSrc:      m["CONFIG_SRC"],
-		ConfigDst:      m["CONFIG_DST"],
-		StateDir:       m["STATE_DIR"],
-		SecretKeys:     m["SECRET_KEYS"],
-		Jail:           m["JAIL"],
-		PrestartHook:   m["PRESTART_HOOK"],
-		ServiceUser:    m["SERVICE_USER"],
-		LegacyStateDir: m["LEGACY_STATE_DIR"],
-		DockerDir:      m["DOCKER_DIR"],
-		DockerImage:    m["DOCKER_IMAGE"],
-		DockerCont:     m["DOCKER_CONTAINER"],
-		DockerPorts:    m["DOCKER_PORTS"],
-	}
-	s.KeysSrc = strings.Fields(m["KEYS_SRC"])
-	s.AuxFiles = strings.Fields(m["AUX_FILES"])
-	return s, nil
-}
-
 func last(argv []string) string { return argv[len(argv)-1] }
-
-func isDir(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && fi.IsDir()
-}
 
 func readable(p string) bool {
 	f, err := os.Open(p)
@@ -639,15 +586,45 @@ func readable(p string) bool {
 	return true
 }
 
-func Main() { os.Exit(Run(os.Stderr, os.Args[1:])) }
-
 func Run(stderr io.Writer, args []string) int {
 	l := track.Logger{Tool: "activate", W: stderr}
+	dry := cli.DryRun() || os.Getenv("DRY_RUN") == "1"
 	if len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
 		fmt.Fprintln(stderr, "kno activate: install a built release on this host and start its services")
-		fmt.Fprintln(stderr, "usage: kno activate <release-dir> <tag>")
+		fmt.Fprintln(stderr, "usage: kno activate [--restart=<unit>,...] <release-dir> <tag>")
+		fmt.Fprintln(stderr, "       kno activate --kno <deb>...")
+		fmt.Fprintln(stderr, "       kno activate --schedule=<timer|cron|none>")
 		fmt.Fprintln(stderr, "  DRY_RUN=1 prints the commands instead of running them.")
 		return 0
+	}
+	var restart []string
+	for len(args) > 0 {
+		if v, ok := strings.CutPrefix(args[0], "--repo="); ok {
+			os.Setenv("KNO_REPO", v)
+		} else if v, ok := strings.CutPrefix(args[0], "--config="); ok {
+			os.Setenv("KNO_CONFIG", v)
+		} else if v, ok := strings.CutPrefix(args[0], "--restart="); ok {
+			restart = strings.FieldsFunc(v, func(r rune) bool { return r == ',' })
+		} else {
+			break
+		}
+		args = args[1:]
+	}
+	if len(args) > 0 && args[0] == "--kno" {
+		return runKno(stderr, args[1:], dry)
+	}
+	if len(args) == 1 && strings.HasPrefix(args[0], "--schedule=") {
+		mode := strings.TrimPrefix(args[0], "--schedule=")
+		if !schedule.KnownMode(mode) {
+			l.Errorf("%s is not a scheduler. Use timer, cron or none", mode)
+			return 1
+		}
+		return schedule.Run(stderr, []string{mode}, "", dry)
+	}
+	for _, u := range restart {
+		if !unitName.MatchString(u) {
+			l.Warnf("%s is not a katzenpost unit. kno does not restart it", u)
+		}
 	}
 	if len(args) < 2 {
 		fmt.Fprintln(stderr, "usage: kno activate <release-dir> <tag>")
@@ -660,7 +637,7 @@ func Run(stderr io.Writer, args []string) int {
 	}
 	e, err := track.LoadEnv()
 	if err != nil {
-		fmt.Fprintf(stderr, "kno: config error (%v); fix your kno.toml or unset it\n", err)
+		fmt.Fprintf(stderr, "kno: config error (%v). Fix your kno.toml or unset it\n", err)
 		return 1
 	}
 	install, err := installFor(e)
@@ -668,8 +645,23 @@ func Run(stderr io.Writer, args []string) int {
 		fmt.Fprintf(stderr, "kno: %v\n", err)
 		return 1
 	}
+	required := signaturesRequired()
+	signed := ""
+	if required {
+		sha, ok := signedHead(l, e.Repo)
+		if !ok {
+			return 1
+		}
+		signed = sha
+	}
+	rel, err := ownCopy(args[0])
+	if err != nil {
+		l.Errorf("%v. kno installs nothing", err)
+		return 1
+	}
+	defer os.RemoveAll(rel)
 	o := Options{
-		Rel:        args[0],
+		Rel:        rel,
 		Tag:        args[1],
 		Threshold:  e.Config.SignatureThreshold(),
 		Services:   e.Services,
@@ -681,7 +673,7 @@ func Run(stderr io.Writer, args []string) int {
 		ClientJail: clientJail(e),
 		WantClient: wantClient(e),
 
-		DryRun: cli.DryRun() || os.Getenv("DRY_RUN") == "1",
+		DryRun: dry,
 	}
 
 	if rc := checkRelease(l, o); rc != 0 {
@@ -699,6 +691,17 @@ func Run(stderr io.Writer, args []string) int {
 			return rc
 		}
 	}
+	if rc := checkRecord(l, o, filepath.Join(rel, "pkgs"), required, signed); rc != 0 {
+		return rc
+	}
+	for _, d := range p.Packages {
+		if required && knoPackage(d) {
+			l.Errorf("the record has no digest for %s, and require_signatures is on."+
+				" Install it with: make install", filepath.Base(d))
+			return 1
+		}
+	}
+	p.Steps = append(p.Steps, restartSteps(restart)...)
 	if err := Apply(context.Background(), p, o, stderr); err != nil {
 		l.Errorf("%v", err)
 		return 1
@@ -713,11 +716,9 @@ func checkRelease(l track.Logger, o Options) int {
 	if _, err := os.Stat(sums); err != nil {
 
 		if backend := hostBackend(o); backend == "" || backend == "systemd" || backend == "freebsd-ezjail" {
-			l.Errorf("the release staged no %s, so nothing describes the"+
-				" packages", build.SumsName)
-			l.Logf("  Refusing to install %s: a release that cannot be checked", o.Tag)
-			l.Logf("  is not a release that passed a check. Push again from a kno")
-			l.Logf("  that ships the digest list, or build here with 'kno update'.")
+			l.Errorf("The release has no %s. Nothing describes the packages", build.SumsName)
+			l.Logf("  kno does not install %s, because kno cannot check it.", o.Tag)
+			l.Logf("  Push again from a kno that sends the record, or build here with 'kno update'.")
 			return 1
 		}
 		return 0
@@ -726,9 +727,8 @@ func checkRelease(l track.Logger, o Options) int {
 		return 0
 	}
 	if !sign.Available() {
-		l.Warnf("%s names signers but there is no ssh-keygen to check them with",
-			allow)
-		l.Logf("  Installing on the digest list alone.")
+		l.Warnf("%s names signers, but this host has no ssh-keygen to check them", allow)
+		l.Logf("  kno installs the release because its digests match the record.")
 		return 0
 	}
 	who, errs := validSigners(sums, allow)
@@ -742,7 +742,7 @@ func checkRelease(l track.Logger, o Options) int {
 	}
 	k := o.threshold()
 	if len(who) < k {
-		l.Warnf("%s has %d of %d signatures. kno installs it by its digest list.", o.Tag, len(who), k)
+		l.Warnf("%s has %d of %d signatures. kno installs it because its digests match the record.", o.Tag, len(who), k)
 		return 0
 	}
 	l.Logf("release %s signed by %s (%d of %d)",
@@ -754,18 +754,39 @@ func hostBackend(o Options) string {
 	if o.Backend != "" {
 		return o.Backend
 	}
-	repo, err := config.EmbeddedRepo()
-	if err != nil {
-		return ""
-	}
 	for _, svc := range o.Services {
-		s, err := service.ResolveService(repo, o.Network, svc)
+		s, err := o.service(svc)
 		if err != nil || s.Backend == "" {
 			continue
 		}
 		return s.Backend
 	}
 	return ""
+}
+
+func (o Options) trustedRepo() string {
+	if o.Repo != "" && (os.Geteuid() != 0 || fsutil.RootOwned(o.Repo)) {
+		return o.Repo
+	}
+	r, _ := config.EmbeddedRepo()
+	return r
+}
+
+func (o Options) service(svc string) (service.Service, error) {
+	repo := o.trustedRepo()
+	if repo == "" {
+		return service.Service{}, fmt.Errorf("kno has no network data to read %s from", svc)
+	}
+	s, err := service.ResolveService(repo, config.NetworkOf(config.Config{Network: o.Network}), svc)
+	if err != nil {
+		return service.Service{}, err
+	}
+	for _, d := range []string{s.StateDir, s.LegacyStateDir} {
+		if d != "" && (!filepath.IsAbs(d) || filepath.Clean(d) != d) {
+			return service.Service{}, fmt.Errorf("%s has the directory %q. kno uses only clean absolute paths", svc, d)
+		}
+	}
+	return s, nil
 }
 
 func (o Options) threshold() int {
@@ -865,7 +886,7 @@ func installFor(e track.Env) (string, error) {
 	m, ok := config.NormalizeInstall(raw)
 	if !ok {
 		return "", fmt.Errorf("install = %q in this host's kno.toml is not an install method"+
-			" (want one of %s); fix it there rather than here",
+			" (want one of %s). Fix it there rather than here",
 			raw, strings.Join(config.Installs, ", "))
 	}
 	return m, nil
@@ -905,7 +926,7 @@ func verifyPackageDigests(l track.Logger, o Options, debs []string) int {
 		}
 	}
 	if bad > 0 {
-		l.Logf("  Refusing to install %s: %d package(s) are not what the list names.", o.Tag, bad)
+		l.Logf("  kno does not install %s: %d package(s) do not match the record.", o.Tag, bad)
 		return 1
 	}
 	return 0

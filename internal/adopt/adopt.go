@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/katzenpost/kno/internal/fsutil"
+
 	"github.com/katzenpost/kno/internal/build"
 	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/knopath"
@@ -53,7 +55,7 @@ func DefaultSteps() Steps {
 		Sim: func(e track.Env, tag, prev string) error {
 			args := []string{"sim", "all", "--emulate", "--epoch", "2m"}
 			if prev != "" {
-				if from := filepath.Join(knopath.Artifacts(), "releases", prev, "pkgs"); isDir(from) {
+				if from := filepath.Join(knopath.Artifacts(), "releases", prev, "pkgs"); fsutil.IsDir(from) {
 					args = append(args, "--from", from)
 				}
 			}
@@ -125,6 +127,10 @@ func Run(o Options, s Steps) (string, error) {
 	} else if vs := e.VTags(); len(vs) > 0 {
 		known = vs[0]
 	}
+	if !e.TagVerified(e.KatzenpostRepo, tag) {
+		return "", fmt.Errorf("%s has no signature that this host accepts, or it does not"+
+			" point to KATZENPOST_SHA in pins.env. require_signed_tag is on", tag)
+	}
 	for _, v := range e.VTags() {
 		if v == tag {
 			return "", fmt.Errorf("%s is already in %s", tag, track.VersionsFile)
@@ -137,7 +143,7 @@ func Run(o Options, s Steps) (string, error) {
 	}
 	back := func(err error) (string, error) {
 		_ = git(root, "checkout", "-q", base)
-		return "", fmt.Errorf("%w\n  The work stays on the branch %s; %s is as it was", err, branch, base)
+		return "", fmt.Errorf("%w\n  The work stays on the branch %s. %s is as it was", err, branch, base)
 	}
 	if err := addVersion(filepath.Join(e.Repo, track.VersionsFile), tag); err != nil {
 		return back(err)
@@ -206,9 +212,4 @@ func git(dir string, args ...string) error {
 		return fmt.Errorf("git %s: %v\n%s", strings.Join(args, " "), err, out)
 	}
 	return nil
-}
-
-func isDir(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && fi.IsDir()
 }

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/katzenpost/kno/internal/attest"
 	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/fsutil"
@@ -101,8 +102,30 @@ func (e Env) TagVerified(dir, tag string) bool {
 		return false
 	}
 
-	_, ok := GitOutput(dir, "verify-tag", tag)
-	return ok
+	if _, ok := GitOutput(dir, "verify-tag", tag); !ok {
+		return false
+	}
+	want, pinned := pinnedSha(e.Repo, tag)
+	if !pinned {
+		return true
+	}
+	got, ok := GitOutput(dir, "rev-parse", tag+"^{commit}")
+	return ok && want != "" && strings.TrimSpace(got) == want
+}
+
+func pinnedSha(repo, tag string) (string, bool) {
+	b, err := os.ReadFile(filepath.Join(repo, "thirdparty", "pins.env"))
+	if err != nil {
+		return "", false
+	}
+	pins := map[string]string{}
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if k, v, ok := strings.Cut(line, "="); ok && !strings.HasPrefix(line, "#") {
+			pins[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), `"`)
+		}
+	}
+	return pins["KATZENPOST_SHA"], pins["KATZENPOST_REF"] == tag
 }
 
 func (e Env) TargetVersion() string {
@@ -190,7 +213,7 @@ func (e *Env) EnsureRepos(l Logger, cloneKP bool) error {
 		if cloneKP && cmp.Or(os.Getenv("KNO_GIT_FETCH"), "1") == "1" {
 			if err := exec.Command("git", "-C", e.KatzenpostRepo,
 				"fetch", "--tags", "--prune", "--quiet").Run(); err != nil {
-				l.Warnf("katzenpost fetch failed; using local tags")
+				l.Warnf("katzenpost fetch failed. kno uses the local tags")
 			}
 		}
 		return nil
@@ -264,26 +287,52 @@ func (e *Env) refreshOwnClone(l Logger, clone string) {
 	}
 	if err := exec.Command("git", "-C", clone, "fetch", "--quiet",
 		"--tags", "--prune").Run(); err != nil {
-		l.Warnf("kno fetch failed; using the clone as it is")
+		l.Warnf("kno fetch failed. kno uses the clone as it is")
 		return
 	}
 
 	out, err := exec.Command("git", "-C", clone, "status", "--porcelain").Output()
 	if err != nil {
-		l.Warnf("cannot read the state of %s; not fast-forwarding it", clone)
+		l.Warnf("cannot read the state of %s. kno does not fast-forward it", clone)
 		return
 	}
 	for _, ln := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
 		if ln == "" || strings.Contains(ln, "/"+knopath.GeneratedName+"/"+knopath.DeploymentsName+"/") {
 			continue
 		}
-		l.Warnf("%s has local changes; not fast-forwarding it", clone)
+		l.Warnf("%s has local changes. kno does not fast-forward it", clone)
+		return
+	}
+	_ = exec.Command("git", "-C", clone, "fetch", "--quiet", "origin",
+		"+"+attest.NotesRef+":"+attest.NotesRef).Run()
+	up, ok := e.signaturesAllow(l, clone)
+	if !ok {
 		return
 	}
 	if err := exec.Command("git", "-C", clone, "merge", "--ff-only",
-		"--quiet", "@{u}").Run(); err != nil {
-		l.Warnf("%s is not a fast-forward of its upstream; left as it is", clone)
+		"--quiet", up).Run(); err != nil {
+		l.Warnf("%s is not a fast-forward of its upstream. Left as it is", clone)
 	}
+}
+
+func (e *Env) signaturesAllow(l Logger, clone string) (string, bool) {
+	head, _ := GitOutput(clone, "rev-parse", "HEAD")
+	out, ok := GitOutput(clone, "rev-parse", "--verify", "--quiet", "@{u}^{commit}")
+	up := strings.TrimSpace(out)
+	if !ok || up == "" {
+		return "", false
+	}
+	if up == strings.TrimSpace(head) {
+		return up, true
+	}
+	r := attest.Check(clone, up, attest.SignersPath)
+	l.Logf("signatures of %s: %s", up, r)
+	if e.RequireSignatures && !r.Enough() {
+		l.Warnf("%s does not have enough valid signatures. require_signatures is on,"+
+			" so kno does not fast-forward %s", up, clone)
+		return "", false
+	}
+	return up, true
 }
 
 func checkoutDataRoot(dir string) (string, bool) {
@@ -306,7 +355,7 @@ func Run(stdout, stderr io.Writer, args []string) int {
 	}
 	e, err := LoadEnv()
 	if err != nil {
-		fmt.Fprintf(stderr, "kno: config error (%v); fix your kno.toml or unset it\n", err)
+		fmt.Fprintf(stderr, "kno: config error (%v). Fix your kno.toml or unset it\n", err)
 		return 1
 	}
 	dry := cli.DryRun() || slices.Contains(args, "--dry-run")
@@ -338,7 +387,7 @@ func (e Env) report(stdout io.Writer, l Logger) int {
 	}
 	current := e.CurrentVersion()
 	if target == current {
-		l.Logf("already at %s; nothing to do", target)
+		l.Logf("already at %s. Nothing to do", target)
 		return 3
 	}
 	shown := current

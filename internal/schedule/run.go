@@ -62,7 +62,7 @@ func Run(stderr io.Writer, args []string, host string, dry bool) int {
 	l := track.Logger{Tool: "schedule", W: stderr}
 	e, err := track.LoadEnv()
 	if err != nil {
-		fmt.Fprintf(stderr, "kno: config error (%v); fix your kno.toml or unset it\n", err)
+		fmt.Fprintf(stderr, "kno: config error (%v). Fix your kno.toml or unset it\n", err)
 		return 1
 	}
 
@@ -140,7 +140,7 @@ func options(e track.Env, args []string, hostFlag string, dry bool) (Options, er
 	} else if hostArg == "" && o.Mode == "" {
 		_, h, ok := config.LocalHost(e.Config)
 		if !ok {
-			return Options{}, fmt.Errorf("this machine is not a host in kno.toml, so kno.toml" +
+			return Options{}, fmt.Errorf("this host is not in kno.toml, so kno.toml" +
 				" sets no scheduler here. Name a mode (timer, cron or none) to change this" +
 				" machine, or name a host")
 		}

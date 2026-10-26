@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/katzenpost/kno/internal/fsutil"
+
 	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/hostsetup"
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
@@ -20,11 +22,6 @@ import (
 var packagedDirs = []string{"/usr/lib/systemd/system", "/lib/systemd/system"}
 
 var unitDirs = append(append([]string{}, packagedDirs...), "/etc/systemd/system")
-
-func isDir(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && fi.IsDir()
-}
 
 func unitInstalled(unit string) bool { return unitFileIn(unitDirs, unit) }
 
@@ -112,7 +109,7 @@ func gatherHost(e track.Env, sc verify.Systemd) hostFacts {
 		jailed = jailed || s.Jail != ""
 
 		if s.Jail != "" {
-			u.Installed = isDir(freebsd.CurrentRoot(s.RunJail()))
+			u.Installed = fsutil.IsDir(freebsd.CurrentRoot(s.RunJail()))
 			u.Unit = verify.ServiceUnit(s)
 		} else {
 			u.Installed = unitInstalled(u.Unit)
@@ -146,7 +143,7 @@ func gatherHost(e track.Env, sc verify.Systemd) hostFacts {
 		jail := config.LocalClientJail(e.Config)
 		f.Thinclient = freebsd.CurrentRoot(jail) + verify.Thinclient(true)
 		f.ThinclientWhy = verify.ThinclientProblem(f.Thinclient)
-		if isDir(freebsd.CurrentRoot(jail)) {
+		if fsutil.IsDir(freebsd.CurrentRoot(jail)) {
 			f.Client = sc.State(verify.JailUnit(jail, service.Client))
 			f.ClientInstalled, f.ClientConfig = true, true
 			f.ClientJail = jail
@@ -222,7 +219,7 @@ func reportHost(r *Result, f hostFacts) {
 	case len(f.Units) == 0:
 		r.check("services", true, "none placed on this host (nothing to check here)")
 	case !f.Systemd:
-		r.warn("services", "no systemd here; unit state is unknown, not bad")
+		r.warn("services", "no systemd here. Unit state is unknown, not bad")
 		for _, u := range f.Units {
 			r.line("       %-24s unit %s", u.Service, u.Unit)
 		}
@@ -285,7 +282,7 @@ func reportConsensusPath(r *Result, f hostFacts) {
 				" for a host with no %s", cfg)
 			return
 		}
-		r.warn("kpclientd", "is %s; it serves the socket %s names, so every"+
+		r.warn("kpclientd", "is %s. It serves the socket %s names, so every"+
 			" consensus check on this host will fail while it is down",
 			orUnknown(f.Client.Active), f.Thinclient)
 		r.line("       kpclientd cannot start without %s.", cfg)
@@ -431,7 +428,7 @@ func orUnknown(s string) string {
 
 func reportFaults(r *Result, faults []status.UserFault) {
 	for _, f := range faults {
-		r.check(f.Service, false, "%s runs as %q, which does not exist on this host;"+
+		r.check(f.Service, false, "%s runs as %q, which does not exist on this host."+
 			" systemd fails it with status=217/USER and says nothing about why", f.Unit, f.User)
 		r.line("       its config package predates the fix that creates the account;")
 		r.line("       installing a current one repairs it. To fix it now:")

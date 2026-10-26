@@ -81,15 +81,27 @@ func TestPushToAFreeBSDHostNeedsTheKnoPackage(t *testing.T) {
 	}
 }
 
-func TestCopyModeIsRefusedForAFreeBSDHost(t *testing.T) {
-	rel := freebsdRelease(t, "manifest/respectmy-pq-authority.conf")
+func TestCopyToAFreeBSDHostStagesWithoutRoot(t *testing.T) {
+	rel := freebsdRelease(t,
+		"pkgs/katzenpost-0.0.107.pkg",
+		"pkgs/namenlos-config-kpclientd-0.0.107.pkg",
+		"pkgs/namenlos-config-respectmy-pq-authority-0.0.107.20261020.gabc.pkg",
+		"pkgs/kno-0.0.107.20261020.gdef.pkg",
+		"pkgs/kno-host-config-jailhost-0.0.107.20261020.gdef.pkg",
+		"pkgs/SHA256SUMS",
+		"manifest/respectmy-pq-authority.conf",
+	)
 	o := Options{
 		Repo: testutil.RepoRoot(t), Network: "namenlos",
 		Label: "jailhost", Node: "root@vm", Tag: "v0.0.107", Rel: rel, Mode: ModeCopy,
 		Services: []string{"respectmy-pq-authority"}, SSH: "ssh", SCP: "scp",
 	}
-	_, err := PlanFor(o)
-	if err == nil || !strings.Contains(err.Error(), "freebsd-ezjail") || !strings.Contains(err.Error(), "respectmy-pq-authority") {
-		t.Fatalf("copy mode to a jail host must be refused and say why: %v", err)
+	p, err := PlanFor(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(p.Commands(), "\n"); strings.Contains(got, "activate") ||
+		strings.Contains(got, "sudo") || strings.Contains(got, "pkg add") {
+		t.Errorf("copy mode to a jail host installs or uses root:\n%s", got)
 	}
 }

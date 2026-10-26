@@ -139,7 +139,7 @@ func same(r *Result, name, a, b string) {
 
 func reproKno(ctx context.Context, r *Result, repo, work string, required bool) {
 	if _, err := exec.LookPath("go"); err != nil {
-		unmet(r, "kno binary", required, "no go toolchain on PATH; the binary was not rebuilt")
+		unmet(r, "kno binary", required, "no go toolchain on PATH. The binary was not rebuilt")
 		return
 	}
 	var outs []string
@@ -164,7 +164,7 @@ func reproKno(ctx context.Context, r *Result, repo, work string, required bool) 
 func reproToolchain(r *Result, repo, work string, run, required bool) {
 	if !run {
 		unmet(r, "vendored toolchain", required,
-			"not run, so genconfig and kpconfig determinism is unchecked; --toolchain runs it (it fetches the pinned katzenpost and hpqc sources)")
+			"not run, so genconfig and kpconfig determinism is unchecked. --toolchain runs it (it fetches the pinned katzenpost and hpqc sources)")
 		return
 	}
 	var bins []string
@@ -190,7 +190,7 @@ func reproToolchain(r *Result, repo, work string, run, required bool) {
 func reproDeb(ctx context.Context, r *Result, work, epoch string, required bool) error {
 	if _, err := exec.LookPath(compile.Podman()); err != nil {
 		unmet(r, "deb", required,
-			"%s not found; a .deb is only ever built inside the pinned container, so its bytes were not compared", compile.Podman())
+			"%s not found. A .deb is only ever built inside the pinned container, so its bytes were not compared", compile.Podman())
 		return nil
 	}
 	root := filepath.Join(work, "deb", "root")

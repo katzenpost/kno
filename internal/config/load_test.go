@@ -88,7 +88,7 @@ func TestPlacementIssuesNameAServiceWithNoConfig(t *testing.T) {
 func TestLocalHostPrefersTheLabelAndRefusesAGuess(t *testing.T) {
 	hn, err := os.Hostname()
 	if err != nil || hn == "" {
-		t.Skip("this machine has no hostname")
+		t.Skip("this host has no hostname")
 	}
 	t.Setenv("KNO_HOST", "")
 	c := Config{Hosts: map[string]Host{

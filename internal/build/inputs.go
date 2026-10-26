@@ -45,7 +45,7 @@ func revisionFor(explicit, dir, committed, tag string) (string, string) {
 	}
 	if rec := RecordedRevision(committed, tag); rec != "" {
 		return rec, "kno build uses revision " + rec + " from the committed " + ManifestName +
-			". A new revision would not match the committed digest list."
+			". A new revision would not match the record."
 	}
 	rec := RecordedRevision(dir, tag)
 	if rec == "" {

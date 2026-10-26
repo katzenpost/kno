@@ -25,6 +25,8 @@ func NewPrefixWriter(w io.Writer, prefix string) io.Writer {
 	return &PrefixWriter{w: w, prefix: prefix}
 }
 
+const maxLine = 64 << 10
+
 func (p *PrefixWriter) Write(b []byte) (int, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -32,6 +34,14 @@ func (p *PrefixWriter) Write(b []byte) (int, error) {
 	for {
 		buffered := p.buf.Bytes()
 		i := bytes.IndexAny(buffered, "\n\r")
+		if i < 0 && len(buffered) > maxLine {
+			line := Clean(string(buffered[:maxLine]))
+			p.buf.Next(maxLine)
+			if _, err := io.WriteString(p.w, p.prefix+line+"\n"); err != nil {
+				return len(b), err
+			}
+			continue
+		}
 		if i < 0 {
 			break
 		}
@@ -48,7 +58,8 @@ func (p *PrefixWriter) Write(b []byte) (int, error) {
 			continue
 		}
 		p.lastCR = strings.HasSuffix(line, "\r")
-		if _, err := io.WriteString(p.w, p.prefix+line); err != nil {
+		end2 := strings.TrimRight(line, "\r\n")
+		if _, err := io.WriteString(p.w, p.prefix+Clean(end2)+line[len(end2):]); err != nil {
 			return len(b), err
 		}
 	}
@@ -61,7 +72,7 @@ func (p *PrefixWriter) Close() error {
 	if p.buf.Len() == 0 {
 		return nil
 	}
-	_, err := io.WriteString(p.w, p.prefix+p.buf.String()+"\n")
+	_, err := io.WriteString(p.w, p.prefix+Clean(p.buf.String())+"\n")
 	p.buf.Reset()
 	return err
 }

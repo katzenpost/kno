@@ -2,7 +2,6 @@ package verify
 
 import (
 	"bytes"
-	"github.com/katzenpost/kno/internal/knopath"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -10,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/katzenpost/kno/internal/knopath"
 
 	"github.com/katzenpost/kno/internal/testutil"
 	"github.com/katzenpost/kno/internal/track"
@@ -53,12 +54,11 @@ func TestClassifyUnit(t *testing.T) {
 	}
 }
 
-const participationDump = `Topology:
-  [0]{[{wauland aaaa map[tcp4:[tcp://10.0.0.1:1]]} {wauland2 bbbb map[tcp4:[tcp://10.0.0.2:2]]}]}
-
-PKI document for epoch 1 signed by 2 directory authorities:
-  annares (0000)
-  luscus (1111)
+const participationDump = `{
+  "Epoch": 1,
+  "Layers": [["wauland", "wauland2"]],
+  "Signers": ["annares", "luscus"]
+}
 `
 
 func TestParticipating(t *testing.T) {
@@ -91,7 +91,7 @@ func TestParticipating(t *testing.T) {
 }
 
 func TestParticipatingWholeWord(t *testing.T) {
-	dump := "{wauland2 aaaa map[]}\n{waulandgateway bbbb map[]}\nsigned by 1 directory authorities:\n  annares (0)\n"
+	dump := "{\n\"Gateways\": [\"waulandgateway\"], \"ServiceNodes\": [\"wauland2\"], \"Signers\": [\"annares\"]}\n"
 	if _, ok := Participating(dump, []NodeIdentifier{{"node", "wauland"}}); ok {
 		t.Error("wauland2/waulandgateway must not satisfy wauland")
 	}
@@ -188,7 +188,7 @@ func TestVerifySimMode(t *testing.T) {
 		t.Errorf("generic mode consulted systemd for %v", s.asked)
 	}
 	want := map[string][]string{
-		fetchBin: {"-f", "/sim/thinclient.toml", "-l", "ERROR"},
+		fetchBin: {"-f", "/sim/thinclient.toml", "-l", "ERROR", "--format", "json"},
 		pingBin:  {"-c", "/sim/thinclient.toml", "-s", "echo", "--thin", "-n", "3"},
 	}
 	for name, args := range want {
@@ -352,7 +352,7 @@ func TestVerifyNoServices(t *testing.T) {
 	if rc := Verify(&out, o); rc != CodeNotYet {
 		t.Fatalf("exit = %d, want 1:\n%s", rc, out.String())
 	}
-	if !strings.Contains(out.String(), "This machine runs no services") {
+	if !strings.Contains(out.String(), "This host runs no services") {
 		t.Errorf("missing the service_list message in:\n%s", out.String())
 	}
 }
@@ -575,7 +575,7 @@ func TestVerifyConsensusOutcomes(t *testing.T) {
 	o.Dataplane = false
 	o.MinReplicas = "2"
 	Verify(&bytes.Buffer{}, o)
-	want := []string{"-f", "/sim/thinclient.toml", "-l", "ERROR", "--require-ready", "-r", "2", "--ready-timeout", "2m"}
+	want := []string{"-f", "/sim/thinclient.toml", "-l", "ERROR", "--format", "json", "--require-ready", "-r", "2", "--ready-timeout", "2m"}
 	if c := r.ran(fetchBin); c == nil || !reflect.DeepEqual(c.args, want) {
 		t.Errorf("fetch argv = %+v, want %v", c, want)
 	}

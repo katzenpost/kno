@@ -27,7 +27,7 @@ func Command() *cobra.Command {
 				return err
 			}
 			if len(p.Placements) == 0 {
-				fmt.Fprintln(os.Stderr, "kno topology-propose: every mix is in a layer; nothing to propose")
+				fmt.Fprintln(os.Stderr, "kno topology-propose: every mix is in a layer. Nothing to propose")
 				return nil
 			}
 			fmt.Print(p.Diff)

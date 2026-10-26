@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/katzenpost/kno/internal/argcheck"
+	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/parallel"
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
@@ -200,11 +201,11 @@ func parseRunning(out string) map[string]string {
 		if len(f) != 4 || f[1] == "-" {
 			continue
 		}
-		info := f[1] + " " + f[2]
+		info := cli.Clean(f[1] + " " + f[2])
 		if f[3] == "replaced" {
 			info += ", replaced on disk since it started: restart needed"
 		}
-		got[f[0]] = info
+		got[cli.Clean(f[0])] = info
 	}
 	return got
 }
@@ -236,7 +237,7 @@ func parseStaged(out string) []string {
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasSuffix(line, ".deb") || strings.HasSuffix(line, ".pkg") {
-			got = append(got, line)
+			got = append(got, cli.Clean(line))
 		}
 	}
 	sort.Strings(got)
@@ -266,7 +267,7 @@ func sshReason(body string) string {
 		if line == "" || isState(line) {
 			continue
 		}
-		return line
+		return cli.Clean(line)
 	}
 	return "no answer within " + timeout().String()
 }

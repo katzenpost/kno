@@ -113,7 +113,7 @@ func Run(o Options) int {
 			return 1
 		}
 		if !ok {
-			s.l.Logf("another kno update holds %s; it does this work, so this run does nothing", lock)
+			s.l.Logf("another kno update holds %s. It does this work, so this run does nothing", lock)
 			return 0
 		}
 		defer unlock()
@@ -121,7 +121,7 @@ func Run(o Options) int {
 
 	switch o.Policy {
 	case "off":
-		s.l.Logf("update policy is 'off'; not applying updates")
+		s.l.Logf("update policy is 'off'. kno applies no update")
 		return 0
 	case "simulate":
 		s.dry = true
@@ -201,7 +201,7 @@ func (s *session) tickSteady() (int, error) {
 			s.l.Logf("consensus check before the install: passed")
 		case VerifyUnavailable:
 
-			return 1, fmt.Errorf("kno could not run verify before the install; it does not install %s", target)
+			return 1, fmt.Errorf("kno could not run verify before the install. It does not install %s", target)
 		default:
 
 			s.l.Warnf("no consensus before the install. kno installs %s anyway. If"+
@@ -290,7 +290,7 @@ func (s *session) tickPending() (int, error) {
 	if kv["held"] == "1" {
 		if code != VerifyUnavailable && !verify.AboutTheNode(code) {
 			if target := s.o.Target(); target != "" && target != tag {
-				s.l.Logf("%s is held, and the target is now %s; deploying %s", tag, target, target)
+				s.l.Logf("%s is held, and the target is now %s. kno deploys %s", tag, target, target)
 				if err := s.st(s.state, "steady"); err != nil {
 					return 1, err
 				}
@@ -311,7 +311,7 @@ func (s *session) tickPending() (int, error) {
 			if err := s.writePending(kv); err != nil {
 				return 1, err
 			}
-			s.l.Logf("%s: verify can judge the node again; a new verify window is open until %s",
+			s.l.Logf("%s: verify can judge the node again. A new verify window is open until %s",
 				tag, clock(deadline))
 		}
 	}
@@ -340,7 +340,7 @@ func (s *session) tickPending() (int, error) {
 		return 0, s.rollback(tag, prev, kv["prevconfigs"], true)
 	case VerifyUnavailable:
 
-		return 1, fmt.Errorf("kno could not run verify; %s stays in the verify window", tag)
+		return 1, fmt.Errorf("kno could not run verify. %s stays in the verify window", tag)
 	}
 
 	if s.now().Unix() >= deadline {
@@ -378,7 +378,7 @@ func (s *session) rollbackConfigs(tag, failed, prev string) error {
 			" stay installed. kno does not install them again until a commit changes them."+
 			" 'kno doctor' says what fails", tag)
 	}
-	s.l.Logf("the new config packages of %s did not pass verify; kno installs the earlier"+
+	s.l.Logf("the new config packages of %s did not pass verify. kno installs the earlier"+
 		" config packages again", tag)
 	if err := s.activate(tag, last); err != nil {
 		return fmt.Errorf("kno could not install the earlier config packages of %s from %s"+
@@ -431,7 +431,7 @@ func (s *session) failedDelivery(tag, prev string, cause error) error {
 		prev = ""
 	}
 	if prev != "" && s.usable(prev) && s.canReinstall(prev) {
-		s.l.Logf("the install of %s failed; kno installs %s again", tag, prev)
+		s.l.Logf("the install of %s failed. kno installs %s again", tag, prev)
 		if err := s.activate(prev, filepath.Join(s.o.Env.ReleasesDir, prev)); err != nil {
 			return fmt.Errorf("the install of %s failed (%v), and the install of %s again"+
 				" failed too (%v). 'kno doctor' says what fails", tag, cause, prev, err)
@@ -511,11 +511,7 @@ func (s *session) st(path string, values ...string) error {
 		fmt.Fprintf(s.o.Out, "DRYRUN: write %s > %s\n", strings.Join(values, " "), path)
 		return nil
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(strings.Join(values, "\n")+"\n"), 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return fsutil.WriteFileAtomic(path, []byte(strings.Join(values, "\n")+"\n"), 0o644)
 }
 
 var pendingOrder = []string{"tag", "prev", "activated", "promote", "deadline", "configs", "prevconfigs",
@@ -536,13 +532,7 @@ func (s *session) quarantine(tag string) error {
 		fmt.Fprintf(s.o.Out, "DRYRUN: quarantine %s\n", tag)
 		return nil
 	}
-	f, err := os.OpenFile(s.o.Env.QuarantineFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = fmt.Fprintln(f, tag)
-	return err
+	return fsutil.AppendFile(s.o.Env.QuarantineFile, []byte(tag+"\n"), 0o644)
 }
 
 func (s *session) rmPending() error {
@@ -685,9 +675,9 @@ func (r ToolRunner) checkRecord(tag, pkgs string) error {
 }
 
 func (r ToolRunner) sayUnrecorded(tag string) {
-	r.Log.Warnf("the repository %s has no committed digest list for %s. kno compared"+
+	r.Log.Warnf("the repository %s has no record of %s. kno compared"+
 		" this build only with itself, and installs it", r.Env.Repo, tag)
-	r.Log.Logf("  To record a digest list, run 'kno build record' on the organizer and")
+	r.Log.Logf("  To make a record, run 'kno build record' on the organizer and")
 	r.Log.Logf("  commit the result.")
 }
 
@@ -731,7 +721,11 @@ func (r ToolRunner) escalation(argv []string) error {
 	if r.Sudo == "" || os.Geteuid() == 0 {
 		return nil
 	}
-	if exec.Command(r.Sudo, "-n", "true").Run() == nil {
+	probe := argv
+	if len(probe) > 0 && probe[0] == r.Sudo {
+		probe = probe[1:]
+	}
+	if exec.Command(r.Sudo, append([]string{"-n", "-l"}, probe...)...).Run() == nil {
 		return nil
 	}
 
@@ -829,15 +823,15 @@ func (r ToolRunner) replay(buf *bytes.Buffer) {
 }
 
 func (r ToolRunner) activateArgv(rel, tag string) []string {
-	cmd := append(append([]string{}, r.ActivateCmd...), rel, tag)
+	cmd := append([]string{}, r.ActivateCmd...)
 	if r.Sudo == "" {
-		return cmd
+		return append(cmd, rel, tag)
 	}
-	argv := []string{r.Sudo, "env", "KNO_REPO=" + r.Env.Repo}
+	cmd = append([]string{r.Sudo}, append(cmd, "--repo="+r.Env.Repo)...)
 	if r.Env.ConfigPath != "" {
-		argv = append(argv, "KNO_CONFIG="+r.Env.ConfigPath)
+		cmd = append(cmd, "--config="+r.Env.ConfigPath)
 	}
-	return append(argv, cmd...)
+	return append(cmd, rel, tag)
 }
 
 func policyOf(e track.Env, v Flags) string {

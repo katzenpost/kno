@@ -73,7 +73,7 @@ func Command() *cobra.Command {
 			Report(w, p)
 			if dry && !noRender {
 				fmt.Fprintln(w, "  --dry-run: the render and the repository"+
-					" checks were not run; they need to write")
+					" checks were not run. They need to write")
 			}
 			if res.Failed() {
 
@@ -139,7 +139,7 @@ func Command() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&network, "network", "", "network name (default: this config's)")
 	f.StringVar(&branch, "branch", "", "branch to create (default: your handle and the date)")
-	f.BoolVar(&apply, "apply", false, "create the branch and commit; without it, print the plan")
+	f.BoolVar(&apply, "apply", false, "create the branch and commit. Without it, print the plan")
 	f.BoolVar(&push, "push", false, "with --apply, also push to origin")
 	f.BoolVar(&merge, "merge", false,
 		"with --apply, merge the branch into the branch you were on, as one"+

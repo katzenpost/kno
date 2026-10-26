@@ -62,7 +62,7 @@ func runRemote(w io.Writer, e track.Env, label string, fix, dry, verbose bool) i
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
 			if ee.ExitCode() == sshUnreachable {
-				fmt.Fprintf(w, "kno: could not reach %s; nothing was diagnosed\n", node)
+				fmt.Fprintf(w, "kno: could not connect to %s. kno did not check it\n", node)
 			}
 			return ee.ExitCode()
 		}
@@ -82,14 +82,14 @@ func nodeFor(e track.Env, label string) (string, error) {
 		}
 		sort.Strings(known)
 		if len(known) == 0 {
-			return "", fmt.Errorf("no hosts in %s; run 'kno setup'", orNone(e.ConfigPath))
+			return "", fmt.Errorf("no hosts in %s. Run 'kno setup'", orNone(e.ConfigPath))
 		}
-		return "", fmt.Errorf("no such host %q (this machine organizes %s)",
+		return "", fmt.Errorf("no such host %q (this organizer has %s)",
 			label, strings.Join(known, " "))
 	}
 	node := config.SSHTarget(e.Config, label)
 	if node == "" {
-		return "", fmt.Errorf("%s is this machine; run 'kno doctor' without --host", label)
+		return "", fmt.Errorf("%s is this host. Run 'kno doctor' without --host", label)
 	}
 	return node, nil
 }

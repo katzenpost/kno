@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/katzenpost/kno/internal/fsutil"
+	"github.com/katzenpost/kno/internal/sshsig"
+
 	"github.com/spf13/cobra"
 
 	"github.com/katzenpost/kno/internal/cli"
@@ -57,7 +60,7 @@ func signCommand() *cobra.Command {
 				return err
 			}
 
-			if sigs := filepath.Join(filepath.Dir(sums), "sigs"); isDir(sigs) {
+			if sigs := filepath.Join(filepath.Dir(sums), "sigs"); fsutil.IsDir(sigs) {
 				res, verr := Verify(sums, sig, allowedFor(allowed))
 				if verr != nil {
 					return fmt.Errorf("signed %s, but the signature is not one this"+
@@ -129,7 +132,7 @@ func verifyCommand() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&dir, "dir", "", "the release directory holding SHA256SUMS")
 	f.StringVar(&tag, "tag", "", "release tag, to find the directory (default: the current target)")
-	f.StringVar(&allowed, "allowed", "", "allowed_signers to verify against (default "+NodePath+")")
+	f.StringVar(&allowed, "allowed", "", "allowed_signers to check against (default "+NodePath+")")
 	return cmd
 }
 
@@ -145,10 +148,10 @@ func signersCommand() *cobra.Command {
 			if allowed == "" {
 				allowed = NodePath
 			}
-			names, err := Principals(allowed)
+			names, err := sshsig.Principals(allowed)
 			if err != nil {
 				fmt.Fprintf(w, "no allowlist at %s\n", allowed)
-				fmt.Fprintf(w, "  Until one is placed, this host verifies nothing and\n")
+				fmt.Fprintf(w, "  Until one is placed, this host checks nothing and\n")
 				fmt.Fprintf(w, "  'kno activate' installs whatever it is handed.\n")
 				fmt.Fprintf(w, "  kno-host-config places it at bootstrap.\n")
 				return cli.Exit(1)
@@ -184,9 +187,4 @@ func sumsPath(dir, tag string) (string, error) {
 		return "", fmt.Errorf("no SHA256SUMS for %s at %s", tag, p)
 	}
 	return p, nil
-}
-
-func isDir(p string) bool {
-	fi, err := os.Stat(p)
-	return err == nil && fi.IsDir()
 }

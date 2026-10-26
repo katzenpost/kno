@@ -46,6 +46,9 @@ func planInstallFreeBSD(o Options, p Plan) (Plan, error) {
 	p.Steps = append(p.Steps, transfer(o, pkgs, append(slices.Clone(p.Packages), sumsFiles(pkgs)...),
 		remote+"/pkgs", false)...)
 	p.Steps = append(p.Steps, transfer(o, filepath.Join(o.Rel, "manifest"), manifests, remote+"/manifest", false)...)
+	if o.Mode == ModeCopy {
+		return p, nil
+	}
 	p.Steps = append(p.Steps,
 		Step{Argv: sshx.SSH(o.SSH, o.Node, freebsdBootstrap(remote, baseNames(p.Packages), filepath.Base(kno),
 			filepath.Base(p.Packages[len(p.Packages)-1]))),
@@ -61,7 +64,7 @@ func freebsdBootstrap(remote string, names []string, kno, hostConfig string) str
 		"[ -f " + sums + " ] || { echo 'kno: " + sums + " is not with the copied packages. kno does not install them.' >&2; exit 1; }; " +
 		"for p in " + strings.Join(names, " ") + "; do " +
 		`want=$(awk -v f="$p" '$2 == f { print $1 }' ` + sums + "); " +
-		`[ -n "$want" ] || { echo "kno: $p is not in ` + sums + `; refusing to install it" >&2; exit 1; }; ` +
+		`[ -n "$want" ] || { echo "kno: $p is not in ` + sums + `. kno does not install it" >&2; exit 1; }; ` +
 		`[ "$(sha256 -q "$p")" = "$want" ] || { echo "kno: $p does not match ` + sums + `" >&2; exit 1; }; done; ` +
 		sigCheck(sums, sign.NodePathFor("freebsd")) +
 		sshx.AsRoot(strings.Join(freebsd.PkgAdd("", kno, hostConfig), " ")) + "; " +

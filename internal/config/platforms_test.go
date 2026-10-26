@@ -28,3 +28,30 @@ func keys(m map[string][2]string) []string {
 	}
 	return out
 }
+
+func NetworkPlatforms(repo, network string) map[string][2]string {
+	a, _ := readNetworkFile(repo, network)
+
+	nodes := map[string]bool{}
+	for n := range a.Arch {
+		nodes[n] = true
+	}
+	for n := range a.OS {
+		nodes[n] = true
+	}
+	out := map[string][2]string{}
+	for n := range nodes {
+		arch, osName := a.Arch[n], a.OS[n]
+		if arch == "" {
+			arch = a.Default
+		}
+		if osName == "" {
+			osName = a.DefaultOS
+		}
+		if arch == "" || osName == "" {
+			continue
+		}
+		out[osName+"-"+arch] = [2]string{osName, arch}
+	}
+	return out
+}

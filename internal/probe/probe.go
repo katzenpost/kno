@@ -120,8 +120,9 @@ func ExecFetcher(fetch, thin string, timeout time.Duration) Fetcher {
 		if fetch == "" || thin == "" {
 			return ""
 		}
-		out, _ := verify.ExecRunner{}.Run(timeout, fetch, "-f", thin)
-		return out
+		doc, _ := verify.ExecRunner{}.Run(timeout, fetch, "-f", thin, "--format", "json")
+		dump, _ := verify.ExecRunner{}.Run(timeout, fetch, "-f", thin)
+		return doc + DumpMark + dump
 	}
 }
 
@@ -135,7 +136,7 @@ func Probe(w io.Writer, o Options) int {
 
 	cons, consOK := ParseConsensus(o.Fetch())
 	if !consOK {
-		l.Warnf("no consensus document (fetch/thinclient unset or network down); reachability-only")
+		l.Warnf("no consensus document (fetch/thinclient unset or network down). Reachability-only")
 	}
 
 	fmt.Fprintf(w, "%-9s %-18s %-22s %s\n", "ROLE", "IDENTIFIER", "ADDRESS", "STATUS")
@@ -267,48 +268,31 @@ func valueOf(ln string) string {
 }
 
 var (
-	consNode   = regexp.MustCompile(`\{([a-z0-9]+) [0-9a-f]{8,} map\[tcp[46]?:\[tcp://([0-9.]+):([0-9]+)`)
-	consSigner = regexp.MustCompile(`^[[:space:]]+([a-z0-9]+) \(`)
+	consNode = regexp.MustCompile(`\{([a-z0-9]+) [0-9a-f]{8,} map\[tcp[46]?:\[tcp://([0-9.]+):([0-9]+)`)
 )
 
-const signedBy = "signed by"
+const DumpMark = "\n#kno-dump\n"
 
 func ParseConsensus(out string) (Consensus, bool) {
-	if !strings.Contains(out, signedBy) {
+	docText, dump, _ := strings.Cut(out, DumpMark)
+	d, ok := verify.ParseDoc(docText)
+	if !ok {
 		return Consensus{}, false
 	}
+	named := map[string]bool{}
+	for _, n := range d.Nodes() {
+		named[n] = true
+	}
 	var c Consensus
-	keys := map[string]bool{}
-	for _, m := range consNode.FindAllStringSubmatch(out, -1) {
-		keys[strings.Join(m[1:4], "|")] = true
-	}
-
-	sorted := make([]string, 0, len(keys))
-	for k := range keys {
-		sorted = append(sorted, k)
-	}
-	sort.Strings(sorted)
-	for _, k := range sorted {
-		f := strings.Split(k, "|")
-		c.Nodes = append(c.Nodes, ConsensusNode{Identifier: f[0], Host: f[1], Port: f[2]})
-	}
-
-	lines := strings.Split(out, "\n")
-	i := 0
-	for ; i < len(lines); i++ {
-		if strings.Contains(lines[i], signedBy) {
-			break
+	seen := map[string]bool{}
+	for _, m := range consNode.FindAllStringSubmatch(dump, -1) {
+		if named[m[1]] && !seen[m[1]] {
+			seen[m[1]] = true
+			c.Nodes = append(c.Nodes, ConsensusNode{Identifier: m[1], Host: m[2], Port: m[3]})
 		}
 	}
-	signers := map[string]bool{}
-	for i++; i < len(lines); i++ {
-		if m := consSigner.FindStringSubmatch(lines[i]); m != nil {
-			signers[m[1]] = true
-		}
-	}
-	for s := range signers {
-		c.Signers = append(c.Signers, s)
-	}
+	sort.Slice(c.Nodes, func(i, j int) bool { return c.Nodes[i].Identifier < c.Nodes[j].Identifier })
+	c.Signers = append([]string{}, d.Signers...)
 	sort.Strings(c.Signers)
 	return c, true
 }

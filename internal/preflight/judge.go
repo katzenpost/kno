@@ -56,10 +56,10 @@ func judgeRollback(r *Report, in Input) {
 	}
 	switch {
 	case l.Current == "":
-		r.add(Warn, "rollback", "nothing recorded as current; a failed install"+
+		r.add(Warn, "rollback", "nothing recorded as current. A failed install"+
 			" has no previous release to restore")
 	case l.LKG == "":
-		r.add(Warn, "rollback", "on %s with no last-known-good recorded; a"+
+		r.add(Warn, "rollback", "on %s with no last-known-good recorded. A"+
 			" failed install would leave this host on %s, the release that"+
 			" failed", l.Current, l.Current)
 	case !has(l.Releases, l.LKG):
@@ -77,13 +77,13 @@ func judgeRollback(r *Report, in Input) {
 		r.add(Info, "rollback", "can fall back to %s", l.LKG)
 	}
 	if l.Pending != "" {
-		r.add(Stop, "in flight", "a deployment of %s is already pending here;"+
-			" finish or clear it before starting another", l.Pending)
+		r.add(Stop, "in flight", "a deployment of %s is already pending here."+
+			" Finish or clear it before starting another", l.Pending)
 	}
 	if has(l.Quarantined, target) {
 		r.add(Stop, "quarantined", "%s is quarantined for this host: it was"+
 			" installed before and did not rejoin consensus.\n"+
-			"    'kno doctor' says what broke; 'kno unquarantine %s' lets it be"+
+			"    'kno doctor' says what broke. 'kno unquarantine %s' lets it be"+
 			" re-attempted.", target, target)
 	}
 }
@@ -101,7 +101,7 @@ func judgeAnswered(r *Report, s map[string]string, in Input) {
 	}
 	if len(in.Services) > 0 && answered == 0 {
 		r.add(Warn, "answered", "the host answered but said nothing about any"+
-			" of its %d service(s); every check below had no input",
+			" of its %d service(s). Every check below had no input",
 			len(in.Services))
 		return
 	}
@@ -125,7 +125,7 @@ func judgeAnswered(r *Report, s map[string]string, in Input) {
 func judgeKeys(r *Report, s map[string]string, in Input) {
 	for _, svc := range in.Services {
 		if s["dir:"+svc] == "no" {
-			r.add(Warn, "state dir", "%s has no state directory yet; it will be"+
+			r.add(Warn, "state dir", "%s has no state directory yet. It will be"+
 				" created and the node will generate a fresh identity", svc)
 			continue
 		}
@@ -145,7 +145,7 @@ func judgeKeys(r *Report, s map[string]string, in Input) {
 		}
 		if pub == "no" && !in.Migrating {
 			r.add(Warn, "identity key", "%s has its private key but no"+
-				" identity.public.pem; some daemons read the public half at"+
+				" identity.public.pem. Some daemons read the public half at"+
 				" startup", svc)
 			continue
 		}
@@ -166,7 +166,7 @@ func judgeLegacyReplicaDB(r *Report, s map[string]string, in Input) {
 			unit = unitFor(svc, in.Units)
 		}
 		if unit != "" && s["unit:"+unit] == "active" {
-			r.add(Info, "legacy db", "%s still carries replica.db; it is running"+
+			r.add(Info, "legacy db", "%s still carries replica.db. It is running"+
 				" now, so the migration marker is set and the upgrade will"+
 				" remove it", svc)
 			continue
@@ -211,7 +211,7 @@ func judgeClient(r *Report, s map[string]string, in Input) {
 			" consensus, and the upgrade is never promoted.\n"+
 			"    Run 'systemctl unmask kpclientd' on the host first.", st)
 	case "disabled":
-		r.add(Info, "kpclientd", "kpclientd is disabled; the upgrade enables and starts"+
+		r.add(Info, "kpclientd", "kpclientd is disabled. The upgrade enables and starts"+
 			" it, because kno.toml wants it on this host")
 	default:
 		r.add(Info, "kpclientd", "kpclientd is %s", st)
@@ -232,8 +232,8 @@ func judgeVersions(r *Report, in Input) {
 		have := installed[name]
 		want := Candidate(have, in.Packages[name])
 		if want == "" {
-			r.add(Info, "version", "%s is at %s and the release has none;"+
-				" it stays", name, have)
+			r.add(Info, "version", "%s is at %s and the release has none."+
+				" It stays", name, have)
 			continue
 		}
 		switch {
@@ -244,7 +244,7 @@ func judgeVersions(r *Report, in Input) {
 			r.add(Info, "upgrade", "%s %s -> %s", name, have, want)
 		default:
 			r.add(Warn, "downgrade", "%s would go from %s to %s, which dpkg"+
-				" orders as a downgrade; it installs anyway", name, have, want)
+				" orders as a downgrade. It installs anyway", name, have, want)
 		}
 	}
 }
@@ -268,7 +268,7 @@ func judgeDisk(r *Report, s map[string]string, reserveMiB int) {
 	const floor = 512 * 1024
 	switch reserve := int64(reserveMiB) * 1024; {
 	case kb < floor:
-		r.add(Stop, "disk", "%d MB free for the node state; an install that runs out part"+
+		r.add(Stop, "disk", "%d MB free for the node state. An install that runs out part"+
 			" way through leaves dpkg half configured", kb/1024)
 	case reserve > 0 && kb < reserve:
 		r.add(Stop, "disk", "%d MB free for the node state. A storage replica on this host refuses"+

@@ -1,6 +1,7 @@
 package sign
 
 import (
+	"github.com/katzenpost/kno/internal/sshsig"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -159,7 +160,7 @@ func TestPrincipals(t *testing.T) {
 	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Principals(p)
+	got, err := sshsig.Principals(p)
 	if err != nil {
 		t.Fatal(err)
 	}

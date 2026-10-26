@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/katzenpost/kno/internal/attest"
 )
 
 func TestRepoDirFindsAClonedKnoRepo(t *testing.T) {
@@ -339,6 +341,43 @@ func TestACloneURLCannotBecomeAnOption(t *testing.T) {
 	} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("git did not get %q:\n%s", want, b)
+		}
+	}
+}
+
+func TestRequiredSignaturesHoldAnUnsignedCommitAndTheDefaultReportsIt(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	signers := filepath.Join(t.TempDir(), "signers")
+	if err := os.WriteFile(signers, []byte("op ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC4\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	old := attest.SignersPath
+	attest.SignersPath = signers
+	defer func() { attest.SignersPath = old }()
+
+	for _, require := range []bool{false, true} {
+		origin := t.TempDir()
+		mkRepo(t, origin, "data/networks/n/editable-configs/manifest.toml", "[network]\n")
+		home := t.TempDir()
+		e := Env{Home: home, Repo: CloneDir(home), KnoURL: origin,
+			KatzenpostRepo: filepath.Join(home, "katzenpost"), RequireSignatures: require}
+		var log strings.Builder
+		l := Logger{Tool: "t", W: &log}
+		if err := e.EnsureKnoRepo(l); err != nil {
+			t.Fatal(err)
+		}
+		mkCommit(t, origin, "data/thirdparty/katzenpost-versions", "v0.0.105\n")
+		if err := e.EnsureKnoRepo(l); err != nil {
+			t.Fatal(err)
+		}
+		_, err := os.Stat(filepath.Join(CloneDir(home), "data", "thirdparty", "katzenpost-versions"))
+		if moved := err == nil; moved == require {
+			t.Errorf("require_signatures=%v: fast-forwarded=%v", require, moved)
+		}
+		if !strings.Contains(log.String(), "unsigned") {
+			t.Errorf("require_signatures=%v: the result is not reported:\n%s", require, log.String())
 		}
 	}
 }

@@ -96,7 +96,7 @@ func (o Options) work() string {
 
 func lockWork(work string) (func(), error) {
 	return fsutil.Lock(filepath.Join(work, ".lock"), func() {
-		fmt.Fprintf(os.Stderr, "kno build: another kno build uses %s; waiting for it\n", work)
+		fmt.Fprintf(os.Stderr, "kno build: another kno build uses %s. kno waits for it\n", work)
 	})
 }
 
@@ -368,7 +368,7 @@ func Build(o Options) ([]string, error) {
 	}
 	if o.Warped {
 		return nil, fmt.Errorf("katzenpost %s is built with its own debian/ packaging, which"+
-			" has no warped flavour; set the epoch when the daemons run"+
+			" has no warped flavour. Set the epoch when the daemons run"+
 			" (KATZENPOST_EPOCH_DURATION, or EpochDuration in the config)", o.Tag)
 	}
 	if o.Image == "" {
@@ -483,7 +483,7 @@ func Build(o Options) ([]string, error) {
 			i, pf := i, pf
 			tasks[i] = func(ctx context.Context) error {
 				if d := reusableUpstream(o, rel, pf, recorded); d != "" {
-					note("katzenpost %s for %s matches the record; reusing %s", o.Tag, pf, filepath.Base(d))
+					note("katzenpost %s for %s matches the record. kno uses %s again", o.Tag, pf, filepath.Base(d))
 					built[i] = d
 					return nil
 				}
@@ -651,7 +651,7 @@ func Build(o Options) ([]string, error) {
 func finish(o Options, rel, key string, scope []byte, pkgs []string, ids *contentIDs) ([]string, error) {
 	if !o.BinaryOnly {
 		if err := release.WriteStagedSums(rel); err != nil {
-			return nil, fmt.Errorf("staged digest list: %w", err)
+			return nil, fmt.Errorf("staged record: %w", err)
 		}
 	}
 
@@ -713,8 +713,8 @@ func verifyAgainstRecord(o Options, rel string) error {
 	d, err := DiffAgainstCommitted(o.Repo, o.Network, o.Tag,
 		filepath.Join(rel, "pkgs"), "")
 	if errors.Is(err, ErrNoCommittedSums) {
-		fmt.Fprintf(os.Stderr, "kno build: The repository has no committed digest list"+
-			" for %s. kno compared this build only with itself.\n", o.Tag)
+		fmt.Fprintf(os.Stderr, "kno build: The repository has no record"+
+			" of %s. kno compared this build only with itself.\n", o.Tag)
 		fmt.Fprintf(os.Stderr, "kno build:   To make one, run kno build record and"+
 			" commit the result.\n")
 		return nil
@@ -723,27 +723,27 @@ func verifyAgainstRecord(o Options, rel string) error {
 		return err
 	}
 	if len(d.Mismatched) > 0 {
-		return fmt.Errorf("this build does not match the committed digest list for %s (%s):\n"+
+		return fmt.Errorf("this build does not match the record of %s (%s):\n"+
 			"  %s\n"+
 			"  A package has the same name and different content. Usually an input\n"+
-			"  changed after the commit of the digest list, for example a config or\n"+
+			"  changed after the commit of the record, for example a config or\n"+
 			"  the katzenpost source in data/thirdparty/pins.env. In that case, make\n"+
-			"  a new revision. Use a kno revision higher than the one in the digest list:\n"+
+			"  a new revision. Use a kno revision higher than the one in the record:\n"+
 			"    kno build --tool-revision <n>\n"+
 			"    kno build record\n"+
-			"  If no input changed, this machine did not reproduce the build.\n"+
-			"  To test if this machine can reproduce a build, run: kno check repro",
+			"  If no input changed, this host did not reproduce the build.\n"+
+			"  To test if this host can reproduce a build, run: kno check repro",
 			o.Tag, CommittedDir(o.Repo, o.Network, o.Tag), strings.Join(d.Mismatched, "\n  "))
 	}
 	if len(d.Unnamed) > 0 {
-		fmt.Fprintf(os.Stderr, "kno build: The committed digest list for %s has no"+
+		fmt.Fprintf(os.Stderr, "kno build: The record of %s has no"+
 			" entry for %d packages: %s\n", o.Tag, len(d.Unnamed),
 			strings.Join(d.Unnamed, ", "))
 		fmt.Fprintf(os.Stderr, "kno build:   To add them, run kno build record and"+
 			" commit the result.\n")
 		return nil
 	}
-	note("This build matches the committed digest list for %s.", o.Tag)
+	note("This build matches the record of %s.", o.Tag)
 	return nil
 }
 

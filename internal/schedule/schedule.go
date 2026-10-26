@@ -2,11 +2,12 @@ package schedule
 
 import (
 	"fmt"
-	"github.com/katzenpost/kno/internal/knopath"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/katzenpost/kno/internal/knopath"
 
 	"github.com/katzenpost/kno/internal/argcheck"
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
@@ -57,14 +58,6 @@ type Plan struct {
 	Steps []Step
 }
 
-func (p Plan) Commands() []string {
-	out := make([]string, len(p.Steps))
-	for i, s := range p.Steps {
-		out[i] = strings.Join(s.Argv, " ")
-	}
-	return out
-}
-
 func (p Plan) Local() bool { return p.Host == "" }
 
 func CronLine(user string) string {
@@ -72,10 +65,6 @@ func CronLine(user string) string {
 }
 
 func CronBody(user string) string { return CronHeader + "\n" + CronLine(user) + "\n" }
-
-func cronWrite(user string) string {
-	return `printf '` + CronHeader + `\n%s\n' '` + CronLine(user) + `' | ` + sshx.AsRoot("tee "+CronFile) + ` >/dev/null`
-}
 
 func PlanFor(o Options) (Plan, error) {
 	if o.FreeBSD {
@@ -93,6 +82,13 @@ func PlanFor(o Options) (Plan, error) {
 	}
 	sudo := strings.Fields(o.Sudo)
 	p := Plan{Mode: o.Mode, Host: o.Host}
+	if !KnownMode(o.Mode) {
+		return Plan{}, unknownMode(o.Mode)
+	}
+	if o.Host == "" && len(sudo) > 0 {
+		p.Steps = []Step{{Argv: append(sudo, self(), "activate", "--schedule="+o.Mode)}}
+		return p, nil
+	}
 	if o.Host == "" {
 		steps, err := localSteps(o, sudo)
 		if err != nil {
@@ -170,44 +166,19 @@ func localSteps(o Options, sudo []string) ([]Step, error) {
 }
 
 func remoteSteps(o Options) ([]Step, error) {
-	sysd := filepath.Join(o.Repo, "systemd")
-	ssh := strings.Fields(o.SSH)
-	on := func(cmd string) []string { return append(append([]string{}, ssh...), o.Host, cmd) }
-	units := unitDir + "/" + timerUnit + " " + unitDir + "/" + svcUnit
-	dropTimer := sshx.AsRoot("systemctl disable --now "+timerUnit) + " 2>/dev/null; " +
-		sshx.AsRoot("rm -f "+unitDir+"/"+timerUnit)
-
-	switch o.Mode {
-	case ModeTimer:
-		svc, err := unitBody(sysd, svcUnit, o.User)
-		if err != nil {
-			return nil, err
-		}
-		timer, err := unitBody(sysd, timerUnit, o.User)
-		if err != nil {
-			return nil, err
-		}
-		return []Step{
-			{Argv: on(sshx.AsRoot("tee "+unitDir+"/"+svcUnit) + " >/dev/null"), Stdin: svc},
-			{Argv: on(sshx.AsRoot("tee "+unitDir+"/"+timerUnit) + " >/dev/null"), Stdin: timer},
-			{Argv: on(sshx.AsRoot("chmod 0644 "+units) + " && " +
-				sshx.AsRoot("systemctl daemon-reload") + " && " +
-				sshx.AsRoot("systemctl enable --now "+timerUnit))},
-			{Argv: on(sshx.AsRoot("rm -f " + CronFile)), BestEffort: true},
-		}, nil
-	case ModeCron:
-		return []Step{
-			{Argv: on(cronWrite(o.User))},
-			{Argv: on(dropTimer + "; " + sshx.AsRoot("systemctl daemon-reload") + " 2>/dev/null"), BestEffort: true},
-		}, nil
-	case ModeNone:
-		return []Step{
-			{Argv: on(sshx.AsRoot("systemctl disable --now "+timerUnit) + " 2>/dev/null; " +
-				sshx.AsRoot("rm -f "+units+" "+CronFile) + "; rc=$?; " +
-				sshx.AsRoot("systemctl daemon-reload") + " 2>/dev/null; exit $rc")},
-		}, nil
+	if !KnownMode(o.Mode) {
+		return nil, unknownMode(o.Mode)
 	}
-	return nil, unknownMode(o.Mode)
+	ssh := strings.Fields(o.SSH)
+	return []Step{{Argv: append(append([]string{}, ssh...), o.Host,
+		sshx.AsRoot("kno activate --schedule="+o.Mode))}}, nil
+}
+
+func self() string {
+	if p, err := os.Executable(); err == nil {
+		return p
+	}
+	return "kno"
 }
 
 func freebsdSteps(o Options) ([]Step, error) {
@@ -224,7 +195,7 @@ func freebsdSteps(o Options) ([]Step, error) {
 	case ModeNone:
 		return []Step{{Argv: sudoArgv("rm", "-f", freebsd.CronFile, rot)}}, nil
 	case ModeTimer:
-		return nil, fmt.Errorf("FreeBSD has no systemd timer; use kno schedule cron")
+		return nil, fmt.Errorf("FreeBSD has no systemd timer. Use kno schedule cron")
 	}
 	return nil, unknownMode(o.Mode)
 }
@@ -239,20 +210,20 @@ func freebsdSchedule(where string) error {
 func localCanSchedule(goos, mode string) error {
 	if goos == "freebsd" {
 		if mode == ModeTimer {
-			return fmt.Errorf("FreeBSD has no systemd timer; use kno schedule cron")
+			return fmt.Errorf("FreeBSD has no systemd timer. Use kno schedule cron")
 		}
 		return nil
 	}
 	switch mode {
 	case ModeTimer:
 		if _, err := exec.LookPath("systemctl"); err != nil {
-			return fmt.Errorf("a timer needs systemd, and this machine has no systemctl;" +
-				" kno schedule is for a Debian node, not for an operator machine")
+			return fmt.Errorf("a timer needs systemd, and this host has no systemctl." +
+				" kno schedule is for a Debian host, not for the organizer")
 		}
 	case ModeCron:
 		if fi, err := os.Stat(filepath.Dir(CronFile)); err != nil || !fi.IsDir() {
-			return fmt.Errorf("cron mode writes %s, and this machine has no %s;"+
-				" kno schedule is for a Debian node, not for an operator machine",
+			return fmt.Errorf("cron mode writes %s, and this host has no %s."+
+				" kno schedule is for a Debian host, not for the organizer",
 				CronFile, filepath.Dir(CronFile))
 		}
 	}

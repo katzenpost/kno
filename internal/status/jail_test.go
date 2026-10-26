@@ -89,7 +89,7 @@ func TestReachabilityProbesEachAnnouncedAddressAndExplainsAHairpin(t *testing.T)
 	var out strings.Builder
 	writeReachability(&out, track.Env{Repo: repo, Network: "n", Services: []string{"x-pq-gatewaynode"}})
 	got := strings.Join(strings.Fields(out.String()), " ")
-	if !strings.Contains(got, closed+" no answer from this machine, but the service answers on "+open.Addr().String()) ||
+	if !strings.Contains(got, closed+" no answer from this host, but the service answers on "+open.Addr().String()) ||
 		!strings.Contains(got, open.Addr().String()+" reachable") {
 		t.Errorf("reachability:\n%s", got)
 	}

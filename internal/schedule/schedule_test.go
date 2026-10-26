@@ -22,7 +22,6 @@ func opts(t *testing.T, mode, host string) Options {
 		Mode: mode,
 		Host: host,
 		SSH:  "ssh",
-		Sudo: "sudo",
 		User: "kno",
 	}
 }
@@ -61,12 +60,12 @@ func assertCommands(t *testing.T, p Plan, want []string) {
 func TestLocalTimer(t *testing.T) {
 	p := plan(t, opts(t, ModeTimer, ""))
 	assertCommands(t, p, []string{
-		"sudo tee /etc/systemd/system/kno-update.service",
-		"sudo chmod 0644 /etc/systemd/system/kno-update.service",
-		"sudo install -m 0644 " + sysd(t, "kno-update.timer") + " /etc/systemd/system/kno-update.timer",
-		"sudo systemctl daemon-reload",
-		"sudo systemctl enable --now kno-update.timer",
-		"sudo rm -f /etc/cron.d/kno-update",
+		"tee /etc/systemd/system/kno-update.service",
+		"chmod 0644 /etc/systemd/system/kno-update.service",
+		"install -m 0644 " + sysd(t, "kno-update.timer") + " /etc/systemd/system/kno-update.timer",
+		"systemctl daemon-reload",
+		"systemctl enable --now kno-update.timer",
+		"rm -f /etc/cron.d/kno-update",
 	})
 	if !p.Steps[5].BestEffort {
 		t.Error("the removal of the cron entry must not fail an installed timer")
@@ -79,10 +78,10 @@ func TestLocalTimer(t *testing.T) {
 func TestLocalCron(t *testing.T) {
 	p := plan(t, opts(t, ModeCron, ""))
 	assertCommands(t, p, []string{
-		"sudo tee /etc/cron.d/kno-update",
-		"sudo systemctl disable --now kno-update.timer",
-		"sudo rm -f /etc/systemd/system/kno-update.timer",
-		"sudo systemctl daemon-reload",
+		"tee /etc/cron.d/kno-update",
+		"systemctl disable --now kno-update.timer",
+		"rm -f /etc/systemd/system/kno-update.timer",
+		"systemctl daemon-reload",
 	})
 	for _, st := range p.Steps[1:] {
 		if !st.BestEffort {
@@ -91,7 +90,7 @@ func TestLocalCron(t *testing.T) {
 	}
 
 	argv := p.Steps[0].Argv
-	if want := []string{"sudo", "tee", "/etc/cron.d/kno-update"}; !reflect.DeepEqual(argv, want) {
+	if want := []string{"tee", "/etc/cron.d/kno-update"}; !reflect.DeepEqual(argv, want) {
 		t.Fatalf("cron argv: %q, want %q", argv, want)
 	}
 	want := "# kno-update periodic check\n" +
@@ -144,7 +143,7 @@ func TestCronUserIsHonoured(t *testing.T) {
 }
 
 func TestNoneInstallsNothing(t *testing.T) {
-	for _, host := range []string{"", "luscus.example"} {
+	for _, host := range []string{""} {
 		p := plan(t, opts(t, ModeNone, host))
 		joined := strings.Join(p.Commands(), "\n")
 		for _, forbidden := range []string{"install -m", "enable", "tee ", "systemctl start"} {
@@ -166,9 +165,9 @@ func TestNoneInstallsNothing(t *testing.T) {
 func TestLocalNone(t *testing.T) {
 	p := plan(t, opts(t, ModeNone, ""))
 	assertCommands(t, p, []string{
-		"sudo systemctl disable --now kno-update.timer",
-		"sudo rm -f /etc/systemd/system/kno-update.timer /etc/systemd/system/kno-update.service /etc/cron.d/kno-update",
-		"sudo systemctl daemon-reload",
+		"systemctl disable --now kno-update.timer",
+		"rm -f /etc/systemd/system/kno-update.timer /etc/systemd/system/kno-update.service /etc/cron.d/kno-update",
+		"systemctl daemon-reload",
 	})
 
 	if !p.Steps[0].BestEffort || !p.Steps[2].BestEffort {
@@ -179,60 +178,26 @@ func TestLocalNone(t *testing.T) {
 	}
 }
 
-func TestRemoteTimer(t *testing.T) {
-	p := plan(t, opts(t, ModeTimer, "luscus.example"))
-	assertCommands(t, p, []string{
-		"ssh luscus.example " + sshx.AsRoot("tee /etc/systemd/system/kno-update.service") + " >/dev/null",
-		"ssh luscus.example " + sshx.AsRoot("tee /etc/systemd/system/kno-update.timer") + " >/dev/null",
-		"ssh luscus.example " + sshx.AsRoot("chmod 0644 /etc/systemd/system/kno-update.timer /etc/systemd/system/kno-update.service") + " && " +
-			sshx.AsRoot("systemctl daemon-reload") + " && " + sshx.AsRoot("systemctl enable --now kno-update.timer"),
-		"ssh luscus.example " + sshx.AsRoot("rm -f /etc/cron.d/kno-update"),
-	})
-	if p.Local() {
-		t.Error("a plan with a host is not local")
-	}
-
-	if len(p.Steps[1].Argv) != 3 {
-		t.Errorf("remote command was split across arguments: %q", p.Steps[1].Argv)
-	}
-	if !p.Steps[3].BestEffort {
-		t.Error("the removal of the cron entry must not fail an installed timer")
+func TestARemoteScheduleRunsOnlyKnoActivateAsRoot(t *testing.T) {
+	for _, mode := range []string{ModeTimer, ModeCron, ModeNone} {
+		p := plan(t, opts(t, mode, "luscus.example"))
+		assertCommands(t, p, []string{"ssh luscus.example " + sshx.AsRoot("kno activate --schedule="+mode)})
+		if p.Local() {
+			t.Error("a plan with a host is not local")
+		}
 	}
 }
 
-func TestRemoteCron(t *testing.T) {
-	p := plan(t, opts(t, ModeCron, "luscus.example"))
-	argv := p.Steps[0].Argv
-	if len(argv) != 3 || argv[0] != "ssh" || argv[1] != "luscus.example" {
-		t.Fatalf("remote cron argv: %q", argv)
+func TestAUserScheduleRunsOnlyKnoActivateThroughSudo(t *testing.T) {
+	o := opts(t, ModeTimer, "")
+	o.Sudo = "sudo"
+	p := plan(t, o)
+	if len(p.Steps) != 1 {
+		t.Fatalf("plan has %d steps, want 1: %q", len(p.Steps), p.Commands())
 	}
-	want := `printf '# kno-update periodic check\n%s\n' ` +
-		`'*/30 * * * * kno /usr/bin/kno update >/dev/null 2>&1'` +
-		` | ` + sshx.AsRoot("tee /etc/cron.d/kno-update") + ` >/dev/null`
-	if argv[2] != want {
-		t.Errorf("remote cron fragment:\n  got  %s\n  want %s", argv[2], want)
-	}
-	if len(p.Steps) != 2 || !p.Steps[1].BestEffort ||
-		!strings.Contains(p.Commands()[1], sshx.AsRoot("systemctl disable --now kno-update.timer")) ||
-		!strings.Contains(p.Commands()[1], "rm -f /etc/systemd/system/kno-update.timer") {
-		t.Errorf("remote cron does not remove the timer, best effort:\n%s", strings.Join(p.Commands(), "\n"))
-	}
-}
-
-func TestRemoteNone(t *testing.T) {
-	p := plan(t, opts(t, ModeNone, "luscus.example"))
-	assertCommands(t, p, []string{
-		"ssh luscus.example " + sshx.AsRoot("systemctl disable --now kno-update.timer") + " 2>/dev/null; " +
-			sshx.AsRoot("rm -f /etc/systemd/system/kno-update.timer /etc/systemd/system/kno-update.service /etc/cron.d/kno-update") + "; rc=$?; " +
-			sshx.AsRoot("systemctl daemon-reload") + " 2>/dev/null; exit $rc",
-	})
-}
-
-func TestRemoteAlwaysSudoes(t *testing.T) {
-	o := opts(t, ModeCron, "luscus.example")
-	o.Sudo = ""
-	if got := plan(t, o).Steps[0].Argv[2]; !strings.Contains(got, "| "+sshx.AsRoot("tee ")) {
-		t.Errorf("remote cron does not run tee as root: %s", got)
+	a := p.Steps[0].Argv
+	if a[0] != "sudo" || a[2] != "activate" || a[3] != "--schedule=timer" {
+		t.Errorf("a user schedule runs more than kno activate as root: %q", a)
 	}
 }
 
@@ -326,7 +291,7 @@ func TestOptionsResolveModeFromConfig(t *testing.T) {
 		{name: "unknown label is a raw ssh target", hostFlag: "box.example", wantMode: ModeNone, wantHost: "box.example"},
 		{name: "no args uses this host", knoHostEnv: "annares", wantMode: ModeTimer, wantHost: ""},
 
-		{name: "no mode for this machine names it", args: []string{"none"}, knoHostEnv: "elsewhere", wantMode: ModeNone, wantHost: ""},
+		{name: "no mode for this host names it", args: []string{"none"}, knoHostEnv: "elsewhere", wantMode: ModeNone, wantHost: ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -366,14 +331,12 @@ func TestALabelWithNoSshSchedulesTheNodeNotThisMachine(t *testing.T) {
 		t.Fatal(err)
 	}
 	if p.Local() {
-		t.Fatalf("the timer would be installed on this machine, not on reed:\n%s",
+		t.Fatalf("the timer would be installed on this host, not on reed:\n%s",
 			strings.Join(p.Commands(), "\n"))
 	}
 	got := strings.Join(p.Commands(), "\n")
 	for _, want := range []string{
-		"ssh reed " + sshx.AsRoot("tee /etc/systemd/system/"+timerUnit),
-		"ssh reed " + sshx.AsRoot("tee /etc/systemd/system/"+svcUnit),
-		sshx.AsRoot("systemctl enable --now " + timerUnit),
+		"ssh reed " + sshx.AsRoot("kno activate --schedule=timer"),
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
@@ -386,8 +349,8 @@ func TestALabelWithNoSshSchedulesTheNodeNotThisMachine(t *testing.T) {
 
 func TestARootLoginWithoutSudoSchedulesTheCronEntry(t *testing.T) {
 	argv := plan(t, opts(t, ModeCron, "luscus.example")).Steps[0].Argv
-	out, err := testutil.RemoteShell(t, 0, argv[len(argv)-1], "tee")
-	if err != nil || out != "" {
+	out, err := testutil.RemoteShell(t, 0, argv[len(argv)-1], "kno")
+	if err != nil || !strings.Contains(out, "kno activate --schedule=cron") {
 		t.Errorf("as root without sudo: printed %q (%v)", out, err)
 	}
 }
@@ -568,7 +531,7 @@ func clearEnv(t *testing.T) {
 }
 
 func TestTheUnitRunsAsTheUpdaterUser(t *testing.T) {
-	for _, host := range []string{"", "luscus.example"} {
+	for _, host := range []string{""} {
 		o := opts(t, ModeTimer, host)
 		o.User = "katzen"
 		p := plan(t, o)
@@ -589,13 +552,6 @@ func TestTheRemoteTimerGoesOnStdinNotThroughTmp(t *testing.T) {
 			t.Errorf("the timer passes through a shared path on the host: %s", c)
 		}
 	}
-	want, err := os.ReadFile(sysd(t, timerUnit))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if p.Steps[1].Stdin != string(want) {
-		t.Errorf("the timer on stdin is %q, want %q", p.Steps[1].Stdin, want)
-	}
 }
 
 func TestRemoteNoneFailsWhenTheRemoveFails(t *testing.T) {
@@ -613,21 +569,12 @@ func TestRemoteNoneFailsWhenTheRemoveFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	write("id", "echo 0")
-	write("systemctl", "exit 0")
-	write("rm", "exit 1")
+	write("kno", "exit 1")
 	argv := plan(t, opts(t, ModeNone, "luscus.example")).Steps[0].Argv
-	remote := func() ([]byte, error) {
-		cmd := exec.Command("sh", "-c", argv[len(argv)-1])
-		cmd.Env = []string{"PATH=" + bin}
-		return cmd.CombinedOutput()
-	}
-	if out, err := remote(); err == nil {
-		t.Errorf("rm failed on the host, and the remote command passed: %s", out)
-	}
-	write("rm", "exit 0")
-	write("systemctl", "exit 1")
-	if out, err := remote(); err != nil {
-		t.Errorf("the remove passed and systemctl failed, and the remote command failed: %v %s", err, out)
+	cmd := exec.Command("sh", "-c", argv[len(argv)-1])
+	cmd.Env = []string{"PATH=" + bin}
+	if out, err := cmd.CombinedOutput(); err == nil {
+		t.Errorf("kno activate failed on the host, and the remote command passed: %s", out)
 	}
 }
 
@@ -638,10 +585,10 @@ func TestABareScheduleOnAMachineThatIsNotAHostRefuses(t *testing.T) {
 		Hosts: map[string]config.Host{"annares": {SSH: "root@annares", Scheduler: "timer"}},
 	}}
 	if o, err := options(e, nil, "", false); err == nil {
-		t.Fatalf("a bare kno schedule on the organizer planned %q on this machine", o.Mode)
+		t.Fatalf("a bare kno schedule on the organizer planned %q on this host", o.Mode)
 	}
 	if o, err := options(e, []string{ModeNone}, "", false); err != nil || o.Mode != ModeNone || o.Host != "" {
-		t.Errorf("an explicit mode for this machine: %+v %v", o, err)
+		t.Errorf("an explicit mode for this host: %+v %v", o, err)
 	}
 }
 
@@ -683,4 +630,12 @@ func TestCronOnThisFreeBSDMachineIsTheFreeBSDCronJob(t *testing.T) {
 		strings.Contains(got, " /etc/cron.d/kno-update") {
 		t.Errorf("plan = %s", got)
 	}
+}
+
+func (p Plan) Commands() []string {
+	out := make([]string, len(p.Steps))
+	for i, s := range p.Steps {
+		out[i] = strings.Join(s.Argv, " ")
+	}
+	return out
 }

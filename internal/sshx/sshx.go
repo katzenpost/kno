@@ -13,17 +13,18 @@ import (
 
 const Persist = "10m"
 
+var Bounds = []string{"-o", "ConnectTimeout=15", "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=4"}
+
 func Args() []string {
 	dir := controlDir()
 	if dir == "" {
-		return nil
+		return append([]string{}, Bounds...)
 	}
-	return []string{
+	return append(append([]string{}, Bounds...),
 		"-o", "ControlMaster=auto",
 
-		"-o", "ControlPath=" + filepath.Join(dir, "%C"),
-		"-o", "ControlPersist=" + Persist,
-	}
+		"-o", "ControlPath="+filepath.Join(dir, "%C"),
+		"-o", "ControlPersist="+Persist)
 }
 
 func Program() string {

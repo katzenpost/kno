@@ -245,11 +245,11 @@ func TestARerunForEachHostKeepsWhatItDidNotAsk(t *testing.T) {
 
 	h = placedHost(config.Host{Hostname: "laptop"}, nil, "mixy", "root@mixy", "", svcs)
 	if h.Hostname != "" {
-		t.Errorf("a host that moved off this machine kept this machine's name %q", h.Hostname)
+		t.Errorf("a host that moved off this host kept this host's name %q", h.Hostname)
 	}
 	h = placedHost(prior, nil, "annares", "", "laptop", svcs)
 	if h.Hostname != "laptop" || h.SSH != "" {
-		t.Errorf("a host that moved to this machine: %+v", h)
+		t.Errorf("a host that moved to this host: %+v", h)
 	}
 }
 

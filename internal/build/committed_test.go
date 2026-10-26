@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/katzenpost/kno/internal/release"
 )
 
 func writePkg(t *testing.T, dir, name, body string) string {
@@ -473,4 +475,8 @@ func TestRecordKeepsTheToolsDirtyPackagesOut(t *testing.T) {
 	if _, err := RecordCommitted(repo, "namenlos", "v0.0.107", dir); err != nil {
 		t.Fatalf("a dirty kno package blocked the record, but the record never names it: %v", err)
 	}
+}
+
+func CommittedSums(repo, network, tag string) (sums, sig string) {
+	return release.Sums(repo, network, tag)
 }

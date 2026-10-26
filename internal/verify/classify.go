@@ -2,8 +2,6 @@ package verify
 
 import (
 	"fmt"
-	"regexp"
-	"strings"
 )
 
 const (
@@ -59,40 +57,34 @@ type NodeIdentifier struct {
 	ID    string
 }
 
-func Participating(dump string, ids []NodeIdentifier) (NodeIdentifier, bool) {
-	body, signers := splitSignedBy(dump)
+func Participating(out string, ids []NodeIdentifier) (NodeIdentifier, bool) {
+	d, ok := ParseDoc(out)
+	if !ok {
+		if len(ids) > 0 {
+			return ids[0], false
+		}
+		return NodeIdentifier{}, false
+	}
+	nodes, signers := map[string]bool{}, map[string]bool{}
+	for _, n := range d.Nodes() {
+		nodes[n] = true
+	}
+	for _, s := range d.Signers {
+		signers[s] = true
+	}
 	for _, n := range ids {
-		hay := body
+		var in bool
 		switch n.Where {
 		case "authority":
-			hay = signers
+			in = signers[n.ID]
 		case "any":
-			hay = dump
+			in = signers[n.ID] || nodes[n.ID]
+		default:
+			in = nodes[n.ID]
 		}
-		if !wordMatch(hay, n.ID) {
+		if n.ID == "" || !in {
 			return n, false
 		}
 	}
 	return NodeIdentifier{}, true
-}
-
-func splitSignedBy(dump string) (body, signers string) {
-	lines := strings.Split(dump, "\n")
-	for i, ln := range lines {
-		if strings.Contains(ln, "signed by") {
-			return strings.Join(lines[:i], "\n"), strings.Join(lines[i:], "\n")
-		}
-	}
-	return dump, ""
-}
-
-func wordMatch(hay, id string) bool {
-	if id == "" {
-		return false
-	}
-	re, err := regexp.Compile(`\b` + regexp.QuoteMeta(id) + `\b`)
-	if err != nil {
-		return false
-	}
-	return re.MatchString(hay)
 }

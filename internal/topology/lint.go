@@ -84,7 +84,7 @@ func lanBindFindings(repo, network string, add func(string, string, ...any)) {
 					" so its neighbours are given no address to dial")
 			case wildcard(bind):
 				add(n, "shares a private network (its lan in machines/) and binds %s, which is what"+
-					" its neighbours are told to dial; give it the node's own private"+
+					" its neighbours are told to dial. Give it the node's own private"+
 					" address in nodes/", bind)
 			}
 		}
@@ -190,7 +190,7 @@ func Lint(repo, network string) ([]Finding, error) {
 			seenRoleName[k] = n.file
 		}
 		if n.ConfigName == "" {
-			add(n.Name, "no configName (%s); nothing can refer to this node", n.file)
+			add(n.Name, "no configName (%s). Nothing can refer to this node", n.file)
 			continue
 		}
 		if prev, dup := seenConfig[n.ConfigName]; dup {

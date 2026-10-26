@@ -51,7 +51,7 @@ func Command() *cobra.Command {
 				hosts = filterHosts(hosts, strings.Split(host, ","))
 			}
 			if len(hosts) == 0 {
-				return fmt.Errorf("no claimed host to check; 'kno setup' claims a node")
+				return fmt.Errorf("no claimed host to check. 'kno setup' claims a node")
 			}
 			reports, err := Run(repo, network, target, e.StateDir, e.ReleasesDir, c, hosts)
 			if err != nil {
@@ -244,7 +244,7 @@ func ReportAll(w io.Writer, reports []Report) int {
 	if len(reports) == 0 {
 		fmt.Fprintf(w, "nothing was checked, so nothing is known.\n"+
 			"  No host produced a report. That is not a pass: run 'kno config'\n"+
-			"  to see which hosts this machine organizes.\n")
+			"  to see which hosts this organizer has.\n")
 		return 1
 	}
 	blocked := 0

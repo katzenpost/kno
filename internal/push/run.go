@@ -37,10 +37,6 @@ func RunStep(ctx context.Context, s Step, stdout, stderr io.Writer, dry bool) er
 	return nil
 }
 
-func Apply(ctx context.Context, p Plan, l track.Logger, dry bool) (int, error) {
-	return ApplyLabelled(ctx, p, l, dry, "")
-}
-
 func ApplyLabelled(ctx context.Context, p Plan, l track.Logger, dry bool, label string) (int, error) {
 
 	out := io.Writer(l.W)
@@ -71,7 +67,7 @@ func Run(stderr io.Writer, label, tag, mode string, dry bool) int {
 	l := track.Logger{Tool: "push", W: stderr}
 	e, err := track.LoadEnv()
 	if err != nil {
-		fmt.Fprintf(stderr, "kno: config error (%v); fix your kno.toml or unset it\n", err)
+		fmt.Fprintf(stderr, "kno: config error (%v). Fix your kno.toml or unset it\n", err)
 		return 1
 	}
 
@@ -111,7 +107,8 @@ func Run(stderr io.Writer, label, tag, mode string, dry bool) int {
 	}
 	switch o.Mode {
 	case ModeCopy:
-		l.Logf("push copy to %s: copy the binaries and configs only. No install. No restart.", o.Node)
+		l.Logf("push copy to %s: copy the packages of %s to %s only. No root. No install.",
+			o.Node, o.Label, RemoteRelease(o.Tag))
 	default:
 		l.Logf("push %s to %s: copy the packages of %s, then run kno activate on %s.",
 			o.Mode, o.Node, o.Label, o.Label)
@@ -122,13 +119,13 @@ func Run(stderr io.Writer, label, tag, mode string, dry bool) int {
 		return 1
 	}
 	if o.Mode == ModeCopy {
-		l.Warnf("copy mode does not restart services; restart them when you are ready")
+		l.Logf("To install them, run on %s: sudo kno activate %s %s", o.Label, RemoteRelease(o.Tag), o.Tag)
 	}
 	if err := recordDelivery(o, warnings); err != nil {
 		l.Warnf("kno could not write the push receipt: %v. kno status then does not show this push.", err)
 	}
 	if warnings > 0 {
-		l.Logf("push %s -> %s (%s) complete with %d warning(s); see the WARN lines above",
+		l.Logf("push %s -> %s (%s) complete with %d warning(s). See the WARN lines above",
 			o.Mode, o.Node, o.Tag, warnings)
 		return 0
 	}

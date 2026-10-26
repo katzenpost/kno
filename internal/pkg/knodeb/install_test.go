@@ -10,15 +10,13 @@ import (
 
 const breakHost = `#!/bin/sh
 set -eu
-mkdir -p /usr/local/bin /usr/local/lib/kno /etc/cron.d /etc/sudoers.d /etc/systemd/system
+mkdir -p /usr/local/bin /usr/local/lib/kno /etc/cron.d /etc/systemd/system
 printf '#!/bin/sh\n. /usr/local/lib/kno/common.sh\n' > /usr/local/bin/kno-update
 printf '#!/bin/sh\n' > /usr/local/bin/kno-push
 printf '#!/bin/sh\n' > /usr/local/bin/kno-activate
 chmod 0755 /usr/local/bin/kno-update /usr/local/bin/kno-push /usr/local/bin/kno-activate
 printf '# the shared library\n' > /usr/local/lib/kno/common.sh
 printf '# kno-update periodic check\n*/30 * * * * kno /usr/local/bin/kno-update >/dev/null 2>&1\n' > /etc/cron.d/kno-update
-printf 'kno ALL=(root) NOPASSWD: /usr/local/bin/kno-activate\n' > /etc/sudoers.d/kno-activate
-chmod 0440 /etc/sudoers.d/kno-activate
 printf '[Service]\nExecStart=/usr/local/bin/kno-update\n' > /etc/systemd/system/kno-update.service
 `
 

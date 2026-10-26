@@ -737,8 +737,8 @@ func TestOnlyTheInstallRunsThroughSudo(t *testing.T) {
 		t.Errorf("root: %s", got)
 	}
 	r.Sudo = "sudo"
-	want := "sudo env KNO_REPO=/home/op/kno/data KNO_CONFIG=/etc/katzenpost/kno.toml" +
-		" /usr/bin/kno activate /rel v0.0.2"
+	want := "sudo /usr/bin/kno activate --repo=/home/op/kno/data" +
+		" --config=/etc/katzenpost/kno.toml /rel v0.0.2"
 	if got := strings.Join(r.activateArgv("/rel", "v0.0.2"), " "); got != want {
 		t.Errorf("a user:\n got %s\nwant %s", got, want)
 	}

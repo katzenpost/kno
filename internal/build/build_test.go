@@ -1,7 +1,6 @@
 package build
 
 import (
-	"github.com/katzenpost/kno/internal/source"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/katzenpost/kno/internal/source"
 
 	"github.com/katzenpost/kno/internal/parallel"
 	"github.com/katzenpost/kno/internal/pkg/deb"

@@ -45,17 +45,17 @@ func ValidAddress(s string) error {
 		}
 	}
 	if !ok {
-		return fmt.Errorf("%q starts with none of %s; an address looks like"+
+		return fmt.Errorf("%q starts with none of %s. An address looks like"+
 			" tcp://203.0.113.9:4242", s, strings.Join(schemes, " "))
 	}
 	host, port, err := net.SplitHostPort(rest)
 	if err != nil {
 		if strings.Count(rest, ":") > 1 {
-			return fmt.Errorf("%q is an IPv6 address without square brackets;"+
-				" write tcp://[%s]:4242 with the port after the brackets",
+			return fmt.Errorf("%q is an IPv6 address without square brackets."+
+				" Write tcp://[%s]:4242 with the port after the brackets",
 				s, strings.TrimSuffix(rest, ":"+lastField(rest)))
 		}
-		return fmt.Errorf("%q has no port; an address ends in a colon and a"+
+		return fmt.Errorf("%q has no port. An address ends in a colon and a"+
 			" port, like tcp://203.0.113.9:4242", s)
 	}
 	if host == "" {
@@ -66,7 +66,7 @@ func ValidAddress(s string) error {
 		return fmt.Errorf("the port in %q is not a number", s)
 	}
 	if n < 1 || n > 65535 {
-		return fmt.Errorf("the port in %q is %d; it must be between 1 and"+
+		return fmt.Errorf("the port in %q is %d. It must be between 1 and"+
 			" 65535", s, n)
 	}
 	if strings.HasPrefix(rest, "[") && net.ParseIP(host) == nil {
@@ -161,8 +161,8 @@ func sameExceptAddresses(path, before, after string, addrs []string) error {
 	delete(a, "addresses")
 	delete(b, "addresses")
 	if !reflect.DeepEqual(a, b) {
-		return fmt.Errorf("%s: the rewrite of its addresses would change other keys too;"+
-			" edit the file by hand", path)
+		return fmt.Errorf("%s: the rewrite of its addresses would change other keys too."+
+			" Edit the file by hand", path)
 	}
 	return nil
 }

@@ -67,7 +67,7 @@ func DefaultKey(allowed string) (KeySource, error) {
 			"  %s grants: %s\n"+
 			"  Looked in ~/.ssh and in the ssh agent. A key that is not in that\n"+
 			"  file cannot produce a signature any host will accept, so signing\n"+
-			"  with one would make a release that fails verification everywhere.\n"+
+			"  with one would make a release that fails the signature check everywhere.\n"+
 			"  Pass --key to sign with something else deliberately.",
 		allowed, strings.Join(dedupe(names), " "))
 }

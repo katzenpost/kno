@@ -94,7 +94,7 @@ func gitIn(t *testing.T, dir string, env []string, args ...string) {
 
 func TestMakeHooksWorksInAWorktreeAndKeepsAGlobalHooksPath(t *testing.T) {
 	if _, err := exec.LookPath("make"); err != nil {
-		t.Skip("no make on this machine")
+		t.Skip("no make on this host")
 	}
 	base := t.TempDir()
 	repo := filepath.Join(base, "repo")

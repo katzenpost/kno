@@ -73,7 +73,7 @@ func Command() *cobra.Command {
 				return err
 			}
 			if strings.Join(addrs, " ") == strings.Join(now, " ") {
-				fmt.Fprintf(w, "%s already announces that; nothing written\n",
+				fmt.Fprintf(w, "%s already announces that. Nothing written\n",
 					n.File)
 				return nil
 			}

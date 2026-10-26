@@ -21,13 +21,13 @@ func scan(what, v string, allowSlash bool) error {
 			continue
 		}
 		if unicode.IsSpace(r) {
-			return fmt.Errorf("%s %q contains whitespace; it is used in a command line on the far side of an ssh", what, v)
+			return fmt.Errorf("%s %q contains whitespace. kno puts it in a command line on the remote host", what, v)
 		}
 		if !unicode.IsPrint(r) {
 			return fmt.Errorf("%s %q contains a control character", what, v)
 		}
 		if strings.ContainsRune(shellMeta, r) {
-			return fmt.Errorf("%s %q contains %q, which a remote shell reads as syntax; rename it", what, v, string(r))
+			return fmt.Errorf("%s %q contains %q, which a remote shell reads as syntax. Rename it", what, v, string(r))
 		}
 	}
 	return nil
@@ -38,7 +38,7 @@ func Target(what, v string) error {
 		return err
 	}
 	if strings.HasPrefix(v, "-") {
-		return fmt.Errorf("%s %q begins with '-'; ssh would read it as an option, not a host", what, v)
+		return fmt.Errorf("%s %q starts with '-'. ssh reads it as an option, not a host", what, v)
 	}
 	return nil
 }
@@ -48,14 +48,14 @@ func Path(what, v string) error {
 		return fmt.Errorf("%s is empty", what)
 	}
 	if strings.HasPrefix(v, "-") {
-		return fmt.Errorf("%s %q begins with '-'", what, v)
+		return fmt.Errorf("%s %q starts with '-'", what, v)
 	}
 	if err := scan(what, v, true); err != nil {
 		return err
 	}
 	for _, seg := range strings.Split(v, "/") {
 		if seg == ".." {
-			return fmt.Errorf("%s %q walks upward with \"..\"; a deploy destination"+
+			return fmt.Errorf("%s %q walks upward with \"..\". A deploy destination"+
 				" may not escape the directory it names", what, v)
 		}
 	}
@@ -70,12 +70,12 @@ func User(what, v string) error {
 		ok := r == '_' || r == '-' || r == '.' ||
 			(r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
 		if !ok {
-			return fmt.Errorf("%s %q contains %q; a user name may hold only letters, digits, '_', '-' and '.'",
+			return fmt.Errorf("%s %q contains %q. A user name may hold only letters, digits, '_', '-' and '.'",
 				what, v, string(r))
 		}
 	}
 	if strings.HasPrefix(v, "-") {
-		return fmt.Errorf("%s %q begins with '-'", what, v)
+		return fmt.Errorf("%s %q starts with '-'", what, v)
 	}
 	return nil
 }
@@ -87,7 +87,7 @@ func PackageName(what, v string) error {
 	for i, r := range v {
 		alnum := (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')
 		if !alnum && (i == 0 || (r != '+' && r != '-' && r != '.')) {
-			return fmt.Errorf("%s %q contains %q at position %d; a package name may hold only"+
+			return fmt.Errorf("%s %q contains %q at position %d. A package name may hold only"+
 				" lowercase letters, digits, '+', '-' and '.', and begins with a letter or digit",
 				what, v, string(r), i+1)
 		}

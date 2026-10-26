@@ -35,7 +35,7 @@ func Command() *cobra.Command {
 			if all {
 				k = Kind{Cache: true, Releases: true, Images: true}
 			}
-			fmt.Fprintln(w, "== kno on this machine ==")
+			fmt.Fprintln(w, "== kno on this host ==")
 			Report(w, items)
 
 			if sel.Chose() {
@@ -46,7 +46,7 @@ func Command() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Fprintln(w, "\n== releases held on the hosts this machine organizes ==")
+				fmt.Fprintln(w, "\n== releases held on the hosts this organizer has ==")
 				plans := PlanHosts(e, labels, sshx.Program())
 				ReportHosts(w, plans)
 				if err := RemoveHosts(w, plans, sshx.Program(), cli.DryRun()); err != nil {
@@ -62,7 +62,7 @@ func Command() *cobra.Command {
 
 			if !k.Any() {
 				fmt.Fprintln(w, "\nnothing removed. --cache, --releases, --images, --all"+
-					" or --hosts; add --dry-run to see what each would take.")
+					" or --hosts. Add --dry-run to see what each would take.")
 				return nil
 			}
 			fmt.Fprintln(w)
@@ -86,7 +86,7 @@ func Command() *cobra.Command {
 	f.BoolVar(&k.Images, "images", false, "reclaim unreferenced container layers")
 	f.BoolVar(&all, "all", false, "all three")
 	f.BoolVar(&hosts, "hosts", false,
-		"remove the releases piled up on the hosts this machine organizes, over ssh")
+		"remove the releases piled up on the hosts this organizer has, over ssh")
 	hostsel.Bind(cmd, &sel)
 	return cmd
 }

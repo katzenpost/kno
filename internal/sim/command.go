@@ -210,5 +210,5 @@ func linuxOnly(goos string) error {
 	}
 	return fmt.Errorf("kno sim runs on Linux only: it unpacks the release with dpkg-deb,"+
 		" runs the Linux daemons, and runs the network in systemd containers under podman;"+
-		" this machine runs %s", goos)
+		" this host runs %s", goos)
 }

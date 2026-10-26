@@ -420,7 +420,7 @@ type vanishedError struct {
 func (e vanishedError) Error() string {
 	return fmt.Sprintf("the simulation's containers are gone: %s does not exist (seen at poll %d)."+
 		" Something removed them after bring-up, so consensus is not the fault."+
-		" Another podman workload on this machine is the usual cause: a CI runner,"+
+		" Another podman workload on this host is the usual cause: a CI runner,"+
 		" another sim, or a prune. 'podman events' shows what removed them", e.Name, e.Poll)
 }
 
