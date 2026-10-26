@@ -74,29 +74,6 @@ jobs:
       - name: validate configs
         run: go run ./cmd/kno sim validate
 
-  repro:
-    name: reproduces the release
-    runs-on: ubuntu-26.04
-    timeout-minutes: 240
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-
-      - name: free disk
-        if: ${{ !env.ACT }}
-        run: |
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
-          docker image prune -af >/dev/null
-
-      - name: repro
-        run: KNO_ARTIFACTS="$RUNNER_TEMP/artifacts" make repro
-
   simnet:
     name: the network runs
     runs-on: ubuntu-26.04
@@ -117,12 +94,6 @@ jobs:
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
           docker image prune -af >/dev/null
 
-      - name: register qemu
-        if: ${{ !env.ACT }}
-        run: |
-          img=docker.io/polyarch/qemu-user-static@sha256:1f1c20bb35e5fbe18a9e0de7883b3fa2267af0427dba4bdab9b7fd77a0594b4a
-          docker run --rm --privileged "$img" --reset -p yes
-
       - name: build kno
         run: go build -o "$RUNNER_TEMP/kno" ./cmd/kno
 
@@ -133,8 +104,16 @@ jobs:
           sudo sed -i 's/^}$/  signal receive set=term peer=podman,\n}/' "$p"
           sudo apparmor_parser -r "$p"
 
+      - name: build packages
+        run: |
+          KNO_REPO="$PWD" KNO_ARTIFACTS="$RUNNER_TEMP/artifacts" \
+            "$RUNNER_TEMP/kno" build
+
       - name: sim
-        run: '"$RUNNER_TEMP/kno" sim all --emulate --epoch 5m --net cisim'
+        run: |
+          t=$(sed -n 's/^KATZENPOST_REF=//p' data/thirdparty/pins.env)
+          "$RUNNER_TEMP/kno" sim all --epoch 2m --net cisim \
+            --pkgs "$RUNNER_TEMP/artifacts/releases/$t/pkgs"
 
       - name: sim mutation
         run: |
