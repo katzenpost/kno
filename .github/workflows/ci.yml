@@ -14,8 +14,129 @@ permissions:
   contents: read
 
 jobs:
-  configs:
-    name: configs
+  sim:
+    name: sim
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    outputs:
+      sums: ${{ steps.debs.outputs.sums }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: env
+        run: |
+          t=$(sed -n 's/^KATZENPOST_REF=//p' data/thirdparty/pins.env)
+          {
+            echo "KNO_REPO=$PWD"
+            echo "KNO_ARTIFACTS=$RUNNER_TEMP/artifacts"
+            echo "PKGS=$RUNNER_TEMP/artifacts/releases/$t/pkgs"
+          } >> "$GITHUB_ENV"
+
+      - name: build kno
+        run: go build -o "$RUNNER_TEMP/kno" ./cmd/kno
+
+      - name: debs
+        id: debs
+        run: |
+          "$RUNNER_TEMP/kno" build --arches amd64 --skip-freebsd
+          {
+            echo 'sums<<EOF'
+            cd "$PKGS"
+            for f in *; do
+              case $f in kno[-_]*|packages.json|SHA256SUMS) ;; *) sha256sum "$f" ;; esac
+            done
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: validate
+        run: '"$RUNNER_TEMP/kno" sim validate'
+
+      - name: apparmor pasta fixup
+        if: ${{ !env.ACT }}
+        run: |
+          p=/etc/apparmor.d/usr.bin.pasta
+          sudo sed -i 's/^}$/  signal receive set=term peer=podman,\n}/' "$p"
+          sudo apparmor_parser -r "$p"
+
+      - name: keys
+        run: '"$RUNNER_TEMP/kno" sim keys --net cisim --pkgs "$PKGS"'
+
+      - name: configs
+        run: '"$RUNNER_TEMP/kno" sim configs --net cisim'
+
+      - name: up
+        run: '"$RUNNER_TEMP/kno" sim up --net cisim'
+
+      - name: verify
+        run: '"$RUNNER_TEMP/kno" sim verify --net cisim'
+
+      - name: message
+        run: '"$RUNNER_TEMP/kno" sim message --net cisim'
+
+      - name: probe
+        run: '"$RUNNER_TEMP/kno" sim probe --net cisim'
+
+      - name: down
+        run: '"$RUNNER_TEMP/kno" sim down --net cisim'
+
+      - name: mutation
+        run: |
+          KNO="$RUNNER_TEMP/kno" SIM_PKGS="/var/tmp/kno-sim-$(id -u)-cisim/pkgs" \
+            sh scripts/sim-mutation.sh
+
+  build:
+    name: build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    outputs:
+      sums: ${{ steps.build.outputs.sums }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: env
+        run: |
+          t=$(sed -n 's/^KATZENPOST_REF=//p' data/thirdparty/pins.env)
+          {
+            echo "KNO_REPO=$PWD"
+            echo "KNO_ARTIFACTS=$RUNNER_TEMP/artifacts"
+            echo "PKGS=$RUNNER_TEMP/artifacts/releases/$t/pkgs"
+          } >> "$GITHUB_ENV"
+
+      - name: free disk
+        if: ${{ !env.ACT }}
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
+          docker image prune -af >/dev/null
+
+      - name: build
+        id: build
+        run: |
+          go run ./cmd/kno build --arches arm64,ppc64el
+          {
+            echo 'sums<<EOF'
+            cd "$PKGS"
+            for f in *; do
+              case $f in kno[-_]*|packages.json|SHA256SUMS) ;; *) sha256sum "$f" ;; esac
+            done
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+  test:
+    name: test
     runs-on: ubuntu-26.04
     timeout-minutes: 45
     steps:
@@ -28,39 +149,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: build amd64
-        run: |
-          KNO_ARTIFACTS="$RUNNER_TEMP/artifacts" go run ./cmd/kno build \
-            --binary-only --arches amd64
-
-      - name: validate configs
-        run: go run ./cmd/kno sim validate
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: amd64
-          path: ${{ runner.temp }}/artifacts/releases/*/pkgs/katzenpost_*.deb
-
-  build:
-    name: build
-    runs-on: ubuntu-26.04
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-
-      - name: free disk
-        if: ${{ !env.ACT }}
-        run: |
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
-          docker image prune -af >/dev/null
-
       - name: install linters
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
@@ -70,63 +158,41 @@ jobs:
       - name: test
         run: make test
 
-      - name: build all
-        run: KNO_ARTIFACTS="$RUNNER_TEMP/artifacts" go run ./cmd/kno build
-
-      - name: install test
+      - name: install
         run: make install-test
-
-  sim:
-    name: sim
-    needs: configs
-    runs-on: ubuntu-26.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-
-      - uses: actions/download-artifact@v8
-        with:
-          name: amd64
-          path: ${{ runner.temp }}/amd64
-
-      - name: build kno
-        run: go build -o "$RUNNER_TEMP/kno" ./cmd/kno
-
-      - name: apparmor pasta fixup
-        if: ${{ !env.ACT }}
-        run: |
-          p=/etc/apparmor.d/usr.bin.pasta
-          sudo sed -i 's/^}$/  signal receive set=term peer=podman,\n}/' "$p"
-          sudo apparmor_parser -r "$p"
-
-      - name: sim
-        run: |
-          mkdir "$RUNNER_TEMP/pkgs"
-          find "$RUNNER_TEMP/amd64" -name 'katzenpost_*.deb' \
-            -exec mv {} "$RUNNER_TEMP/pkgs" \;
-          "$RUNNER_TEMP/kno" sim all --epoch 2m --net cisim \
-            --pkgs "$RUNNER_TEMP/pkgs"
-
-      - name: sim mutation
-        run: |
-          KNO="$RUNNER_TEMP/kno" SIM_PKGS="/var/tmp/kno-sim-$(id -u)-cisim/pkgs" \
-            sh scripts/sim-mutation.sh
 
   gate:
     name: gate
-    needs: [configs, build, sim]
+    needs: [sim, build, test]
     if: ${{ always() }}
     runs-on: ubuntu-26.04
     steps:
-      - name: gate
+      - name: jobs
         run: |
-          test "${{ needs.configs.result }}" = success
-          test "${{ needs.build.result }}" = success
           test "${{ needs.sim.result }}" = success
+          test "${{ needs.build.result }}" = success
+          test "${{ needs.test.result }}" = success
+
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: hashes
+        env:
+          SIM: ${{ needs.sim.outputs.sums }}
+          BUILD: ${{ needs.build.outputs.sums }}
+        run: |
+          export LC_ALL=C
+          t=$(sed -n 's/^KATZENPOST_REF=//p' data/thirdparty/pins.env)
+          r=data/networks/namenlos/.generated/releases/$t
+          printf '%s\n%s\n' "$SIM" "$BUILD" | grep . | sort -u > "$RUNNER_TEMP/built"
+          cat "$r"/SHA256SUMS "$r"/*/SHA256SUMS "$r"/nodes/*/SHA256SUMS \
+            | sort -u > "$RUNNER_TEMP/rec"
+          awk 'NR==FNR { r[$0]; n[$2]; next }
+            ($2 in n) && !($0 in r) { print "differs: " $2; bad = 1 }
+            END { exit bad }' "$RUNNER_TEMP/rec" "$RUNNER_TEMP/built"
+          awk '$2 != "packages.json" { print $2 }' "$r"/SHA256SUMS "$r"/nodes/*/SHA256SUMS \
+            | sort -u > "$RUNNER_TEMP/want"
+          awk '{ print $2 }' "$RUNNER_TEMP/built" | sort -u > "$RUNNER_TEMP/got"
+          missing=$(comm -23 "$RUNNER_TEMP/want" "$RUNNER_TEMP/got")
+          [ -z "$missing" ] || { echo "not built: $missing"; exit 1; }
