@@ -523,6 +523,12 @@ func Build(o Options) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("katzenpost deb (%s): %w", pf, err)
 		}
+		if !o.SkipCompile {
+			tree := filepath.Join(upstreamWork(o, pf), "tree")
+			if err := os.RemoveAll(tree); err != nil {
+				return nil, err
+			}
+		}
 		sum, _, err := fsutil.SHA256File(dst)
 		if err != nil {
 			return nil, err

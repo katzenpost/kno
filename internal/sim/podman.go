@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/katzenpost/kno/internal/compile"
+	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/parallel"
 )
 
@@ -108,7 +109,35 @@ func (r *run) buildFrom(kind, img string, p platform, containerfile func(string)
 	return nil
 }
 
-func (r *run) startCtr(ctr string, p platform) error {
+func (r *run) installedImage(p platform) (string, error) {
+	deb, err := r.debFor(p)
+	if err != nil {
+		return "", err
+	}
+	sum, _, err := fsutil.SHA256File(filepath.Join(r.pkgs, deb))
+	if err != nil {
+		return "", err
+	}
+	img := "localhost/kno-sim-" + compile.OSToken(p.OS) + "-" + p.Goarch +
+		"-kp:" + sum[:12]
+	if podmanQuiet("image", "exists", img) == nil {
+		return img, nil
+	}
+	r.log.Logf("installing %s into the image %s", deb, img)
+	cmd := podmanCmd(context.Background(), "build",
+		"--platform", "linux/"+p.Goarch, "-t", img, "-f", "-", r.pkgs)
+	cmd.Stdin = strings.NewReader("FROM " + runnerImage(p) + "\n" +
+		"RUN --mount=type=bind,source=" + deb + ",target=/tmp/kp.deb" +
+		" dpkg -i /tmp/kp.deb\n")
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("dpkg -i %s on %s: %v\n%s", deb, p, err, out.String())
+	}
+	return img, nil
+}
+
+func (r *run) startCtr(ctr, img string, p platform) error {
 	return podmanQuiet("run", "-d", "--name", ctr, "--hostname", ctr,
 		"--platform", "linux/"+p.Goarch,
 		"--network", r.Net, "--cap-add", "NET_ADMIN", "--label", r.Net+"=1",
@@ -116,19 +145,7 @@ func (r *run) startCtr(ctr string, p platform) error {
 		"-v", compile.MustMount(r.pkgs, "/pkgs:ro"),
 		"-v", compile.MustMount(r.sim, "/sim:ro"),
 		"-v", compile.MustMount(r.data, "/data:rw"),
-		runnerImage(p), "sleep", "infinity")
-}
-
-func (r *run) installDeb(ctr string, p platform) error {
-	deb, err := r.debFor(p)
-	if err != nil {
-		return err
-	}
-	out, err := podmanRun("exec", ctr, "dpkg", "-i", "/pkgs/"+deb)
-	if err != nil {
-		return fmt.Errorf("%s: dpkg -i %s on %s: %w\n%s", ctr, deb, p, err, out)
-	}
-	return nil
+		img, "sleep", "infinity")
 }
 
 func (r *run) addRoutes(ctr, myIP string, all []string) {
@@ -296,24 +313,25 @@ func (r *run) bringUp(svcs []daemon) error {
 	if err := r.ensureEmulation(plats); err != nil {
 		return err
 	}
-	seen := map[platform]bool{}
+	imgs := map[platform]string{}
 	for _, c := range plan {
-		if seen[c.P] {
+		if imgs[c.P] != "" {
 			continue
 		}
-		seen[c.P] = true
 		if err := r.buildImage(c.P); err != nil {
 			return err
 		}
+		img, err := r.installedImage(c.P)
+		if err != nil {
+			return err
+		}
+		imgs[c.P] = img
 	}
-	r.log.Logf("starting %d containers and installing katzenpost in each", len(plan))
+	r.log.Logf("starting %d containers", len(plan))
 	tasks := make([]parallel.Task, 0, len(plan))
 	for _, c := range plan {
 		tasks = append(tasks, func(context.Context) error {
-			if err := r.startCtr(c.Name, c.P); err != nil {
-				return err
-			}
-			return r.installDeb(c.Name, c.P)
+			return r.startCtr(c.Name, imgs[c.P], c.P)
 		})
 	}
 	if err := parallel.Run(parallel.Jobs(), tasks); err != nil {

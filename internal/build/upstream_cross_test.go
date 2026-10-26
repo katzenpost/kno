@@ -30,7 +30,8 @@ func TestACrossBuildUsesTheAmd64ImageOfTheTargetOS(t *testing.T) {
 		t.Fatal(err)
 	}
 	argv := strings.Join(args, " ")
-	if tag != "kno-katzenpost-deb-debian13-amd64-go1.26.10" ||
+	if tag != "kno-katzenpost-deb-debian13-amd64-go1.26.10-cross" ||
+		!strings.Contains(argv, "CROSS=1") ||
 		!strings.Contains(argv, "--platform linux/amd64") ||
 		!strings.Contains(argv, "go1.26.10.linux-amd64.tar.gz") {
 		t.Errorf("the cross build image is not the amd64 one: %s %s", tag, argv)

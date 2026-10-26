@@ -47,10 +47,15 @@ func (u upstreamDeb) imageArgs() ([]string, string, error) {
 	containerfile := filepath.Join(u.Repo, "packaging", "Containerfile.build")
 	gourl := "https://go.dev/dl/go" + gover + ".linux-" + goarch + ".tar.gz"
 	tag := "kno-katzenpost-deb-" + compile.OSToken(u.OS) + "-" + goarch + "-go" + gover
+	cross := ""
+	if u.Cross {
+		tag, cross = tag+"-cross", "1"
+	}
 	args := []string{"build", "-q", "--platform", "linux/" + goarch, "-t", tag,
 		"--build-arg", "BASE=" + base,
 		"--build-arg", "GO_URL=" + gourl,
 		"--build-arg", "GO_SHA256=" + gosum,
+		"--build-arg", "CROSS=" + cross,
 		"-f", containerfile}
 	return args, tag, nil
 }
