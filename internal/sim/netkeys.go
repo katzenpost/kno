@@ -6,27 +6,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
+	"github.com/katzenpost/kno/internal/nodekeys"
 )
-
-func keyKindDir(role string) string {
-	switch role {
-	case "gateway":
-		return "gateway-id-keys"
-	case "mix":
-		return "mix-id-keys"
-	case "servicenode":
-		return "servicenode-id-keys"
-	case "storagenode":
-		return "replica-id-keys"
-	}
-	return ""
-}
 
 func datadirPrefix(role string) string {
 	switch role {
@@ -42,11 +28,6 @@ func datadirPrefix(role string) string {
 		return "replica"
 	}
 	return ""
-}
-
-var mixserverKinds = []string{
-	"mix-id-keys", "gateway-id-keys", "gateway-link-keys",
-	"servicenode-id-keys", "replica-id-keys", "courier-link-keys",
 }
 
 func (r *run) mkIdentity(dir string) error {
@@ -81,63 +62,6 @@ func (r *run) genkeypair(dir, stem, kind, scheme string) error {
 	return nil
 }
 
-var inlineStart = regexp.MustCompile(`^([[:space:]]*)([A-Za-z][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*"""`)
-
-func spliceInline(path, field, pemFile string) error {
-	lines, err := readLines(path)
-	if err != nil {
-		return err
-	}
-	pem, err := readLines(pemFile)
-	if err != nil {
-		return err
-	}
-	if len(pem) == 0 {
-		return fmt.Errorf("empty PEM file %s", pemFile)
-	}
-	var out []string
-	done, skip := false, false
-	for _, l := range lines {
-		if skip {
-			if strings.Contains(l, `"""`) {
-				skip = false
-			}
-			continue
-		}
-		if m := inlineStart.FindStringSubmatch(l); !done && m != nil && m[2] == field {
-			out = append(out, m[1]+field+` = """`+pem[0])
-			out = append(out, pem[1:]...)
-			out = append(out, `"""`)
-			skip, done = true, true
-			continue
-		}
-		out = append(out, l)
-	}
-	if !done {
-		return fmt.Errorf("%s has no inline %s block", path, field)
-	}
-	return writeLines(path, out, 0o644)
-}
-
-func topLevel(lines []string, key string) string {
-	pfx := key + ` = "`
-	for _, l := range lines {
-		if strings.HasPrefix(l, pfx) && strings.HasSuffix(l, `"`) {
-			return l[len(pfx) : len(l)-1]
-		}
-	}
-	return ""
-}
-
-func hasLine(lines []string, prefix string) bool {
-	for _, l := range lines {
-		if strings.HasPrefix(l, prefix) {
-			return true
-		}
-	}
-	return false
-}
-
 func nodeFiles(netDir string) ([]string, error) {
 	var out []string
 	err := filepath.WalkDir(netDir, func(p string, d fs.DirEntry, err error) error {
@@ -151,8 +75,9 @@ func nodeFiles(netDir string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if topLevel(lines, "name") != "" && datadirPrefix(topLevel(lines, "role")) != "" &&
-			hasLine(lines, "identityPublicKey = ") {
+		role := nodekeys.TopLevel(lines, "role")
+		if nodekeys.TopLevel(lines, "name") != "" && datadirPrefix(role) != "" &&
+			nodekeys.HasLine(lines, "identityPublicKey = ") {
 			out = append(out, p)
 		}
 		return nil
@@ -205,7 +130,7 @@ func (r *run) regenNetworkKeys() error {
 			return err
 		}
 	}
-	if err := refreshMixserverKeys(k); err != nil {
+	if err := nodekeys.RefreshMixserver(k); err != nil {
 		return err
 	}
 	if err := copyTree(k, r.keys); err != nil {
@@ -220,8 +145,8 @@ func (r *run) regenNode(nf, k string) error {
 	if err != nil {
 		return err
 	}
-	name := topLevel(lines, "name")
-	role := topLevel(lines, "role")
+	name := nodekeys.TopLevel(lines, "name")
+	role := nodekeys.TopLevel(lines, "role")
 	d := filepath.Join(r.dd, datadirPrefix(role)+"-"+name)
 	if err := r.mkIdentity(d); err != nil {
 		return err
@@ -229,29 +154,13 @@ func (r *run) regenNode(nf, k string) error {
 	if err := r.mkLink(d); err != nil {
 		return err
 	}
-	if err := spliceInline(nf, "identityPublicKey", filepath.Join(d, "identity.public.pem")); err != nil {
+	if err := nodekeys.Import(nf, k, d); err != nil {
 		return err
 	}
-	if hasLine(lines, "linkPublicKey = ") {
-		if err := spliceInline(nf, "linkPublicKey", filepath.Join(d, "link.public.pem")); err != nil {
-			return err
-		}
-	}
-	if kind, kf := keyKindDir(role), topLevel(lines, "identityKeyFile"); kind != "" && kf != "" {
-		if err := copyFile(filepath.Join(d, "identity.public.pem"), filepath.Join(k, kind, kf), 0o644); err != nil {
-			return err
-		}
-	}
-	if role == "gateway" {
-		if err := copyFile(filepath.Join(d, "link.public.pem"),
-			filepath.Join(k, "gateway-link-keys", name+".linkpubkey.pem"), 0o644); err != nil {
-			return err
-		}
-	}
-	if !hasLine(lines, "courier = true") {
+	if !nodekeys.HasLine(lines, "courier = true") {
 		return nil
 	}
-	cn := topLevel(lines, "configName")
+	cn := nodekeys.TopLevel(lines, "configName")
 	if cn == "" {
 		return fmt.Errorf("node %s has a courier but no configName", nf)
 	}
@@ -260,29 +169,11 @@ func (r *run) regenNode(nf, k string) error {
 	if err := r.mkLink(cdir); err != nil {
 		return err
 	}
-	if err := spliceInline(nf, "courierLinkPublicKey", filepath.Join(cdir, "link.public.pem")); err != nil {
-		return err
-	}
-	return copyFile(filepath.Join(cdir, "link.public.pem"),
-		filepath.Join(k, "courier-link-keys", cname+".linkpubkey.pem"), 0o644)
-}
-
-func refreshMixserverKeys(keysDir string) error {
-	pems, err := filepath.Glob(filepath.Join(keysDir, "mixserver-keys", "*.pem"))
+	cpem := filepath.Join(cdir, "link.public.pem")
+	err = nodekeys.SpliceInline(nf, "courierLinkPublicKey", cpem)
 	if err != nil {
 		return err
 	}
-	for _, f := range pems {
-		b := filepath.Base(f)
-		for _, kind := range mixserverKinds {
-			src := filepath.Join(keysDir, kind, b)
-			if fi, err := os.Stat(src); err == nil && fi.Mode().IsRegular() {
-				if err := copyFile(src, f, 0o644); err != nil {
-					return err
-				}
-				break
-			}
-		}
-	}
-	return nil
+	return copyFile(cpem,
+		filepath.Join(k, "courier-link-keys", cname+".linkpubkey.pem"), 0o644)
 }

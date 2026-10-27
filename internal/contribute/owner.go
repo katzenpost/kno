@@ -16,9 +16,21 @@ var sharedFiles = map[string]bool{
 	"network.toml":  true,
 }
 
+var sharedConfigs = map[string]bool{
+	"catshadow.toml":  true,
+	"client.toml":     true,
+	"courier.toml":    true,
+	"pki.toml":        true,
+	"thinclient.toml": true,
+}
+
 func Shared(p string) bool {
 	if Excluded(p) {
 		return false
+	}
+	if strings.HasSuffix(path.Dir(p), "/.generated/configs") &&
+		sharedConfigs[path.Base(p)] {
+		return true
 	}
 	return sharedFiles[path.Base(p)]
 }

@@ -4,7 +4,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/katzenpost/kno/internal/nodekeys"
 )
 
 func copyTree(src, dst string, skip ...string) error {
@@ -49,18 +50,6 @@ func copyTree(src, dst string, skip ...string) error {
 	})
 }
 
-func copyFile(src, dst string, mode os.FileMode) error {
-	b, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
-	}
-	_ = os.Remove(dst)
-	return os.WriteFile(dst, b, mode)
-}
-
 func copyGlob(pattern, dir string) error {
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
@@ -78,33 +67,6 @@ func copyGlob(pattern, dir string) error {
 	return nil
 }
 
-func writeLines(path string, lines []string, mode os.FileMode) error {
-	var b []byte
-	for _, l := range lines {
-		b = append(b, l...)
-		b = append(b, '\n')
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(path, b, mode)
-}
-
-func readLines(path string) ([]string, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	s := string(b)
-	if s == "" {
-		return nil, nil
-	}
-	if s[len(s)-1] == '\n' {
-		s = s[:len(s)-1]
-	}
-	return strings.Split(s, "\n"), nil
-}
-
 func findDir(root, name string) string {
 	found := ""
 	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
@@ -119,3 +81,9 @@ func findDir(root, name string) string {
 	})
 	return found
 }
+
+var (
+	copyFile   = nodekeys.CopyFile
+	writeLines = nodekeys.WriteLines
+	readLines  = nodekeys.ReadLines
+)

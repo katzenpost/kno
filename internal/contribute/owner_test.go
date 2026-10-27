@@ -43,6 +43,11 @@ func TestOwnerOfCallsTheSharedFilesShared(t *testing.T) {
 		"networks/namenlos/editable-configs/arch.toml",
 		"networks/namenlos/editable-configs/manifest.toml",
 		"networks/namenlos/.generated/network.toml",
+		"networks/namenlos/.generated/configs/client.toml",
+		"networks/namenlos/.generated/configs/thinclient.toml",
+		"networks/namenlos/.generated/configs/pki.toml",
+		"networks/namenlos/.generated/configs/courier.toml",
+		"networks/namenlos/.generated/configs/catshadow.toml",
 	} {
 		if Shared(p) != true {
 			t.Errorf("%s is not recognised as a shared file", p)

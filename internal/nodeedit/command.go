@@ -3,6 +3,7 @@ package nodeedit
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -16,12 +17,12 @@ import (
 )
 
 func Command() *cobra.Command {
-	var network, node, addresses string
+	var network, node, addresses, keys string
 	var list bool
 
 	cmd := &cobra.Command{
 		Use:          "edit",
-		Short:        "change the addresses of your node",
+		Short:        "change the addresses or the keys of your node",
 		Args:         cli.Args(cobra.NoArgs),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -42,6 +43,21 @@ func Command() *cobra.Command {
 			n, err := Pick(mine, node)
 			if err != nil {
 				return err
+			}
+			if cmd.Flags().Changed("keys") {
+				if cli.DryRun() {
+					fmt.Fprintf(w, "--dry-run: would put the keys of %s"+
+						" into the repo\n", n.File)
+					return nil
+				}
+				if keys == "dataDir" {
+					keys = ""
+				}
+				if err := ImportKeys(repo, network, n, keys); err != nil {
+					return err
+				}
+				fmt.Fprintf(w, "wrote the new keys of %s\n", n.File)
+				return rendered(w, repo, network)
 			}
 			now, err := nodefile.Addresses(n.Path)
 			if err != nil {
@@ -89,11 +105,7 @@ func Command() *cobra.Command {
 			for _, a := range addrs {
 				fmt.Fprintf(w, "  %s\n", a)
 			}
-			if err := render.Generate(knopath.NetworkDir(repo, network), ""); err != nil {
-				return fmt.Errorf("rendering the configs: %w", err)
-			}
-			fmt.Fprintln(w, "next: kno contribute")
-			return nil
+			return rendered(w, repo, network)
 		},
 	}
 	f := cmd.Flags()
@@ -102,5 +114,17 @@ func Command() *cobra.Command {
 	f.StringVar(&addresses, "addresses", "",
 		"set these addresses instead of asking, space separated")
 	f.BoolVar(&list, "list", false, "show your nodes and their addresses")
+	f.StringVar(&keys, "keys", "", "put the node's new public keys into the"+
+		" repo, from this directory")
+	f.Lookup("keys").NoOptDefVal = "dataDir"
 	return cmd
+}
+
+func rendered(w io.Writer, repo, network string) error {
+	err := render.Generate(knopath.NetworkDir(repo, network), "")
+	if err != nil {
+		return fmt.Errorf("rendering the configs: %w", err)
+	}
+	fmt.Fprintln(w, "next: kno contribute")
+	return nil
 }

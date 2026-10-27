@@ -119,24 +119,6 @@ func TestTarballsIncludeFreeBSDWhenBuilt(t *testing.T) {
 	}
 }
 
-func TestTarballsSkipTheSourceWhenTheTagIsAbsent(t *testing.T) {
-	work := t.TempDir()
-	rel := t.TempDir()
-	pf := []compile.Platform{{Arch: "amd64", OS: "debian-13"}}
-	fakeBin(t, binDir(work, pf[0]))
-	got, err := tarballs(tarballOpts{
-		Repo: t.TempDir(), Tag: "v1.2.3", Work: work, Rel: rel, Platforms: pf, Source: true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, p := range got {
-		if filepath.Base(p) == "kno-1.2.3-src.tar.gz" {
-			t.Error("a source tarball was produced from a repo with no such tag")
-		}
-	}
-}
-
 func TestTarballsCarryTheClientConfig(t *testing.T) {
 	work := t.TempDir()
 	rel := t.TempDir()

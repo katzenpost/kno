@@ -174,3 +174,24 @@ func TestASignedTagMustResolveToThePinnedCommit(t *testing.T) {
 		}
 	}
 }
+
+func TestTargetSaysAnUnsignedTagIsHeldForItsSignature(t *testing.T) {
+	repo, _, unsigned := gpgRepo(t)
+	state := t.TempDir()
+	e := Env{
+		Repo: repo, KatzenpostRepo: repo, StateDir: state,
+		QuarantineFile: filepath.Join(state, "quarantine"),
+		CurrentFile:    filepath.Join(state, "current"),
+		VerifyTag:      true,
+	}
+	writeVersions(t, repo, unsigned+"\n")
+	got, why := e.Target()
+	if got != "" {
+		t.Fatalf("Target = %q, want none", got)
+	}
+	for _, want := range []string{unsigned, "signature", "require_signed_tag"} {
+		if !strings.Contains(why, want) {
+			t.Errorf("why = %q, want it to name %q", why, want)
+		}
+	}
+}

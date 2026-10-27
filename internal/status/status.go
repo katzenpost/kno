@@ -181,6 +181,8 @@ func writeVersions(w io.Writer, e track.Env) {
 
 	target, held := e.Target()
 	switch {
+	case target == "" && held != "":
+		fmt.Fprintln(w, "  target:     none")
 	case target == "":
 		fmt.Fprintln(w, "  target:     none: no tag in data/thirdparty/katzenpost-versions is"+
 			" also a tag in the katzenpost clone")

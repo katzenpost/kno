@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/track"
 )
 
@@ -187,7 +188,7 @@ func isGitDir(p string) bool {
 
 func run(dir string, name string, args ...string) error {
 	cmd := exec.Command(name, args...)
-	cmd.Dir = dir
+	cmd.Dir, cmd.Env = dir, cli.GitEnv()
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }

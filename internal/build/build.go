@@ -562,6 +562,9 @@ func Build(o Options) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("config debs: %w", err)
 		}
+		if cfg, err = debServicesOnly(o.Repo, o.Network, cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := retireAll(append(append([]string{}, pkgs...), cfg...), o.Tag); err != nil {
@@ -637,7 +640,7 @@ func Build(o Options) ([]string, error) {
 		tb, err := tarballs(tarballOpts{
 			Repo: o.Repo, Network: o.Network, Tag: o.Tag,
 			Work: o.work(), Rel: rel, Platforms: o.platforms(),
-			FreeBSDABI: abi, Source: true,
+			FreeBSDABI: abi, Source: true, Pins: pins, ToolVer: toolVer,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("tarballs: %w", err)

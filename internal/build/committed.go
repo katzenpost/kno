@@ -36,7 +36,8 @@ func selfPackage(name string) bool {
 		return n == "kno" || strings.HasPrefix(n, "kno-host-config")
 	}
 	return strings.HasPrefix(name, "kno_") ||
-		strings.HasPrefix(name, "kno-host-config")
+		strings.HasPrefix(name, "kno-host-config") ||
+		strings.HasPrefix(name, "kno-") && strings.HasSuffix(name, "-src.tar.gz")
 }
 
 func namesSelfPackage(m PackageSums) bool {

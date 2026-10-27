@@ -12,7 +12,7 @@
     "go_version": "1.26.10",
     "build_image": "docker.io/library/golang@sha256:ee3901c61e423732605a51f1b8157c849ec01194ea0a274213b5202b2c11e7bf",
     "deb_image": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
-    "tool": "0.0.107-1+20261023180000.g7f835bb"
+    "tool": "0.0.107-1+20261027143247.ge814082"
   },
   "packages": [
     {
@@ -29,6 +29,16 @@
       "name": "katzenpost-0.0.107-freebsd-amd64.tar.gz",
       "sha256": "dfe015348246e2f0eaac5df42e05daca86a9f14bb9dc41c079739392ebc2e608",
       "bytes": 99790709
+    },
+    {
+      "name": "katzenpost-0.0.107-hpqc-src.tar.gz",
+      "sha256": "4e7209072b5dacaf45fa0dd24f7fe5e141637b791e527dadc5d630957bb8a9a9",
+      "bytes": 609093
+    },
+    {
+      "name": "katzenpost-0.0.107-src.tar.gz",
+      "sha256": "f23462edf4b4fc443e1ea6c018dceb5758d03bf647f4ef1df8a6db08e3d8be5f",
+      "bytes": 2911313
     },
     {
       "name": "katzenpost-0.0.107-ubuntu24.04-amd64.tar.gz",
