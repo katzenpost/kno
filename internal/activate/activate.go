@@ -765,7 +765,7 @@ func hostBackend(o Options) string {
 }
 
 func (o Options) trustedRepo() string {
-	if o.Repo != "" && (os.Geteuid() != 0 || fsutil.RootOwned(o.Repo)) {
+	if o.Repo != "" && fsutil.Trusted(o.Repo) {
 		return o.Repo
 	}
 	r, _ := config.EmbeddedRepo()

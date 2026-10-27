@@ -88,7 +88,17 @@ func TestEveryKnoInTheRehearsalSeesOnlyScratch(t *testing.T) {
 	}
 }
 
+func needSSH(t *testing.T) {
+	t.Helper()
+	for _, p := range []string{"/usr/bin/ssh", "/usr/bin/scp"} {
+		if !executable(p) {
+			t.Skip(p + " is not installed")
+		}
+	}
+}
+
 func TestTheSSHWrapperRefusesEveryHostOutsideTheSim(t *testing.T) {
+	needSSH(t)
 	r, u, hs := guardRun(t)
 	if err := r.writeWrappers(u, hs); err != nil {
 		t.Fatal(err)
@@ -135,6 +145,7 @@ func TestANodeConfigMayNameOnlyItself(t *testing.T) {
 }
 
 func TestTheWrapperCallsTheRealSSHByAbsolutePath(t *testing.T) {
+	needSSH(t)
 	t.Setenv("PATH", t.TempDir()+":"+os.Getenv("PATH"))
 	r, u, hs := guardRun(t)
 	if err := r.writeWrappers(u, hs); err != nil {
