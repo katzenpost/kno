@@ -236,3 +236,25 @@ func shortSha(s string) string {
 	}
 	return s
 }
+
+func compareRecord(w io.Writer, repo, network, tag, dir string) int {
+	d, err := DiffAgainstCommitted(repo, network, tag, dir, "")
+	if err != nil {
+		fmt.Fprintf(w, "kno build: %v\n", err)
+		return 1
+	}
+	for _, m := range d.Mismatched {
+		fmt.Fprintf(w, "  differs: %s\n", m)
+	}
+	for _, u := range d.Unnamed {
+		fmt.Fprintf(w, "  not in the record: %s\n", u)
+	}
+	if len(d.Mismatched)+len(d.Unnamed) > 0 || d.Named == 0 {
+		fmt.Fprintf(w, "kno build: %s in %s does not match the"+
+			" record in the repo\n", tag, dir)
+		return 1
+	}
+	fmt.Fprintf(w, "kno build: %d packages of %s match the record in the repo\n",
+		d.Named, tag)
+	return 0
+}

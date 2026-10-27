@@ -562,6 +562,9 @@ func Build(o Options) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("config debs: %w", err)
 		}
+		if cfg, err = debServicesOnly(o.Repo, o.Network, cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := retireAll(append(append([]string{}, pkgs...), cfg...), o.Tag); err != nil {

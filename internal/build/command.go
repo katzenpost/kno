@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 
@@ -26,9 +27,9 @@ import (
 
 type flags struct {
 	tag, svcList, arches                    string
-	host, group                             string
+	host, group, node                       string
 	export, network, revision, toolRevision string
-	allHosts                                bool
+	allHosts, allNodes                      bool
 	warped, binOnly, offline                bool
 	skipFbsd, skipDocker                    bool
 	skipTarball                             bool
@@ -56,6 +57,9 @@ func Command() *cobra.Command {
 	f.StringVar(&v.host, "host", "", "scope the build to these hosts (comma separated labels from kno.toml)")
 	f.StringVar(&v.group, "group", "", "scope the build to an operator's node group, comma separated for several")
 	f.BoolVar(&v.allHosts, "all-hosts", false, "scope the build to every host in the config")
+	f.StringVar(&v.node, "node", "", "scope the build to these nodes of the"+
+		" network, comma separated. It needs no host in kno.toml")
+	f.BoolVar(&v.allNodes, "all-nodes", false, "build every node of the network")
 	f.StringVar(&v.svcList, "services", "", "explicit service list, comma separated. A build jail has no host config to scope from")
 	f.StringVar(&v.arches, "arches", "", "arch list, space or comma separated (default: the arches of the selected services' nodes)")
 	f.StringVar(&v.export, "export", "", "also copy the finished packages into this directory")
@@ -132,20 +136,10 @@ func recordCommand() *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			repo := config.RepoDir()
-			if repo == "" {
-				return fmt.Errorf("cannot locate the network repo (set KNO_REPO)")
+			var err error
+			if tag, err = recordTag(repo, tag); err != nil {
+				return err
 			}
-			if tag == "" {
-				pins, err := source.ParsePins(filepath.Join(repo, "thirdparty", "pins.env"))
-				if err != nil {
-					return fmt.Errorf("reading pins: %w", err)
-				}
-				tag = pins["KATZENPOST_REF"]
-			}
-			if tag == "" {
-				return fmt.Errorf("no tag (pass --tag or set KATZENPOST_REF in pins.env)")
-			}
-			tag, _ = deb.SplitRevision(tag)
 			if dir == "" {
 				dir = filepath.Join(knopath.Artifacts(), "releases", tag, "pkgs")
 			}
@@ -222,20 +216,44 @@ func (o Options) formats() string {
 func BackendFormats(repo, network string, svcs []string) map[string]bool {
 	out := map[string]bool{}
 	for _, svc := range svcs {
-		rs, err := service.ResolveService(repo, network, svc)
-		if err != nil {
-			continue
-		}
-		switch rs.Backend {
-		case "freebsd-ezjail":
-			out["freebsd"] = true
-		case "docker":
-			out["docker"] = true
-		default:
-			out["deb"] = true
+		if f := backendFormat(repo, network, svc); f != "" {
+			out[f] = true
 		}
 	}
 	return out
+}
+
+func backendFormat(repo, network, svc string) string {
+	rs, err := service.ResolveService(repo, network, svc)
+	if err != nil {
+		return ""
+	}
+	switch rs.Backend {
+	case "freebsd-ezjail":
+		return "freebsd"
+	case "docker":
+		return "docker"
+	}
+	return "deb"
+}
+
+func debService(repo, network, svc string) bool {
+	return backendFormat(repo, network, svc) == "deb"
+}
+
+func debServicesOnly(repo, network string, debs []string) ([]string, error) {
+	var out []string
+	for _, p := range debs {
+		svc, ok := configPkgService(filepath.Base(p))
+		if !ok || debService(repo, network, svc) {
+			out = append(out, p)
+			continue
+		}
+		if err := os.Remove(p); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 func splitList(s string) []string {
@@ -302,20 +320,7 @@ func groupServices(repo, network string, groups []string) ([]string, error) {
 func selectHosts(repo string, v flags, c config.Config) ([]string, error) {
 
 	host := v.host
-
-	var given []string
-	for _, f := range [][2]string{
-		{"--all-hosts", map[bool]string{true: "y"}[v.allHosts]},
-		{"--group", v.group}, {"--host", host},
-	} {
-		if f[1] != "" {
-			given = append(given, f[0])
-		}
-	}
-	if len(given) > 1 {
-		return nil, fmt.Errorf("%s are alternatives. Pass one", strings.Join(given, " and "))
-	}
-	if len(given) == 0 {
+	if !scoped(v) {
 		return nil, nil
 	}
 
@@ -349,6 +354,55 @@ func selectHosts(repo string, v flags, c config.Config) ([]string, error) {
 		return nil, fmt.Errorf("that selection matched no host in the config")
 	}
 	return chosen, nil
+}
+
+func recordTag(repo, tag string) (string, error) {
+	if repo == "" {
+		return "", fmt.Errorf("cannot locate the network repo (set KNO_REPO)")
+	}
+	if tag == "" {
+		pins, err := source.ParsePins(filepath.Join(repo, "thirdparty", "pins.env"))
+		if err != nil {
+			return "", fmt.Errorf("reading pins: %w", err)
+		}
+		tag = pins["KATZENPOST_REF"]
+	}
+	if tag == "" {
+		return "", fmt.Errorf("no tag (pass --tag or set" +
+			" KATZENPOST_REF in pins.env)")
+	}
+	tag, _ = deb.SplitRevision(tag)
+	return tag, nil
+}
+
+func oneScope(v flags) error {
+	var given []string
+	for name, set := range map[string]bool{
+		"--services": v.svcList != "", "--all-nodes": v.allNodes,
+		"--node": v.node != "", "--all-hosts": v.allHosts,
+		"--group": v.group != "", "--host": v.host != "",
+	} {
+		if set {
+			given = append(given, name)
+		}
+	}
+	if len(given) > 1 {
+		sort.Strings(given)
+		return fmt.Errorf("%s are alternatives. Pass one",
+			strings.Join(given, " and "))
+	}
+	return nil
+}
+
+func nodeServices(repo, network string, nodes []string) ([]string, error) {
+	known := config.ListNodes(repo, network)
+	for _, n := range nodes {
+		if !slices.Contains(known, n) {
+			return nil, fmt.Errorf("no node %q in %s (known: %s)", n, network,
+				strings.Join(known, " "))
+		}
+	}
+	return config.ClaimedServices(repo, network, nodes), nil
 }
 
 func scoped(v flags) bool {
@@ -442,9 +496,24 @@ func runBuild(cmd *cobra.Command, v flags) {
 		SkipTarball: v.skipTarball || v.binOnly,
 	}
 
+	if err := oneScope(v); err != nil {
+		fmt.Fprintf(os.Stderr, "kno build: %v\n", err)
+		os.Exit(1)
+	}
 	fromConfig := false
 	scopeNote := ""
 	switch {
+	case v.allNodes:
+		o.Services = gcServices(repo, v.network)
+		scopeNote = "all nodes"
+	case v.node != "":
+		svcs, err := nodeServices(repo, v.network, splitList(v.node))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "kno build: %v\n", err)
+			os.Exit(1)
+		}
+		o.Services = svcs
+		scopeNote = "node " + v.node
 	case v.svcList != "":
 		o.Services = splitList(v.svcList)
 		if len(o.Services) == 0 {
@@ -504,7 +573,8 @@ func runBuild(cmd *cobra.Command, v flags) {
 		}
 	}
 
-	if (scoped(v) || fromConfig || v.svcList != "") && len(o.Services) > 0 && !v.native {
+	narrowed := scoped(v) || fromConfig || v.svcList != "" || v.node != ""
+	if narrowed && len(o.Services) > 0 && !v.native {
 		formats := BackendFormats(repo, v.network, o.Services)
 		if !cmd.Flags().Changed("skip-freebsd") {
 			o.SkipFreeBSD = !formats["freebsd"]
@@ -618,13 +688,26 @@ func export(pkgs []string, dir string) (int, error) {
 }
 
 func compareCommand() *cobra.Command {
-	var dir string
+	var dir, network string
 	cmd := &cobra.Command{
-		Use:          "compare <manifest.json | first-build-dir>",
-		Short:        "check a build against a release manifest or a first build",
-		Args:         cobra.ExactArgs(1),
+		Use: "compare [manifest.json | first-build-dir]",
+		Short: "check a build against the record in the repo," +
+			" a release manifest, or a first build",
+		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				repo := config.RepoDir()
+				tag, err := recordTag(repo, "")
+				if err != nil {
+					return err
+				}
+				if dir == "" {
+					dir = filepath.Join(knopath.Artifacts(), "releases", tag, "pkgs")
+				}
+				w := cmd.OutOrStdout()
+				return cli.Exit(compareRecord(w, repo, network, tag, dir))
+			}
 			ref, err := LoadBuild(args[0])
 			if err != nil {
 				return err
@@ -651,6 +734,7 @@ func compareCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&dir, "dir", "",
 		"the package directory of this build (default: this tag's release directory)")
+	cmd.Flags().StringVar(&network, "network", "namenlos", "network name")
 	return cmd
 }
 

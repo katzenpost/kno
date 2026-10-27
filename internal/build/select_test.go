@@ -60,8 +60,8 @@ func TestSelectHostsNoneGiven(t *testing.T) {
 	}
 }
 
-func TestSelectHostsRejectsCombinations(t *testing.T) {
-	_, err := selectHosts("", flags{host: "mixy", allHosts: true}, fiveHosts())
+func TestOneScopeNamesBothFlags(t *testing.T) {
+	err := oneScope(flags{host: "mixy", allHosts: true})
 	if err == nil {
 		t.Fatal("want an error for --host with --all-hosts")
 	}
