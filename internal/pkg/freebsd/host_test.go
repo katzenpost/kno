@@ -21,12 +21,16 @@ func TestVersionHasNoHyphenForPkg(t *testing.T) {
 	for in, want := range map[string]string{
 		"0.0.107":                         "0.0.107",
 		"0.0.107-2":                       "0.0.107_2",
-		"0.0.107+20261020114337.gdf2d2c1": "0.0.107.20261020114337.gdf2d2c1",
-		"0.0.107-1+20261020123335.g4eca74c.dirty": "0.0.107.20261020123335.g4eca74c.dirty_1",
+		"0.0.107+20261020114337.gdf2d2c1": "0.0.107.20261020114337",
+		"0.0.107-1+20261020123335.g4eca74c.dirty": "0.0.107.20261020123335.dirty_1",
 	} {
 		got := Version(in)
 		if got != want {
 			t.Errorf("Version(%q) = %q, want %q", in, got, want)
+		}
+		if strings.Contains(got, ".g") {
+			t.Errorf("Version(%q) = %q: pkg orders a git hash "+
+				"as letters and digits", in, got)
 		}
 		if strings.Contains(got, "-") {
 			t.Errorf("Version(%q) = %q: pkg splits name and version at the last hyphen", in, got)
@@ -67,7 +71,8 @@ func TestHostConfigPackage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if filepath.Base(p) != "kno-host-config-jailhost-0.0.107.20261020123335.g4eca74c_1.pkg" {
+	want := "kno-host-config-jailhost-0.0.107.20261020123335_1.pkg"
+	if filepath.Base(p) != want {
 		t.Errorf("name = %s", filepath.Base(p))
 	}
 	rep, err := Validate(p)
