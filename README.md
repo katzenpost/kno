@@ -17,18 +17,28 @@ FreeBSD:
 sudo pkg install git gmake go
 ```
 
-## Install kno
+## On a node
+
+Build the debs for this host, and install them:
 
 ```sh
 make kno-deb
 make install
+kno build
+kno update
 ```
 
-The install asks the configuration questions. On a node, answer yes to the
-first question, and choose the policy "apply". Answer no to the signed tag
-question, because katzenpost tags have no signatures yet. On your own
-machine, answer no to the first question. Then run `kno setup` to name your
-hosts and their ssh targets.
+`make kno-deb` builds the kno debs, and `make install` installs them. The
+install asks the configuration questions. Answer yes to the first question,
+and choose the policy "apply". Answer no to the signed tag question, because
+katzenpost tags have no signatures yet.
+
+`kno build` builds the katzenpost and config debs for this host. `kno update`
+installs them, and it is optional. To install them yourself, see "Install
+one node by hand".
+
+On your own machine, answer no to the first question. Then run `kno setup`
+to name your hosts and their ssh targets.
 
 ## Build the packages
 
