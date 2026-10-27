@@ -135,7 +135,7 @@ func (e Env) TargetVersion() string {
 
 func (e Env) Target() (string, string) {
 	floor := e.floor()
-	held := ""
+	held, unsigned := "", ""
 	for _, t := range e.VTags() {
 
 		if t == floor {
@@ -153,7 +153,13 @@ func (e Env) Target() (string, string) {
 		if floor != "" && !knopath.VersionLess(floor, t) {
 			return floor, e.heldNote(held)
 		}
-		if !e.KPHasTag(t) || !e.TagVerified(e.KatzenpostRepo, t) {
+		if !e.KPHasTag(t) {
+			continue
+		}
+		if !e.TagVerified(e.KatzenpostRepo, t) {
+			if unsigned == "" {
+				unsigned = t
+			}
 			continue
 		}
 		if e.Quarantined(t) {
@@ -171,6 +177,11 @@ func (e Env) Target() (string, string) {
 				t, t, t)
 		}
 		return t, ""
+	}
+	if held == "" && unsigned != "" {
+		return floor, unsigned + " has no signature that this host accepts," +
+			" and require_signed_tag is on, so kno holds it. Set" +
+			" require_signed_tag = false in kno.toml to install it"
 	}
 	return floor, e.heldNote(held)
 }
