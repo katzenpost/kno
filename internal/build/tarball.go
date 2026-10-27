@@ -3,11 +3,11 @@ package build
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/katzenpost/kno/internal/compile"
+	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/release"
 )
@@ -21,7 +21,9 @@ type tarballOpts struct {
 	Platforms  []compile.Platform
 	FreeBSDABI string
 
-	Source bool
+	Source  bool
+	Pins    map[string]string
+	ToolVer string
 }
 
 func tarballs(o tarballOpts) ([]string, error) {
@@ -59,44 +61,44 @@ func tarballs(o tarballOpts) ([]string, error) {
 		}
 	}
 	if o.Source {
-		src, err := sourceTarball(o.Repo, o.Network, o.Tag, ver, dir, epoch)
+		srcs, err := sourceTarballs(o.Repo, o.Work, dir, ver, o.ToolVer,
+			o.Pins, epoch)
 		if err != nil {
 			return nil, err
 		}
-		if src != "" {
-			out = append(out, src)
-		}
+		out = append(out, srcs...)
 	}
 	return out, nil
 }
 
-func sourceTarball(repo, network, tag, ver, dir string, epoch int64) (string, error) {
-	ref := resolveTag(repo, network, tag)
-	if ref == "" {
-		note("no kno source tarball: this kno repository has no git tag %s or %s/%s"+
-			" (the katzenpost tag is not affected)", tag, network, tag)
-		return "", nil
-	}
-	name := "kno-" + ver
-	dst := filepath.Join(dir, name+"-src.tar.gz")
-	if err := release.SourceTarball(repo, ref, name, dst, epoch); err != nil {
-		return "", err
-	}
-	return dst, nil
-}
-
-func resolveTag(repo, network, tag string) string {
-	refs := []string{"refs/tags/" + tag}
-	if network != "" {
-		refs = append(refs, "refs/tags/"+network+"/"+tag)
-	}
-	for _, ref := range refs {
-		if exec.Command("git", "-C", repo, "rev-parse", "--verify", "--quiet",
-			ref+"^{commit}").Run() == nil {
-			return ref
+func sourceTarballs(repo, work, dir, ver, toolVer string,
+	pins map[string]string, epoch int64) ([]string, error) {
+	src := filepath.Join(work, ".src")
+	var out []string
+	name := "katzenpost-" + ver
+	for _, p := range []struct{ name, repo, ref string }{
+		{name, "katzenpost", pins["KATZENPOST_SHA"]},
+		{name + "-hpqc", "hpqc", pins["HPQC_SHA"]},
+	} {
+		dst := filepath.Join(dir, p.name+"-src.tar.gz")
+		err := release.SourceTarball(filepath.Join(src, p.repo), p.ref, p.name,
+			dst, epoch)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", filepath.Base(dst), err)
 		}
+		out = append(out, dst)
 	}
-	return ""
+	root, ok := config.GitRoot(repo)
+	if !ok {
+		note("no kno source tarball: %s is not a git checkout", repo)
+		return out, nil
+	}
+	name = "kno-" + toolVer
+	kn := filepath.Join(dir, name+"-src.tar.gz")
+	if err := release.SourceTarball(root, "HEAD", name, kn, epoch); err != nil {
+		return nil, fmt.Errorf("%s: %w", filepath.Base(kn), err)
+	}
+	return append(out, kn), nil
 }
 
 func hasFiles(dir string) bool {
