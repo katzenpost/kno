@@ -20,7 +20,6 @@ func freebsdRelease(t *testing.T, names ...string) string {
 func TestPushToAFreeBSDHostShipsPkgsAndActivates(t *testing.T) {
 	rel := freebsdRelease(t,
 		"pkgs/katzenpost-0.0.107.pkg",
-		"pkgs/namenlos-config-kpclientd-0.0.107.pkg",
 		"pkgs/namenlos-config-respectmy-pq-authority-0.0.107.20261020.gabc.pkg",
 		"pkgs/namenlos-config-allmixedup-pq-gatewaynode-0.0.107.20261020.gabc.pkg",
 		"pkgs/kno-0.0.107.20261020.gdef.pkg",
@@ -39,8 +38,9 @@ func TestPushToAFreeBSDHostShipsPkgsAndActivates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(p.Packages) != 6 {
-		t.Errorf("push ships %d packages, want 6: %v", len(p.Packages), baseNames(p.Packages))
+	if len(p.Packages) != 5 {
+		t.Errorf("push ships %d packages, want 5: %v", len(p.Packages),
+			baseNames(p.Packages))
 	}
 	all := strings.Join(p.Commands(), "\n")
 	for _, want := range []string{
@@ -67,7 +67,6 @@ func TestPushToAFreeBSDHostShipsPkgsAndActivates(t *testing.T) {
 func TestPushToAFreeBSDHostNeedsTheKnoPackage(t *testing.T) {
 	rel := freebsdRelease(t,
 		"pkgs/katzenpost-0.0.107.pkg",
-		"pkgs/namenlos-config-kpclientd-0.0.107.pkg",
 		"pkgs/namenlos-config-respectmy-pq-authority-0.0.107.pkg",
 		"manifest/respectmy-pq-authority.conf",
 	)
@@ -84,7 +83,6 @@ func TestPushToAFreeBSDHostNeedsTheKnoPackage(t *testing.T) {
 func TestCopyToAFreeBSDHostStagesWithoutRoot(t *testing.T) {
 	rel := freebsdRelease(t,
 		"pkgs/katzenpost-0.0.107.pkg",
-		"pkgs/namenlos-config-kpclientd-0.0.107.pkg",
 		"pkgs/namenlos-config-respectmy-pq-authority-0.0.107.20261020.gabc.pkg",
 		"pkgs/kno-0.0.107.20261020.gdef.pkg",
 		"pkgs/kno-host-config-jailhost-0.0.107.20261020.gdef.pkg",

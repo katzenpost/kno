@@ -158,6 +158,14 @@ db_get kno-host-config/network; net="$RET"
 db_get kno-host-config/this_host; this_host="$RET"
 if [ "$this_host" = true ]; then
 	db_get kno-host-config/this_node; nodes="$RET"
+	db_fget kno-host-config/this_node seen || RET=false
+	hn=$(hostname -s 2>/dev/null || hostname)
+	if [ "$RET" != true ] && [ "$nodes" != "$hn" ]; then
+		nodes=""
+		echo "kno-host-config: this host has the name of no node, so it" >&2
+		echo "kno-host-config: claims none. To pick one, run:" >&2
+		echo "  sudo dpkg-reconfigure kno-host-config" >&2
+	fi
 else
 	db_get kno-host-config/nodes; nodes="$RET"
 fi

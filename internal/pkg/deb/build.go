@@ -173,15 +173,23 @@ func PackageConfigs(ctx context.Context, rel, tag, rev string,
 
 func PackageConfigsStable(ctx context.Context, rel, tag, rev string,
 	target func(svc string) (arch, osName string), stable stableVersion) ([]string, error) {
-	return PackageConfigsFlavoured(ctx, rel, tag, rev, rev, target, stable, nil)
+	return PackageConfigsFlavoured(ctx, rel, tag, rev, rev, target, stable,
+		nil, nil)
 }
 
 func PackageConfigsFlavoured(ctx context.Context, rel, tag, rev, binRev string,
 	target func(svc string) (arch, osName string), stable stableVersion,
-	stamp func(svc string) string) ([]string, error) {
-	frags, err := filepath.Glob(filepath.Join(rel, "manifest", "*.conf"))
+	stamp func(svc string) string,
+	want func(svc string) bool) ([]string, error) {
+	all, err := filepath.Glob(filepath.Join(rel, "manifest", "*.conf"))
 	if err != nil {
 		return nil, err
+	}
+	var frags []string
+	for _, f := range all {
+		if want == nil || want(strings.TrimSuffix(filepath.Base(f), ".conf")) {
+			frags = append(frags, f)
+		}
 	}
 	pkgs := filepath.Join(rel, "pkgs")
 	if err := os.MkdirAll(pkgs, 0o755); err != nil {

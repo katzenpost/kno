@@ -241,21 +241,6 @@ func debService(repo, network, svc string) bool {
 	return backendFormat(repo, network, svc) == "deb"
 }
 
-func debServicesOnly(repo, network string, debs []string) ([]string, error) {
-	var out []string
-	for _, p := range debs {
-		svc, ok := configPkgService(filepath.Base(p))
-		if !ok || debService(repo, network, svc) {
-			out = append(out, p)
-			continue
-		}
-		if err := os.Remove(p); err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
-}
-
 func splitList(s string) []string {
 	return strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' })
 }
@@ -558,6 +543,10 @@ func runBuild(cmd *cobra.Command, v flags) {
 	default:
 
 		if c, err := config.Load(config.ResolvePath("")); err == nil {
+			if config.ClaimsNoNode(c) {
+				fmt.Fprintf(os.Stderr, "kno build: %s\n", config.NoNodeHint)
+				os.Exit(1)
+			}
 			if hosts, why := configScope(repo, c); len(hosts) > 0 {
 				if v.verbose || strings.Contains(why, "not building") {
 					fmt.Fprintf(os.Stderr, "kno build: %s\n", why)

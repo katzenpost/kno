@@ -155,13 +155,17 @@ func (o Options) image() string {
 }
 
 func firstError(out string) string {
-	for _, ln := range strings.Split(out, "\n") {
-		ln = strings.TrimSpace(ln)
-
-		if ln == "" || ln == "ERROR" {
-			continue
+	lines := strings.Split(out, "\n")
+	for i, ln := range lines {
+		if strings.TrimSpace(ln) == "ERROR" {
+			lines = lines[i+1:]
+			break
 		}
-		return ln
+	}
+	for _, ln := range lines {
+		if ln = strings.TrimSpace(ln); ln != "" {
+			return ln
+		}
 	}
 	return "the daemon refused it and printed nothing"
 }

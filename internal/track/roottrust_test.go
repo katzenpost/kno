@@ -30,19 +30,25 @@ func asRoot(t *testing.T) {
 	t.Cleanup(func() { fsutil.Euid = old })
 }
 
+func notRoots(t *testing.T, dir string) {
+	t.Helper()
+	if os.Geteuid() != 0 {
+		return
+	}
+	chown := func(p string, _ fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		return os.Lchown(p, 1000, 1000)
+	}
+	if err := filepath.WalkDir(dir, chown); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestTheCallerCannotChooseTheRepoRootReads(t *testing.T) {
 	mine := fakeCheckout(t)
-	if os.Geteuid() == 0 {
-		chown := func(p string, _ fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			return os.Lchown(p, 1000, 1000)
-		}
-		if err := filepath.WalkDir(mine, chown); err != nil {
-			t.Fatal(err)
-		}
-	}
+	notRoots(t, mine)
 	t.Setenv("KNO_REPO", mine)
 	asRoot(t)
 	if got := repoDir(t.TempDir()); got == mine {
@@ -50,12 +56,26 @@ func TestTheCallerCannotChooseTheRepoRootReads(t *testing.T) {
 	}
 }
 
-func TestARepoInTheWorkingDirectoryIsNotRoots(t *testing.T) {
+func TestACheckoutRootDoesNotOwnIsNotRoots(t *testing.T) {
 	fake := fakeCheckout(t)
+	notRoots(t, fake)
 	t.Setenv("KNO_REPO", "")
 	t.Chdir(fake)
 	asRoot(t)
 	if got := repoDir(t.TempDir()); got == fake {
 		t.Errorf("root takes the checkout in its working directory: %s", got)
+	}
+}
+
+func TestRootUsesACheckoutItOwns(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("needs root")
+	}
+	mine := fakeCheckout(t)
+	t.Setenv("KNO_REPO", "")
+	t.Chdir(mine)
+	asRoot(t)
+	if got := repoDir(t.TempDir()); got != mine {
+		t.Errorf("repoDir = %q, want root's own checkout %q", got, mine)
 	}
 }

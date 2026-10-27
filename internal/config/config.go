@@ -785,6 +785,14 @@ func NetworkOf(c Config) string {
 	return c.Network
 }
 
+const NoNodeHint = "this host claims no node. To pick one, run:" +
+	" sudo dpkg-reconfigure kno-host-config"
+
+func ClaimsNoNode(c Config) bool {
+	_, _, ok := LocalHost(c)
+	return ok && len(c.Nodes) == 0
+}
+
 func LocalHost(c Config) (string, Host, bool) {
 	if e := os.Getenv("KNO_HOST"); e != "" {
 		if h, ok := c.Hosts[e]; ok {
@@ -939,7 +947,11 @@ func emitSh(c Config, repo, hostLabel string) {
 func Summary(w io.Writer, path string, c Config, repo string) {
 	fmt.Fprintf(w, "config:  %s\n", path)
 	fmt.Fprintf(w, "network: %s\n", NetworkOf(c))
-	fmt.Fprintf(w, "nodes:   %s\n", strings.Join(c.Nodes, " "))
+	if ClaimsNoNode(c) {
+		fmt.Fprintf(w, "nodes:   none: %s\n", NoNodeHint)
+	} else {
+		fmt.Fprintf(w, "nodes:   %s\n", strings.Join(c.Nodes, " "))
+	}
 	fmt.Fprintf(w, "update:  policy=%s require_signed_tag=%v require_signatures=%v\n",
 		c.Update.Policy, c.Update.RequireSignedTag, c.Update.RequireSignatures)
 	fmt.Fprintf(w, "push:    mode=%s\n", c.Push.Mode)

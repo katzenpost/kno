@@ -119,7 +119,7 @@ ship
 vmstep KNO "jexec kno git clone -q /root/kno.bundle /root/network-organizer && ls $KJ/root/network-organizer/cmd/kno >/dev/null"
 "$V" scp "$cfg" vm:$KJ/usr/local/etc/kno.toml
 vmstep BUILD_IN_KNO "jexec kno sh -c 'cd /root/network-organizer && go run ./cmd/kno build -v' >/tmp/b.log 2>&1; rc=\$?; tail -2 /tmp/b.log; grep -A8 'does not match\|records no digest' /tmp/b.log | head -12; [ \$rc = 0 ] &&
-	grep -q 'matches the committed digest list for $tag' /tmp/b.log &&
+	grep -q 'This build matches the record of $tag' /tmp/b.log &&
 	jexec kno sh -c 'pkg add /root/.local/share/katzenpost/kno/releases/$tag/pkgs/kno-0*.pkg' >/dev/null && jexec kno kno --version && ! jexec kno kno --version | grep -q v0.0.0"
 vmstep PREPARE "jexec kno kno activate /root/.local/share/katzenpost/kno/releases/$tag $tag >/tmp/a.log 2>&1; rc=\$?; tail -4 /tmp/a.log; cat $KJ/var/db/kno/cutover; [ \$rc = 0 ] &&
 	[ -L $KR/kpserver/current ] && [ -f $KJ/etc/jail.conf.d/kpserver.conf ] && [ -z \"\$(jexec kno jls name)\" ] && $old"
@@ -141,11 +141,11 @@ say "the run after it promotes the release"
 vmstep PROMOTE "$ku VERIFY_STUB=ok /usr/local/bin/kno update >/tmp/u2.log 2>&1; grep -E 'promoted|ERROR' /tmp/u2.log | tail -3; grep -q promoted /tmp/u2.log &&
 	jexec kno kno status 2>/dev/null | grep -q 'last-good:  $tag'"
 vm "cd $KJ/root/.local/share/katzenpost/kno/releases/$tag/pkgs && sha256 -r katzenpost-*.pkg namenlos-config-*.pkg" | sort -k2 >"$W/native.sums"
-if [ "$(wc -l <"$W/native.sums")" -ge 4 ] &&
+if [ "$(wc -l <"$W/native.sums")" -ge 3 ] &&
 	join -a 1 -e MISSING -o 0,1.1,2.1 -1 2 -2 2 "$W/native.sums" "$W/cross.sums" |
 	awk '{ n++ } $3 == "MISSING" { bad = 1; print "UNPAIRED " $1; next }
 		$2 != $3 { bad = 1; print "DIFF " $1; next } { print "SAME " $1 }
-		END { exit bad || n < 4 }' >>"$log"; then
+		END { exit bad || n < 3 }' >>"$log"; then
 	mark REPRO 0
 else
 	mark REPRO 1

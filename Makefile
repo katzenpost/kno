@@ -13,7 +13,8 @@ KNOBIN = dist/kno/.root/usr/bin/kno
 LOG = kno-debug.log
 ITERLOG = kno-iterate.log
 
-.PHONY: help build tools test sim hooks print-debver install install-test reconfigure upgrade packages repro report clean \
+.PHONY: help build tools test sim hooks print-debver install install-user \
+	install-test reconfigure upgrade packages repro report clean \
 	kno-deb built ci-image ci-shell ci \
 	freebsd-vmtest freebsd-jailtest
 
@@ -22,6 +23,7 @@ help:
 	@echo 'make tools         check for make, podman and git'
 	@echo 'make kno-deb       build the kno packages'
 	@echo 'make install       install the kno packages'
+	@echo 'make install-user  install bin/kno as ~/.local/bin/kno, without root'
 	@echo 'make reconfigure   ask the setup questions again'
 	@echo 'make test          run the tests and the gates'
 	@echo 'make sim           load every rendered config'
@@ -131,6 +133,11 @@ install:
 	@sudo apt-get install -y -q '$(CURDIR)/$(HOSTDEB)'
 	@echo "kno: binary: $$(command -v kno 2>/dev/null || echo 'NOT on PATH?')"
 	@echo 'kno: config: /etc/katzenpost/kno.toml'
+
+install-user: build
+	@mkdir -p '$(HOME)/.local/bin'
+	@install -m 755 $(KNO) '$(HOME)/.local/bin/kno'
+	@echo "installed $(HOME)/.local/bin/kno -- run it with KNO_REPO=$(CURDIR)"
 
 reconfigure:
 	@command -v kno >/dev/null 2>&1 || { echo 'kno not installed -- run: make kno-deb install'; exit 1; }
