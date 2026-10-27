@@ -40,6 +40,23 @@ one node by hand".
 On your own machine, answer no to the first question. Then run `kno setup`
 to name your hosts and their ssh targets.
 
+## As a user, without root
+
+Install kno in `~/.local/bin`, and point it at this checkout:
+
+```sh
+make install-user
+export PATH="$HOME/.local/bin:$PATH"
+export KNO_REPO="$PWD"
+kno setup
+kno build --node mixy
+```
+
+`make install-user` needs Go, at the version in `go.mod`. `KNO_REPO` tells
+kno where the network data and the record are. `kno setup` writes
+`~/.local/katzenpost/kno.toml`. `kno build` uses podman without root. Only
+the install of packages on a host needs root.
+
 ## Build the packages
 
 All nodes, then one group of nodes, then one node:
@@ -86,11 +103,13 @@ kno status
 kno update
 ```
 
-`kno update` uses the network data in the kno package that you installed.
-A user who runs it in a checkout uses that checkout. Root uses a clone at
-`~/network-organizer` if root owns it. `kno update` builds the release for
-this host. It compares each package with the hashes in that data. Then it
-installs the packages with sudo.
+`kno update` takes the network data from the first of these: `KNO_REPO`,
+the checkout that you run it in, and a clone at `~/network-organizer`. Root
+uses each of them only if root owns it. Without one of them, kno uses the
+configs in the kno package. They have no record, so kno cannot compare the
+build, and it says so. `kno update` builds the release for this host when a
+build is necessary. It compares each package with the hashes in the record.
+Then it installs the packages with sudo.
 
 ## Change the config of a node
 
@@ -163,6 +182,6 @@ kno push mixy v0.0.108
 kno automates many manual operator steps. It does not check signatures on
 katzenpost releases yet, because there are no signatures to check. It
 checks that each package is reproducible. It checks each package against
-the hashes in the kno repo. The kno package carries a copy of these hashes.
-In the future, katzenpost tags and kno tags will both need signatures. kno
-needs them to be secure.
+the hashes in the kno repo. To read these hashes, kno needs a checkout of
+the repo, or `KNO_REPO`. In the future, katzenpost tags and kno tags will
+both need signatures. kno needs them to be secure.
