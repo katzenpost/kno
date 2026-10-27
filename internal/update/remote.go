@@ -340,6 +340,10 @@ func RunRemoteGroup(out io.Writer, e track.Env, v Flags) int {
 func runRemote(out io.Writer, e track.Env, v Flags) int {
 	l := track.Logger{Tool: "update", W: out}
 	hosts := organizedHosts(e)
+	if len(hosts) == 0 && config.ClaimsNoNode(e.Config) {
+		l.Errorf("%s", config.NoNodeHint)
+		return 1
+	}
 	if len(hosts) == 0 {
 		l.Errorf("this organizer has no host that carries a service. Run 'kno setup'")
 		return 1

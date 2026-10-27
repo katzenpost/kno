@@ -21,9 +21,10 @@ const fakeConfmodule = `db_get() {
 	kno-host-config/privilege) RET=sudo ;;
 	esac
 }
+db_fget() { RET=${SEEN:-true}; }
 `
 
-func runPostinst(t *testing.T, thisHost string) string {
+func runPostinst(t *testing.T, thisHost string, env ...string) string {
 	t.Helper()
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("sh not available")
@@ -37,7 +38,7 @@ func runPostinst(t *testing.T, thisHost string) string {
 	script := strings.ReplaceAll(postinstScript, "/usr/share/debconf/confmodule", conf)
 	script = strings.ReplaceAll(script, "/etc/katzenpost", etc)
 	cmd := exec.Command("sh", "-c", script, "postinst", "configure", "")
-	cmd.Env = append(os.Environ(), "THIS_HOST="+thisHost)
+	cmd.Env = append(append(os.Environ(), "THIS_HOST="+thisHost), env...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("postinst: %v\n%s", err, out)
 	}
@@ -64,5 +65,16 @@ func TestAHostGetsItsOwnHostEntry(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("the host config is missing %q:\n%s", want, got)
 		}
+	}
+}
+
+func TestAHostWhoseNameIsNoNodeClaimsNoneUnasked(t *testing.T) {
+	if h, _ := os.Hostname(); strings.HasPrefix(h, "mixy") {
+		t.Skip("this machine is called mixy")
+	}
+	got := runPostinst(t, "true", "SEEN=false")
+	if !strings.Contains(got, "nodes = []") {
+		t.Errorf("an unasked install on a host named for no node"+
+			" claimed one:\n%s", got)
 	}
 }

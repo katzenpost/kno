@@ -558,6 +558,10 @@ func runBuild(cmd *cobra.Command, v flags) {
 	default:
 
 		if c, err := config.Load(config.ResolvePath("")); err == nil {
+			if config.ClaimsNoNode(c) {
+				fmt.Fprintf(os.Stderr, "kno build: %s\n", config.NoNodeHint)
+				os.Exit(1)
+			}
 			if hosts, why := configScope(repo, c); len(hosts) > 0 {
 				if v.verbose || strings.Contains(why, "not building") {
 					fmt.Fprintf(os.Stderr, "kno build: %s\n", why)
