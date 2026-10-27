@@ -558,12 +558,11 @@ func Build(o Options) ([]string, error) {
 					note("%s", why)
 				}
 				return v
-			}, func(svc string) string { return deb.ConfigStamp(o.Repo, o.Network, svc) })
+			},
+			func(svc string) string { return deb.ConfigStamp(o.Repo, o.Network, svc) },
+			func(svc string) bool { return debService(o.Repo, o.Network, svc) })
 		if err != nil {
 			return nil, fmt.Errorf("config debs: %w", err)
-		}
-		if cfg, err = debServicesOnly(o.Repo, o.Network, cfg); err != nil {
-			return nil, err
 		}
 	}
 

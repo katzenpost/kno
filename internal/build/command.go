@@ -241,21 +241,6 @@ func debService(repo, network, svc string) bool {
 	return backendFormat(repo, network, svc) == "deb"
 }
 
-func debServicesOnly(repo, network string, debs []string) ([]string, error) {
-	var out []string
-	for _, p := range debs {
-		svc, ok := configPkgService(filepath.Base(p))
-		if !ok || debService(repo, network, svc) {
-			out = append(out, p)
-			continue
-		}
-		if err := os.Remove(p); err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
-}
-
 func splitList(s string) []string {
 	return strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' })
 }
