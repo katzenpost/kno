@@ -11,6 +11,7 @@ import (
 
 	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
+	"github.com/katzenpost/kno/internal/nodekeys"
 	"github.com/katzenpost/kno/internal/probe"
 )
 
@@ -332,7 +333,7 @@ func TestSpliceInlineReplacesTheWholeBlock(t *testing.T) {
 	if err := writeLines(pem, []string{"-----BEGIN NEW-----", "fresh", "-----END NEW-----"}, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := spliceInline(node, "identityPublicKey", pem); err != nil {
+	if err := nodekeys.SpliceInline(node, "identityPublicKey", pem); err != nil {
 		t.Fatal(err)
 	}
 	got, err := readLines(node)
@@ -362,7 +363,7 @@ func TestSpliceInlineKeepsIndentation(t *testing.T) {
 	if err := writeLines(pem, []string{"b"}, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := spliceInline(node, "linkPublicKey", pem); err != nil {
+	if err := nodekeys.SpliceInline(node, "linkPublicKey", pem); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := readLines(node)
@@ -381,7 +382,7 @@ func TestSpliceInlineReportsAMissingField(t *testing.T) {
 	if err := writeLines(pem, []string{"b"}, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := spliceInline(node, "identityPublicKey", pem); err == nil {
+	if err := nodekeys.SpliceInline(node, "identityPublicKey", pem); err == nil {
 		t.Error("splicing a field that is not there should fail loudly")
 	}
 }

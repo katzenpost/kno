@@ -11,6 +11,7 @@ import (
 	"github.com/katzenpost/kno/internal/contribute"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/nodefile"
+	"github.com/katzenpost/kno/internal/nodekeys"
 )
 
 type Node struct {
@@ -106,4 +107,22 @@ func ParseAddresses(in string) ([]string, error) {
 		}
 	}
 	return fields, nil
+}
+
+func ImportKeys(repo, network string, n Node, dir string) error {
+	if dir == "" {
+		lines, err := nodekeys.ReadLines(n.Path)
+		if err != nil {
+			return err
+		}
+		if dir = nodekeys.TopLevel(lines, "dataDir"); dir == "" {
+			return fmt.Errorf("%s has no dataDir. Name the directory of"+
+				" the keys with --keys DIR", n.File)
+		}
+	}
+	keys := filepath.Join(knopath.EditableDir(repo, network), "keys")
+	if err := nodekeys.Import(n.Path, keys, dir); err != nil {
+		return err
+	}
+	return nodekeys.RefreshMixserver(keys)
 }

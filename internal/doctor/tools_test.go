@@ -37,6 +37,8 @@ var dynamicPrograms = map[string][]string{
 
 	"internal/update/update.go: r.Sudo": {"sudo"},
 
+	"internal/nodekeys/nodekeys.go: cli.Sudo()": {"sudo"},
+
 	"internal/update/self.go: argv[0]": {"env", "sudo"},
 	"internal/update/self.go: bin":     {"kno"},
 
