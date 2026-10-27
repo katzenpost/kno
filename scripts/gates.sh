@@ -6,6 +6,16 @@ cd "$(dirname "$0")/.."
 rc=0
 fail() { echo "FAIL  $1"; rc=1; }
 pass() { echo "ok    $1"; }
+exec 3>&1
+limit() {
+	echo "..    $1" >&3
+	shift
+	if command -v timeout >/dev/null 2>&1; then
+		timeout "${GATES_STEP_LIMIT:-20m}" "$@"
+	else
+		"$@"
+	fi
+}
 
 echo "==> gates"
 
@@ -98,12 +108,13 @@ else
 	mkdir "$tmp/real"
 	ln -s real "$tmp/l"
 	printf '[maintenance]\n\tauto = false\n' >"$tmp/gitconfig"
-	if GIT_CONFIG_GLOBAL="$tmp/gitconfig" TMPDIR="$tmp/l" \
+	if limit "go test" env GIT_CONFIG_GLOBAL="$tmp/gitconfig" TMPDIR="$tmp/l" \
 		go test ./... >/tmp/kno-gates-test.$$ 2>&1; then
 		pass "go test (TMPDIR behind a symlink, as /var on macOS)"
 	else
 		fail "go test"
-		grep -E '^(FAIL|---|.*\.go:)' /tmp/kno-gates-test.$$ | head -20 | sed 's/^/      /'
+		grep -E '^(FAIL|---|.*\.go:|panic: test timed out)' \
+			/tmp/kno-gates-test.$$ | head -20 | sed 's/^/      /'
 	fi
 	rm -f /tmp/kno-gates-test.$$
 	chmod -R u+w "$tmp" 2>/dev/null
@@ -120,12 +131,14 @@ fi
 if [ "${GATES_SKIP_REPO:-0}" = 1 ]; then
 	echo "skip  kno check all, kno doctor package (GATES_SKIP_REPO=1)"
 elif [ -n "$bin" ]; then
-	if KNO_REPO="$PWD" "$bin" check all >/dev/null 2>&1; then
+	if limit "kno check all" env KNO_REPO="$PWD" "$bin" check all \
+		>/dev/null 2>&1; then
 		pass "kno check all"
 	else
 		fail "kno check all"
 	fi
-	if KNO_REPO="$PWD" "$bin" doctor package >/dev/null 2>&1; then
+	if limit "kno doctor package" env KNO_REPO="$PWD" "$bin" doctor package \
+		>/dev/null 2>&1; then
 		pass "kno doctor package"
 	else
 		fail "kno doctor package"
@@ -135,8 +148,11 @@ fi
 if [ "${GATES_SKIP_SIM:-0}" = 1 ]; then
 	echo "skip  kno sim validate (GATES_SKIP_SIM=1)"
 elif [ -n "$bin" ]; then
-	if KNO_ARTIFACTS="$work/artifacts" KNO_REPO="$PWD" "$bin" build --binary-only --arches "$(go env GOARCH)" >"$work/sim.log" 2>&1 &&
-		KNO_ARTIFACTS="$work/artifacts" KNO_REPO="$PWD" "$bin" sim validate >>"$work/sim.log" 2>&1; then
+	art="KNO_ARTIFACTS=$work/artifacts"
+	if limit "kno build --binary-only" env "$art" KNO_REPO="$PWD" "$bin" \
+		build --binary-only --arches "$(go env GOARCH)" >"$work/sim.log" 2>&1 &&
+		limit "kno sim validate" env "$art" KNO_REPO="$PWD" "$bin" \
+			sim validate >>"$work/sim.log" 2>&1; then
 		pass "kno sim validate"
 	else
 		fail "kno sim validate"
