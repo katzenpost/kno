@@ -211,7 +211,7 @@ func (e *Env) EnsureRepos(l Logger, cloneKP bool) error {
 	if fsutil.IsDir(filepath.Join(e.KatzenpostRepo, ".git")) {
 
 		if cloneKP && cmp.Or(os.Getenv("KNO_GIT_FETCH"), "1") == "1" {
-			if err := exec.Command("git", "-C", e.KatzenpostRepo,
+			if err := gitNet("-C", e.KatzenpostRepo,
 				"fetch", "--tags", "--prune", "--quiet").Run(); err != nil {
 				l.Warnf("katzenpost fetch failed. kno uses the local tags")
 			}
@@ -220,7 +220,9 @@ func (e *Env) EnsureRepos(l Logger, cloneKP bool) error {
 	}
 	if cloneKP && cmp.Or(os.Getenv("KNO_CLONE_KP"), "1") == "1" {
 		l.Logf("cloning katzenpost into %s", e.KatzenpostRepo)
-		if err := exec.Command("git", "clone", "--quiet", "--", e.KatzenpostURL, e.KatzenpostRepo).Run(); err != nil {
+		err := gitNet("clone", "--quiet", "--", e.KatzenpostURL,
+			e.KatzenpostRepo).Run()
+		if err != nil {
 			return fmt.Errorf("katzenpost clone failed (%s)", e.KatzenpostURL)
 		}
 	}
@@ -239,6 +241,10 @@ func (e *Env) EnsureKnoRepo(l Logger) error {
 		e.refreshIfOurs(l, d, clone)
 		return nil
 	}
+	if d, ok := config.DataRootOf(e.Repo); ok {
+		e.Repo = d
+		return nil
+	}
 	if cmp.Or(os.Getenv("KNO_CLONE"), "1") != "1" {
 		return fmt.Errorf("no kno checkout at %s and cloning is off"+
 			" (KNO_CLONE=0)", clone)
@@ -251,7 +257,7 @@ func (e *Env) EnsureKnoRepo(l Logger) error {
 	if err := os.MkdirAll(filepath.Dir(clone), 0o755); err != nil {
 		return err
 	}
-	if err := exec.Command("git", "clone", "--quiet", "--", url, clone).Run(); err != nil {
+	if err := gitNet("clone", "--quiet", "--", url, clone).Run(); err != nil {
 		return fmt.Errorf("kno clone failed (%s into %s)", url, clone)
 	}
 	d, ok := checkoutDataRoot(clone)
@@ -285,7 +291,7 @@ func (e *Env) refreshOwnClone(l Logger, clone string) {
 	if cmp.Or(os.Getenv("KNO_GIT_FETCH"), "1") != "1" {
 		return
 	}
-	if err := exec.Command("git", "-C", clone, "fetch", "--quiet",
+	if err := gitNet("-C", clone, "fetch", "--quiet",
 		"--tags", "--prune").Run(); err != nil {
 		l.Warnf("kno fetch failed. kno uses the clone as it is")
 		return
@@ -303,7 +309,7 @@ func (e *Env) refreshOwnClone(l Logger, clone string) {
 		l.Warnf("%s has local changes. kno does not fast-forward it", clone)
 		return
 	}
-	_ = exec.Command("git", "-C", clone, "fetch", "--quiet", "origin",
+	_ = gitNet("-C", clone, "fetch", "--quiet", "origin",
 		"+"+attest.NotesRef+":"+attest.NotesRef).Run()
 	up, ok := e.signaturesAllow(l, clone)
 	if !ok {
@@ -397,4 +403,10 @@ func (e Env) report(stdout io.Writer, l Logger) int {
 	l.Logf("target %s (current: %s)", target, shown)
 	fmt.Fprintln(stdout, target)
 	return 0
+}
+
+func gitNet(args ...string) *exec.Cmd {
+	cmd := exec.Command("git", args...)
+	cmd.Env = cli.GitEnv()
+	return cmd
 }

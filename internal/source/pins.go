@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/track"
 )
 
@@ -186,7 +187,9 @@ func setPins(body string, set map[string]string) (string, error) {
 }
 
 func output(name string, args ...string) (string, error) {
-	b, err := exec.Command(name, args...).Output()
+	cmd := exec.Command(name, args...)
+	cmd.Env = cli.GitEnv()
+	b, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
 	}

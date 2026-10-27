@@ -381,3 +381,30 @@ func TestRequiredSignaturesHoldAnUnsignedCommitAndTheDefaultReportsIt(t *testing
 		}
 	}
 }
+
+func TestEnsureKnoRepoUsesDataThatIsNoCheckoutAndClonesNothing(t *testing.T) {
+	data := t.TempDir()
+	nets := filepath.Join(data, "networks", "namenlos")
+	if err := os.MkdirAll(nets, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	nosuch := filepath.Join(t.TempDir(), "nosuch")
+	e := Env{Home: home, Repo: data, KnoURL: nosuch}
+	if err := e.EnsureKnoRepo(Logger{Tool: "t", W: io.Discard}); err != nil {
+		t.Fatalf("EnsureKnoRepo: %v", err)
+	}
+	if e.Repo != data {
+		t.Errorf("Repo = %q, want the data kno has, %q", e.Repo, data)
+	}
+	if _, err := os.Stat(CloneDir(home)); err == nil {
+		t.Errorf("kno made a clone at %s although it had data", CloneDir(home))
+	}
+}
+
+func TestKnoGitNeverAsksForALogin(t *testing.T) {
+	env := strings.Join(gitNet("version").Env, " ")
+	if !strings.Contains(env, "GIT_TERMINAL_PROMPT=0") {
+		t.Errorf("kno runs git with %s, which lets git ask for a login", env)
+	}
+}
