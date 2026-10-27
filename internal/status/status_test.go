@@ -197,7 +197,7 @@ func runGo(t *testing.T, args ...string) (stdout, stderr string, code int) {
 }
 
 func TestStatusShowsTheHost(t *testing.T) {
-	needTools(t, "git")
+	needTools(t, "git", "systemctl")
 	newFixture(t)
 
 	goOut, goErr, goRC := runGo(t)

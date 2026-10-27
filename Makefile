@@ -203,6 +203,8 @@ CI_LOCAL_IMAGE ?= localhost/act-podman:latest
 CI_LOCAL_NETWORK ?= actjob
 CI_LOCAL_SHELL_ARGS ?= --rm -it
 ACT_ARGS ?=
+CI_LOCAL_OPTIONS ?= --user runner \
+	--volume $(CURDIR)/.ci-local:$(CURDIR)/.ci-local
 
 ci-image:
 	$(CONTAINER_ENGINE) build -t $(CI_LOCAL_IMAGE) \
@@ -229,10 +231,12 @@ ci:
 	[ -S "$$socket" ] || { echo "podman socket unavailable: $$socket" >&2; \
 		echo 'start it with: systemctl --user start podman.socket' >&2; exit 1; }; \
 	mkdir -p .ci-local/go-mod .ci-local/go-build .ci-local/artifacts; \
+	chmod a+rwx .ci-local .ci-local/go-mod .ci-local/go-build \
+		.ci-local/artifacts 2>/dev/null || true; \
 	$(ACT) -P ubuntu-26.04=$(CI_LOCAL_IMAGE) --rm --concurrent-jobs 1 \
 		--pull=false --privileged --network $(CI_LOCAL_NETWORK) \
 		--container-daemon-socket "$$endpoint" \
-		--container-options '--volume $(CURDIR)/.ci-local:$(CURDIR)/.ci-local' \
+		--container-options '$(CI_LOCAL_OPTIONS)' \
 		--env "GOMODCACHE=$(CURDIR)/.ci-local/go-mod" \
 		--env "GOCACHE=$(CURDIR)/.ci-local/go-build" \
 		--artifact-server-path "$(CURDIR)/.ci-local/artifacts" \

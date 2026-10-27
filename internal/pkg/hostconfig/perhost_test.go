@@ -172,8 +172,10 @@ func TestAssembleHostRootStagesConffileAndControl(t *testing.T) {
 }
 
 func TestPackageForHostBuildsAnInstallableDeb(t *testing.T) {
-	if _, err := exec.LookPath("dpkg-deb"); err != nil {
-		t.Skip("dpkg-deb not available")
+	for _, tool := range []string{"dpkg-deb", "podman"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			t.Skip(tool + " not available")
+		}
 	}
 	out := t.TempDir()
 	p, err := PackageForHost(context.Background(), sampleConfig(), "mixy", "0.0.104-2", out, testutil.RepoRoot(t), "", "amd64")

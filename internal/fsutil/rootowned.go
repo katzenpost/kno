@@ -6,6 +6,10 @@ import (
 	"syscall"
 )
 
+var Euid = os.Geteuid
+
+func Trusted(p string) bool { return Euid() != 0 || RootOwned(p) }
+
 func RootOwned(p string) bool {
 	real, err := filepath.EvalSymlinks(p)
 	if err != nil {
@@ -21,7 +25,11 @@ func RootOwned(p string) bool {
 			return false
 		}
 		st, ok := fi.Sys().(*syscall.Stat_t)
-		if !ok || st.Uid != 0 || fi.Mode().Perm()&0o022 != 0 {
+		if !ok || st.Uid != 0 {
+			return false
+		}
+		sticky := d != real && fi.Mode()&os.ModeSticky != 0
+		if fi.Mode().Perm()&0o022 != 0 && !sticky {
 			return false
 		}
 		if d == filepath.Dir(d) {

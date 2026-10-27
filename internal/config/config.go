@@ -336,7 +336,7 @@ func exists(p string) bool {
 	return err == nil
 }
 
-var rootTrusts = func(p string) bool { return os.Geteuid() != 0 || fsutil.RootOwned(p) }
+var rootTrusts = fsutil.Trusted
 
 func ResolvePath(flagPath string) string {
 	if flagPath != "" && rootTrusts(flagPath) {

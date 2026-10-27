@@ -45,21 +45,18 @@ func CloneDir(home string) string {
 	return filepath.Join(home, "network-organizer")
 }
 
-var euid = os.Geteuid
-
-func rootTrusts(d string) bool { return euid() != 0 || fsutil.RootOwned(d) }
-
 func repoDir(home string) string {
-	if r := os.Getenv("KNO_REPO"); r != "" && rootTrusts(r) {
+	if r := os.Getenv("KNO_REPO"); r != "" && fsutil.Trusted(r) {
 		if d, ok := config.DataRootOf(r); ok {
 			return d
 		}
 		return r
 	}
-	if d, ok := config.CheckoutDir(); ok && euid() != 0 {
+	if d, ok := config.CheckoutDir(); ok && fsutil.Euid() != 0 {
 		return d
 	}
-	if d, ok := config.OwnClone(home, os.Getenv("HOME")); ok && rootTrusts(d) {
+	if d, ok := config.OwnClone(home, os.Getenv("HOME")); ok &&
+		fsutil.Trusted(d) {
 		return d
 	}
 	if d, err := config.EmbeddedRepo(); err == nil {

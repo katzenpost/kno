@@ -1,9 +1,12 @@
 package track
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/katzenpost/kno/internal/fsutil"
 )
 
 func fakeCheckout(t *testing.T) string {
@@ -22,13 +25,24 @@ func fakeCheckout(t *testing.T) string {
 
 func asRoot(t *testing.T) {
 	t.Helper()
-	old := euid
-	euid = func() int { return 0 }
-	t.Cleanup(func() { euid = old })
+	old := fsutil.Euid
+	fsutil.Euid = func() int { return 0 }
+	t.Cleanup(func() { fsutil.Euid = old })
 }
 
 func TestTheCallerCannotChooseTheRepoRootReads(t *testing.T) {
 	mine := fakeCheckout(t)
+	if os.Geteuid() == 0 {
+		chown := func(p string, _ fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			return os.Lchown(p, 1000, 1000)
+		}
+		if err := filepath.WalkDir(mine, chown); err != nil {
+			t.Fatal(err)
+		}
+	}
 	t.Setenv("KNO_REPO", mine)
 	asRoot(t)
 	if got := repoDir(t.TempDir()); got == mine {
