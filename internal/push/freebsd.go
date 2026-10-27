@@ -15,7 +15,7 @@ import (
 
 func planInstallFreeBSD(o Options, p Plan) (Plan, error) {
 	pkgs := filepath.Join(o.Rel, "pkgs")
-	names := []string{"katzenpost", configPkgPrefix + freebsd.ClientService}
+	names := []string{"katzenpost"}
 	for _, svc := range o.Services {
 		names = append(names, configPkgPrefix+svc)
 	}
