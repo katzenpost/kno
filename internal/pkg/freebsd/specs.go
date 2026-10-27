@@ -7,11 +7,9 @@ import (
 )
 
 type JailSpec struct {
-	Jail      Jail
-	Svc       string
-	Config    string
-	Old       string
-	ConfigSrc string
+	Jail   Jail
+	Svc    string
+	Config string
 }
 
 func Specs(client string, svcs []string, resolve func(string) (service.Service, error)) ([]JailSpec, error) {
@@ -41,7 +39,7 @@ func Specs(client string, svcs []string, resolve func(string) (service.Service, 
 		out = append(out, JailSpec{
 			Jail: Jail{Name: name, Unit: "katzenpost", Command: []string{s.BinaryDst, "-f", s.ConfigDst},
 				StateDir: s.StateDir, KeysDir: KeysDir(svc), Prestart: s.PrestartHook},
-			Svc: svc, Config: ConfigPkgName(svc), Old: s.Jail, ConfigSrc: s.ConfigSrc,
+			Svc: svc, Config: ConfigPkgName(svc),
 		})
 	}
 	return out, nil

@@ -320,6 +320,22 @@ var ErrNotBuilt = errors.New("not built")
 
 var verbose bool
 
+var stepOut io.Writer = os.Stderr
+
+func version(tag string) string { return strings.TrimPrefix(tag, "v") }
+
+func freebsdTarget(abi string) string {
+	parts := strings.Split(abi, ":")
+	if len(parts) != 3 {
+		return abi
+	}
+	return parts[2] + " on freebsd-" + parts[1]
+}
+
+func step(format string, a ...any) {
+	fmt.Fprintf(stepOut, "kno build: "+format+"\n", a...)
+}
+
 func note(format string, a ...any) {
 	if verbose {
 		fmt.Fprintf(os.Stderr, "kno build: "+format+"\n", a...)
@@ -447,7 +463,8 @@ func Build(o Options) ([]string, error) {
 
 	if o.Native {
 		if !o.SkipCompile {
-			note("preparing the katzenpost and hpqc source at the pinned commits")
+			step("preparing the source of katzenpost %s and hpqc %s", version(o.Tag),
+				version(pins["HPQC_REF"]))
 			if _, err := source.MaterializeSource(work, pins, filepath.Join(o.Repo, "thirdparty", "patches")); err != nil {
 				return nil, fmt.Errorf("materialize source: %w", err)
 			}
@@ -464,7 +481,8 @@ func Build(o Options) ([]string, error) {
 		if err := needEngine(); err != nil {
 			return nil, err
 		}
-		note("preparing the katzenpost and hpqc source at the pinned commits")
+		step("preparing the source of katzenpost %s and hpqc %s", version(o.Tag),
+			version(pins["HPQC_REF"]))
 		if _, err := source.MaterializeSource(work, pins, filepath.Join(o.Repo, "thirdparty", "patches")); err != nil {
 			return nil, fmt.Errorf("materialize source: %w", err)
 		}
@@ -487,7 +505,8 @@ func Build(o Options) ([]string, error) {
 					built[i] = d
 					return nil
 				}
-				note("building katzenpost %s with its own debian/ (%s)", o.Tag, pf)
+				step("building katzenpost %s for %s on %s", version(o.Tag),
+					pf.Arch, pf.OS)
 				d, err := upstreamDeb{
 					Repo: o.Repo, Src: filepath.Join(work, "katzenpost"), Work: upstreamWork(o, pf), Tag: o.Tag,
 					Arch: pf.Arch, OS: pf.OS, Pins: pins,
@@ -600,7 +619,8 @@ func Build(o Options) ([]string, error) {
 	}
 
 	if !o.SkipFreeBSD && !o.SkipCompile {
-		note("building FreeBSD pkg (cross)")
+		step("building katzenpost %s for %s", version(o.Tag),
+			freebsdTarget(pins["FREEBSD_ABI"]))
 		sysroot := filepath.Join(o.work(), "fbsd", "sysroot")
 		bindir := filepath.Join(o.work(), "fbsd", "bin")
 		modCache, buildCache, err := knopath.EnsureCaches()
@@ -738,14 +758,12 @@ func verifyAgainstRecord(o Options, rel string) error {
 			o.Tag, CommittedDir(o.Repo, o.Network, o.Tag), strings.Join(d.Mismatched, "\n  "))
 	}
 	if len(d.Unnamed) > 0 {
-		fmt.Fprintf(os.Stderr, "kno build: The record of %s has no"+
-			" entry for %d packages: %s\n", o.Tag, len(d.Unnamed),
+		step("the record of katzenpost %s has no entry for %s. To add them,"+
+			" run kno build record, and commit the result", version(o.Tag),
 			strings.Join(d.Unnamed, ", "))
-		fmt.Fprintf(os.Stderr, "kno build:   To add them, run kno build record and"+
-			" commit the result.\n")
 		return nil
 	}
-	note("This build matches the record of %s.", o.Tag)
+	step("the build matches the record of katzenpost %s", version(o.Tag))
 	return nil
 }
 
@@ -803,6 +821,7 @@ func knoPkg(o Options, rel, toolVer string, pins map[string]string, local bool) 
 		return "", fmt.Errorf("kno pkg: %w", err)
 	}
 	ko.Version, ko.Verbose, ko.OS, ko.Arch = toolVer, o.Verbose, "freebsd", "amd64"
+	step("building kno %s for %s", toolVer, freebsdTarget(pins["FREEBSD_ABI"]))
 	bindir := filepath.Join(o.work(), "kno-freebsd")
 	if err := os.RemoveAll(bindir); err != nil {
 		return "", err

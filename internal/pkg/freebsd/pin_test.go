@@ -60,8 +60,8 @@ func TestEveryPackageKeepsItsBytes(t *testing.T) {
 			" b1052d3573a3d9059d0c603c9521ff90f40136e6eb11f44d4a4ec43cbd27c81d",
 		"config": "namenlos-config-x-pq-mixserver-0.0.107.20261020.gabc_3.pkg" +
 			" 365ee4498954a3f470af69a71f09698d8c6f75a880dd70c682d9e2294ef1790b",
-		"kno": "kno-0.0.107.20261020123335.g4eca74c_1.pkg" +
-			" ef271aa8f1211974b66f66b09d6dec8ed450788ab5b0d6c56b018fcca7b1cb32",
+		"kno": "kno-0.0.107.20261020123335_1.pkg" +
+			" 91ce6162cf443a6481e291ac7b912cab8b18d655c9feaf7ceed84e4ee2b660e6",
 		"host-config": "kno-host-config-jailhost-0.0.107.20261020.gdef.pkg" +
 			" bedb0822eabd466818e6d4bc25435474b0938912cb0a2c4d6a5f0898d99e6177",
 	}

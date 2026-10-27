@@ -55,6 +55,7 @@ func fpkgCommand() *cobra.Command {
 			if err := freebsd.Write(root, out, meta, epoch); err != nil {
 				return cli.Failf(errOut, 1, "fpkg: %v", err)
 			}
+			fmt.Fprintf(errOut, "kno fpkg: wrote %s\n", out)
 			return nil
 		},
 	}

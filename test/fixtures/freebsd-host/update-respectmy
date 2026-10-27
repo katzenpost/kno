@@ -1,9 +1,0 @@
-MIXBUILDER=/usr/jails/mixbuilder
-RESPECTMY=/usr/jails/respectmy
-
-ezjail-admin console -e "service katzenpost stop" respectmy
-rm $RESPECTMY/var/lib/pq-katzenpost-authority/persistence.db
-cp -v $MIXBUILDER/root/katzenpost/cmd/dirauth/dirauth $RESPECTMY/usr/local/sbin/katzenpost-dirauth
-cp -v $MIXBUILDER/root/namenlos/configs/respectmy-pq-authority.toml $RESPECTMY/usr/local/etc/katzenpost/authority/config.toml
-cp -rv $MIXBUILDER/root/namenlos/keys/* $RESPECTMY/var/lib/pq-katzenpost-authority
-ezjail-admin console -e "service katzenpost start" respectmy

@@ -41,7 +41,7 @@ func TestEnsureReposClonesTheKnoRepo(t *testing.T) {
 		t.Skip("git not available")
 	}
 	origin := t.TempDir()
-	mkRepo(t, origin, "data/networks/namenlos/editable-configs/manifest.toml", "[network]\n")
+	mkRepo(t, origin, manifestPath, "[network]\n")
 
 	home := t.TempDir()
 	e := Env{
@@ -314,7 +314,7 @@ func TestACloneURLCannotBecomeAnOption(t *testing.T) {
 		t.Skip("git not available")
 	}
 	origin := t.TempDir()
-	mkRepo(t, origin, "data/networks/namenlos/editable-configs/manifest.toml", "[network]\n")
+	mkRepo(t, origin, manifestPath, "[network]\n")
 	bin := t.TempDir()
 	log := filepath.Join(bin, "log")
 	wrapper := "#!/bin/sh\necho \"$@\" >> " + log + "\nexec " + real + " \"$@\"\n"
@@ -382,23 +382,66 @@ func TestRequiredSignaturesHoldAnUnsignedCommitAndTheDefaultReportsIt(t *testing
 	}
 }
 
-func TestEnsureKnoRepoUsesDataThatIsNoCheckoutAndClonesNothing(t *testing.T) {
+const manifestPath = "data/networks/namenlos/editable-configs/manifest.toml"
+
+func dataTree(t *testing.T) string {
+	t.Helper()
 	data := t.TempDir()
 	nets := filepath.Join(data, "networks", "namenlos")
 	if err := os.MkdirAll(nets, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	return data
+}
+
+func TestAKnoRepoThatIsNoCheckoutIsUsedAndNothingIsCloned(t *testing.T) {
+	data := dataTree(t)
+	t.Setenv("KNO_REPO", data)
+	home := t.TempDir()
+	origin := t.TempDir()
+	mkRepo(t, origin, manifestPath, "[network]\n")
+	e := Env{Home: home, Repo: data, KnoURL: origin}
+	if err := e.EnsureKnoRepo(Logger{Tool: "t", W: io.Discard}); err != nil {
+		t.Fatalf("EnsureKnoRepo: %v", err)
+	}
+	if e.Repo != data {
+		t.Errorf("Repo = %q, want KNO_REPO, %q", e.Repo, data)
+	}
+	if _, err := os.Stat(CloneDir(home)); err == nil {
+		t.Errorf("kno made a clone at %s although KNO_REPO is set", CloneDir(home))
+	}
+}
+
+func TestWithoutKnoRepoKnoClonesItsOwnRepo(t *testing.T) {
+	t.Setenv("KNO_REPO", "")
+	origin := t.TempDir()
+	mkRepo(t, origin, manifestPath, "[network]\n")
+	home := t.TempDir()
+	e := Env{Home: home, Repo: dataTree(t), KnoURL: origin}
+	if err := e.EnsureKnoRepo(Logger{Tool: "t", W: io.Discard}); err != nil {
+		t.Fatalf("EnsureKnoRepo: %v", err)
+	}
+	if want := filepath.Join(CloneDir(home), "data"); e.Repo != want {
+		t.Errorf("Repo = %q, want the clone of the kno repo, %q", e.Repo, want)
+	}
+}
+
+func TestAFailedCloneFallsBackToTheDataKnoHas(t *testing.T) {
+	t.Setenv("KNO_REPO", "")
+	data := dataTree(t)
 	home := t.TempDir()
 	nosuch := filepath.Join(t.TempDir(), "nosuch")
 	e := Env{Home: home, Repo: data, KnoURL: nosuch}
-	if err := e.EnsureKnoRepo(Logger{Tool: "t", W: io.Discard}); err != nil {
+	var log strings.Builder
+	if err := e.EnsureKnoRepo(Logger{Tool: "t", W: &log}); err != nil {
 		t.Fatalf("EnsureKnoRepo: %v", err)
 	}
 	if e.Repo != data {
 		t.Errorf("Repo = %q, want the data kno has, %q", e.Repo, data)
 	}
-	if _, err := os.Stat(CloneDir(home)); err == nil {
-		t.Errorf("kno made a clone at %s although it had data", CloneDir(home))
+	if !strings.Contains(log.String(), "no record") {
+		t.Errorf("kno did not say that it cannot check the build:\n%s",
+			log.String())
 	}
 }
 
@@ -406,5 +449,18 @@ func TestKnoGitNeverAsksForALogin(t *testing.T) {
 	env := strings.Join(gitNet("version").Env, " ")
 	if !strings.Contains(env, "GIT_TERMINAL_PROMPT=0") {
 		t.Errorf("kno runs git with %s, which lets git ask for a login", env)
+	}
+}
+
+func TestAFailedKatzenpostCloneNamesTheLocalWay(t *testing.T) {
+	home := t.TempDir()
+	e := Env{Home: home, Repo: dataTree(t),
+		KnoURL:         filepath.Join(t.TempDir(), "nosuch"),
+		KatzenpostURL:  filepath.Join(t.TempDir(), "nosuch"),
+		KatzenpostRepo: filepath.Join(home, "katzenpost")}
+	t.Setenv("KNO_REPO", "")
+	err := e.EnsureRepos(Logger{Tool: "t", W: io.Discard}, true)
+	if err == nil || !strings.Contains(err.Error(), "KATZENPOST_REPO") {
+		t.Errorf("err = %v, want one that names KATZENPOST_REPO", err)
 	}
 }

@@ -33,9 +33,10 @@ install asks the configuration questions. Answer yes to the first question,
 and choose the policy "apply". Answer no to the signed tag question, because
 katzenpost tags have no signatures yet.
 
-`kno build` builds the katzenpost and config debs for this host. `kno update`
-installs them, and it is optional. To install them yourself, see "Install
-one node by hand".
+`kno build` builds the katzenpost and config debs for this host from this
+checkout. `kno update` is optional. It builds and installs the release of
+kno main on GitHub. To install the debs of this checkout instead, see
+"Install one node by hand".
 
 On your own machine, answer no to the first question. Then run `kno setup`
 to name your hosts and their ssh targets.
@@ -103,13 +104,17 @@ kno status
 kno update
 ```
 
-`kno update` takes the network data from the first of these: `KNO_REPO`,
-the checkout that you run it in, and a clone at `~/network-organizer`. Root
-uses each of them only if root owns it. Without one of them, kno uses the
-configs in the kno package. They have no record, so kno cannot compare the
-build, and it says so. `kno update` builds the release for this host when a
-build is necessary. It compares each package with the hashes in the record.
-Then it installs the packages with sudo.
+`kno update` takes the network data from `KNO_REPO`, if you set it. Root
+uses `KNO_REPO` only if root owns it. Without `KNO_REPO`, kno clones
+`https://github.com/katzenpost/kno` into `~/network-organizer`, and then
+fetches it at each update. If kno cannot fetch it, kno uses the configs in
+the kno package. They have no record, so kno cannot compare the build, and
+it says so. kno also clones katzenpost over https into `~/katzenpost`. On a
+host that cannot reach GitHub, set `KATZENPOST_REPO` to a katzenpost clone.
+
+`kno update` builds the release for this host when a build is necessary. It
+compares each package with the hashes in the record. Then it installs the
+packages with sudo.
 
 ## Change the config of a node
 
@@ -161,7 +166,7 @@ git push origin main
 nodes, and records the hashes. Then it merges the result into your main
 branch. The push puts it on kno main.
 
-Then, update each machine. On the node, get kno main, install the new kno
+Then, update each machine. On the node, fetch kno main, install the new kno
 package, and update:
 
 ```sh

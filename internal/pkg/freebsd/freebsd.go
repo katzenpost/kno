@@ -217,7 +217,6 @@ func Write(root, out string, meta Meta, epoch int64) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "fpkg: wrote %s (%d files, %d bytes uncompressed)\n", out, len(files), m.Flatsize)
 	return nil
 }
 

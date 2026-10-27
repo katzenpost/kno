@@ -3,6 +3,7 @@ package freebsd
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/katzenpost/kno/internal/config"
@@ -25,13 +26,21 @@ const (
 
 func CronBody() string { return "# kno-update periodic check\n" + CronPath + "\n" + CronLine + "\n" }
 
+var gitHash = regexp.MustCompile(`^g[0-9a-f]{7,40}$`)
+
 func Version(debVersion string) string {
 	_, v, rev := deb.SplitVersion(debVersion)
 	if i := strings.IndexByte(rev, '+'); i >= 0 {
 		v += "." + rev[i+1:]
 		rev = rev[:i]
 	}
-	v = strings.ReplaceAll(v, "+", ".")
+	var keep []string
+	for _, f := range strings.Split(strings.ReplaceAll(v, "+", "."), ".") {
+		if !gitHash.MatchString(f) {
+			keep = append(keep, f)
+		}
+	}
+	v = strings.Join(keep, ".")
 	if rev != "" {
 		v += "_" + rev
 	}

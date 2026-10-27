@@ -1,12 +1,24 @@
 #!/bin/sh
 set -eu
-addr=${1:?usage: kno-host-setup interface|address, for example 'lo42|10.42.0.14'}
+usage="usage: kno-host-setup kno-address [node-address ...]"
+addr=${1:?$usage, each interface|address, for example 'lo42|10.42.0.14'}
+shift
+ips=$addr
+for a in "$@"; do ips="$ips,$a"; done
 E=/usr/local/etc/ezjail
 J=/usr/jails
 [ -r /usr/local/etc/ezjail.conf ] && J=$(sh -c '. /usr/local/etc/ezjail.conf; echo "${ezjail_jaildir:-/usr/jails}"')
-params="allow.mount allow.mount.nullfs allow.mount.tmpfs allow.mount.devfs enforce_statfs=1 devfs_ruleset=4"
+params="children.max=8 allow.mount allow.mount.nullfs allow.mount.tmpfs"
+params="$params allow.mount.devfs enforce_statfs=1 devfs_ruleset=4"
 var() { sed -n "s/^export jail_$(printf %s "$2" | tr -c 'A-Za-z0-9' _)_$3=\"\{0,1\}\([^\"]*\)\"\{0,1\}$/\1/p" "$1"; }
 
+for m in nullfs tmpfs; do
+	kldload -n "$m"
+	case " $(sysrc -n kld_list 2>/dev/null) " in
+	*" $m "*) ;;
+	*) sysrc kld_list+=" $m" >/dev/null ;;
+	esac
+done
 [ -f "$E/kno.norun" ] && ezjail-admin config -r run kno
 if [ ! -f "$E/kno" ]; then
 	a=${addr#*|}
@@ -20,9 +32,14 @@ fi
 old=$(var "$E/kno" kno parameters)
 want=$params
 for p in $old; do
-	case $p in children.max=*) want="$p $want" ;; esac
+	case $p in children.max=*) want="$p ${params#children.max=8 }" ;; esac
 done
 changed=""
+if [ "$#" -gt 0 ] && [ "$(var "$E/kno" kno ip)" != "$ips" ]; then
+	echo "set the addresses of the jail kno: $ips"
+	sed -i '' "s#^export jail_kno_ip=.*#export jail_kno_ip=\"$ips\"#" "$E/kno"
+	changed=1
+fi
 if [ "$old" != "$want" ]; then
 	echo "set the parameters of the jail kno: $want"
 	if grep -q '^export jail_kno_parameters=' "$E/kno"; then
@@ -40,4 +57,6 @@ elif [ -n "$changed" ]; then
 fi
 jexec kno env ASSUME_ALWAYS_YES=yes pkg install -y go git >/dev/null
 jls -j kno -n name ip4.addr allow.mount.devfs devfs_ruleset enforce_statfs
-echo "kno-host-setup: the jail kno runs. Next, in it: clone kno, write /usr/local/etc/kno.toml, kno build, pkg add kno, kno activate"
+echo "kno-host-setup: the jail kno runs. Next, in it: clone kno, write" \
+	"/usr/local/etc/kno.toml, kno build, pkg add kno and" \
+	"kno-host-config, kno update"

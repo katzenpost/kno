@@ -234,7 +234,9 @@ func (e *Env) EnsureRepos(l Logger, cloneKP bool) error {
 		err := gitNet("clone", "--quiet", "--", e.KatzenpostURL,
 			e.KatzenpostRepo).Run()
 		if err != nil {
-			return fmt.Errorf("katzenpost clone failed (%s)", e.KatzenpostURL)
+			return fmt.Errorf("katzenpost clone failed (%s). On a host that"+
+				" cannot reach it, set KATZENPOST_REPO to a katzenpost clone",
+				e.KatzenpostURL)
 		}
 	}
 	return nil
@@ -242,6 +244,10 @@ func (e *Env) EnsureRepos(l Logger, cloneKP bool) error {
 
 func (e *Env) EnsureKnoRepo(l Logger) error {
 	clone := CloneDir(e.Home)
+	if d, ok := knoRepoData(); ok && d == e.Repo {
+		e.refreshIfOurs(l, d, clone)
+		return nil
+	}
 	if d, ok := checkoutDataRoot(e.Repo); ok {
 		e.Repo = d
 		e.refreshIfOurs(l, d, clone)
@@ -252,31 +258,34 @@ func (e *Env) EnsureKnoRepo(l Logger) error {
 		e.refreshIfOurs(l, d, clone)
 		return nil
 	}
-	if d, ok := config.DataRootOf(e.Repo); ok {
-		e.Repo = d
-		return nil
-	}
-	if cmp.Or(os.Getenv("KNO_CLONE"), "1") != "1" {
-		return fmt.Errorf("no kno checkout at %s and cloning is off"+
-			" (KNO_CLONE=0)", clone)
-	}
 	url := e.KnoURL
 	if url == "" {
 		url = KnoURL(e.Repo)
 	}
-	l.Logf("cloning kno into %s", clone)
-	if err := os.MkdirAll(filepath.Dir(clone), 0o755); err != nil {
-		return err
+	err := fmt.Errorf("cloning is off (KNO_CLONE=0)")
+	if cmp.Or(os.Getenv("KNO_CLONE"), "1") == "1" {
+		l.Logf("cloning kno from %s into %s", url, clone)
+		if err = os.MkdirAll(filepath.Dir(clone), 0o755); err != nil {
+			return err
+		}
+		if err = gitNet("clone", "--quiet", "--", url, clone).Run(); err == nil {
+			d, ok := checkoutDataRoot(clone)
+			if !ok {
+				return fmt.Errorf("%s holds no network data after cloning %s", clone, url)
+			}
+			e.Repo = d
+			return nil
+		}
+		err = fmt.Errorf("kno clone failed (%s into %s)", url, clone)
 	}
-	if err := gitNet("clone", "--quiet", "--", url, clone).Run(); err != nil {
-		return fmt.Errorf("kno clone failed (%s into %s)", url, clone)
+	if d, ok := config.DataRootOf(e.Repo); ok {
+		l.Warnf("%v. kno uses the configs in the kno package. They have no"+
+			" record, so kno cannot compare the build. Set KNO_REPO to a"+
+			" checkout of kno", err)
+		e.Repo = d
+		return nil
 	}
-	d, ok := checkoutDataRoot(clone)
-	if !ok {
-		return fmt.Errorf("%s holds no network data after cloning %s", clone, url)
-	}
-	e.Repo = d
-	return nil
+	return fmt.Errorf("no kno checkout at %s: %v", clone, err)
 }
 
 func (e *Env) refreshIfOurs(l Logger, data, clone string) {
@@ -417,7 +426,7 @@ func (e Env) report(stdout io.Writer, l Logger) int {
 }
 
 func gitNet(args ...string) *exec.Cmd {
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", cli.GitArgs(args...)...)
 	cmd.Env = cli.GitEnv()
 	return cmd
 }

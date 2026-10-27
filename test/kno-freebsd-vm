@@ -19,12 +19,11 @@ mem="${KNO_VMTEST_MEM:-4096}"
 name="${KNO_FBSD_VM_HOSTNAME:-pietje}"
 rel="${KNO_FBSD_VM_RELEASE:-/var/tmp/kno-fbsd-art/releases/v0.0.107}"
 cfgs="$REPO/data/networks/namenlos/.generated/configs"
-statefiles="/usr/jails/respectmy/var/lib/pq-katzenpost-authority/*.pem /usr/jails/allmixedup/var/lib/pq-katzenpost-mixserver/*.pem"
 HTTP=""
 
 usage() {
 	cat >&2 <<EOF
-usage: kno-freebsd-vm prepare | start | stop | reset | status | keys | env | smoke | clean
+usage: kno-freebsd-vm prepare | start | stop | reset | status | env | clean
        kno-freebsd-vm ssh [command...]
        kno-freebsd-vm scp <args...>     (vm:<path> names a path in the VM)
 EOF
@@ -50,11 +49,10 @@ vscp() {
 }
 
 running() {
-	[ -f "$S/qemu.pid" ] && kill -0 "$(cat "$S/qemu.pid")" 2>/dev/null
+	pid=$(cat "$S/qemu.pid" 2>/dev/null) && kill -0 "$pid" 2>/dev/null
 }
 
 agentcheck() {
-	grep -E 'Will attempt key|Offering public key|Authenticated to' "$1" >&2 || true
 	grep -q 'Authenticated to' "$1" || { echo "ssh did not authenticate; see $1" >&2; exit 1; }
 	if grep -E 'Will attempt key|Offering public key' "$1" | grep -qv "$KEY"; then
 		echo "ssh offered a key that is not $KEY; see $1" >&2
@@ -121,16 +119,11 @@ wrappers() {
 serve() {
 	w="$S/www"
 	rm -rf "$w"
-	mkdir -p "$w/keys"
+	mkdir -p "$w"
 	cp "$1" "$w/base.txz"
 	cp "$2" "$w/katzenpost.pkg"
 	cp "$cfgs/respectmy-pq-authority.toml" "$cfgs/allmixedup-pq-gatewaynode.toml" "$w/"
-	cp -R "$rel"/keys/* "$w/keys/"
-	tar -cf "$w/keys.tar" -C "$w/keys" .
-	for f in katzenpost.rc allmixedup.rc katzenpost-wrapper.respectmy katzenpost-wrapper.allmixedup \
-		update-mixes update-respectmy update-allmixedup autobuild pf.conf; do
-		cp "$FIX/$f" "$w/"
-	done
+	cp "$FIX/pf.conf" "$w/"
 	(cd "$w" && exec python3 -m http.server "$HTTPPORT" --bind 127.0.0.1 >/dev/null 2>&1) &
 	HTTP=$!
 	i=0
@@ -166,7 +159,7 @@ prepare() {
 	base=$(cd "$REPO" && go run ./cmd/kno build sysroot)
 
 	mkdir -p "$S"
-	rm -f "$S/known_hosts" "$S/build.qcow2" "$S/fixture-keys.sha256"
+	rm -f "$S/known_hosts" "$S/build.qcow2"
 	[ -f "$KEY" ] || ssh-keygen -q -t ed25519 -N '' -C kno-fbsd-vm -f "$KEY"
 	wrappers
 	qemu-img create -q -f qcow2 -F qcow2 -b "$disk" "$S/build.qcow2" "${KNO_FBSD_VM_SIZE:-30G}"
@@ -191,14 +184,12 @@ prepare() {
 	echo "building the fixture over ssh" >&2
 	vssh sh -s -- "http://10.0.2.2:$HTTPPORT" <"$FIX/setup.sh" 2>&1 | tee "$S/setup.log"
 	grep -q '^SETUP_RC=0$' "$S/setup.log" || { echo "fixture setup failed; see $S/setup.log" >&2; exit 1; }
-	vssh "sha256 -r $statefiles" >"$S/fixture-keys.sha256"
-	[ -s "$S/fixture-keys.sha256" ] || { echo "no state dir files to hash" >&2; exit 1; }
 	cleanup
 	trap - EXIT INT TERM
 	rm -rf "$S/www"
 	mv "$S/build.qcow2" "$S/prepared.qcow2"
 	mv "$S/vars.fd" "$S/prepared-vars.fd"
-	echo "prepared: $S/prepared.qcow2 ($(wc -l <"$S/fixture-keys.sha256") state files in $S/fixture-keys.sha256)"
+	echo "prepared: $S/prepared.qcow2"
 }
 
 start() {
@@ -211,15 +202,6 @@ start() {
 	echo "the VM runs: ssh on 127.0.0.1:$PORT"
 }
 
-keys() {
-	files=$(awk '{print $2}' "$S/fixture-keys.sha256" | tr '\n' ' ')
-	if vssh "sha256 -r $files" | diff -u "$S/fixture-keys.sha256" -; then
-		echo "fixture keys: unchanged ($(wc -l <"$S/fixture-keys.sha256") files)"
-	else
-		echo "fixture keys: CHANGED" >&2
-		return 1
-	fi
-}
 
 envout() {
 	cat <<EOF
@@ -234,58 +216,6 @@ The wrappers send every host name to the VM. A kno.toml host can say:
 EOF
 }
 
-step() {
-	echo "\$ $2" | tee -a "$log"
-	vssh "{ $2; } 2>&1; echo ${1}_RC=\$?" 2>&1 | tee -a "$log"
-}
-
-smoke() {
-	log="$S/smoke.log"
-	: >"$log"
-	running || start
-	step JLS "jls"
-	for j in respectmy allmixedup; do
-		step "START_$j" "ezjail-admin console -e 'service katzenpost start' $j >/tmp/start.log 2>&1; rc=\$?; grep -v '^ *\$' /tmp/start.log | head -3; (exit \$rc)"
-		step "STATUS_$j" "ezjail-admin console -e 'service katzenpost status' $j"
-	done
-	for j in respectmy allmixedup; do
-		step "DAEMON_$j" "ezjail-admin console -e 'service katzenpost stop' $j \
->/dev/null 2>&1; jexec $j sh -c 'prog=\$(sed -n \
-\"s|^ *\\(/usr/local/[^ ]*\\) -f .*|\\1|p\" \
-/usr/local/sbin/katzenpost-wrapper) \
-&& /usr/sbin/daemon -f -r -p /var/run/katzenpost.child.pid \
--P /var/run/katzenpost.pid -u root \$prog -f \$(sysrc -n katzenpost_config) \
-&& sleep 5 && kill -0 \$(cat /var/run/katzenpost.child.pid)'"
-	done
-	sleep 8
-	step PS "ps -axww -o pid,ppid,jid,command | grep -E 'PID|daemon:|katzenpost|server -f' | grep -v grep"
-	step LISTEN "sockstat -46l -j respectmy | grep ':1984 ' && sockstat -46l -j allmixedup | grep ':8443 '"
-	for j in respectmy allmixedup; do
-		step "PIDFILE_$j" "cat /usr/jails/$j/var/run/katzenpost.pid && echo"
-		step "STATUS2_$j" "ezjail-admin console -e 'service katzenpost status' $j"
-		vssh "jexec $j sh -x /usr/local/etc/rc.d/katzenpost status" >"$S/smoke-shx-$j.log" 2>&1 || true
-		step "SHX_$j" "jexec $j sh -x /usr/local/etc/rc.d/katzenpost status 2>&1 | grep -E '^\+ (command|_override_command|_procname|_procnamebn)=|^\+ /bin/ps|running'"
-	done
-	keys | tee -a "$log"
-	halt
-	start
-	step JLS2 "jls"
-	step STATE2 "ls /usr/jails/allmixedup/var/lib/pq-katzenpost-mixserver \
-&& ls /usr/jails/*/var/lib/pq-katzenpost-*/*.db"
-	keys | tee -a "$log"
-	halt
-	rc=0
-	for m in JLS DAEMON_respectmy DAEMON_allmixedup LISTEN JLS2 STATE2; do
-		if grep -q "^${m}_RC=0\$" "$log"; then echo "  $m: pass"; else echo "  $m: FAIL"; rc=1; fi
-	done
-	if [ "$(grep -c '^fixture keys: unchanged' "$log")" = 2 ]; then echo "  KEYS: pass"; else echo "  KEYS: FAIL"; rc=1; fi
-	for m in START_respectmy START_allmixedup STATUS2_respectmy STATUS2_allmixedup; do
-		echo "  $m: rc $(sed -n "s/^${m}_RC=//p" "$log") with the old rc.d script"
-	done
-	echo "smoke transcript: $log"
-	if [ "$rc" = 0 ]; then echo "freebsd fixture smoke test: PASS"; else echo "freebsd fixture smoke test: FAIL"; fi
-	return "$rc"
-}
 
 cmd="${1:-}"
 [ -n "$cmd" ] || usage
@@ -296,9 +226,7 @@ start) start ;;
 stop) halt ;;
 reset) halt && start ;;
 status) if running; then echo "running (pid $(cat "$S/qemu.pid"))"; else echo "stopped"; fi ;;
-keys) keys ;;
 env) envout ;;
-smoke) smoke ;;
 ssh) vssh "$@" ;;
 scp) vscp "$@" ;;
 clean) halt && rm -rf "$S" ;;

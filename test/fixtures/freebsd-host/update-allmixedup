@@ -1,7 +1,0 @@
-MIXBUILDER=/usr/jails/mixbuilder
-ALLMIXEDUP=/usr/jails/allmixedup
-
-ezjail-admin console -e "service katzenpost stop" allmixedup
-cp -v $MIXBUILDER/root/katzenpost/cmd/server/server $ALLMIXEDUP/usr/local/bin
-cp -v $MIXBUILDER/root/namenlos/configs/allmixedup-pq-gatewaynode.toml $ALLMIXEDUP/usr/local/etc/katzenpost
-ezjail-admin console -e "service katzenpost start" allmixedup

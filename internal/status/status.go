@@ -173,7 +173,8 @@ func writeVersions(w io.Writer, e track.Env) {
 		fmt.Fprintf(w, "              this is OLDER than what this checkout builds (%s).\n", built)
 		fmt.Fprintln(w, "              It is the binary that deploys every host, so fixes in")
 		fmt.Fprintln(w, "              the checkout are not in effect until it is installed:")
-		fmt.Fprintln(w, "              sudo dpkg -i $(kno build | grep -m1 '/kno_')")
+		fmt.Fprintln(w, "              sudo dpkg -i "+
+			"$(kno build | awk '/\\/kno_/ { print $2; exit }')")
 	}
 
 	v := versionsOf(e)

@@ -1,0 +1,12 @@
+network = "namenlos"
+nodes = ["respectmy", "allmixedup"]
+
+[update]
+policy = "apply"
+require_signed_tag = false
+
+[hosts.pietje]
+hostname = "pietje"
+client_jail = "kpclientd"
+scheduler = "cron"
+services = ["respectmy-pq-authority", "allmixedup-pq-gatewaynode"]

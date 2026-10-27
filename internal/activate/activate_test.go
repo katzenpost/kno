@@ -458,8 +458,16 @@ func TestTheKnoJailPreparesOneRootForEachJail(t *testing.T) {
 			"ln -sfh "+base+" /var/db/kno/roots/"+jc[0]+"/current", "")
 	}
 	want = append(want, "")
+	kp104 := "_katzenpost-0.0.104"
+	for _, jc := range [][2]string{{"kpclientd", "katzenpost-0.0.104"},
+		{"kpauthority", "namenlos-config-respectmy-pq-authority-0.0.104" + kp104},
+		{"kpserver", "namenlos-config-allmixedup-pq-gatewaynode-0.0.104" + kp104}} {
+		want = append(want, "service jail start "+jc[0], "jls -j "+jc[0]+" name",
+			"ln -sfh "+jc[1]+" /var/db/kno/roots/"+jc[0]+"/running")
+	}
 	if got := lines(p); strings.Join(got, "\n") != strings.Join(want, "\n") {
-		t.Fatalf("before the cutover, plan:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+		t.Fatalf("on a new host, plan:\n%s\nwant:\n%s",
+			strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 	for _, st := range p.Steps {
 		if st.Kind == StepWrite {
@@ -469,10 +477,10 @@ func TestTheKnoJailPreparesOneRootForEachJail(t *testing.T) {
 	if c := writes["/etc/jail.conf.d/kpauthority.conf"]; !strings.Contains(c, "kpauthority {") || !strings.Contains(c, `ip4 = "inherit";`) {
 		t.Errorf("kpauthority.conf:\n%s", c)
 	}
-	if got := writes[freebsd.CutoverFile]; got != "kpclientd - -\n"+
-		"kpauthority respectmy /var/lib/pq-katzenpost-authority *.pem\n"+
-		"kpserver allmixedup /var/lib/pq-katzenpost-mixserver *.pem spool.db\n" {
-		t.Errorf("cutover file:\n%s", got)
+	want = []string{`jail_enable="YES"`,
+		`jail_list="kpclientd kpauthority kpserver"`}
+	if got := writes[freebsd.JailRCConf]; got != strings.Join(want, "\n")+"\n" {
+		t.Errorf("%s:\n%s", freebsd.JailRCConf, got)
 	}
 
 	rootExists = func(string) bool { return true }
