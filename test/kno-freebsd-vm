@@ -249,7 +249,13 @@ smoke() {
 		step "STATUS_$j" "ezjail-admin console -e 'service katzenpost status' $j"
 	done
 	for j in respectmy allmixedup; do
-		step "DAEMON_$j" "jexec $j sh -c '/usr/sbin/daemon -f -r -p /var/run/katzenpost.child.pid -P /var/run/katzenpost.pid -u root \$(sysrc -n katzenpost_program) -f \$(sysrc -n katzenpost_config) && sleep 5 && kill -0 \$(cat /var/run/katzenpost.child.pid)'"
+		step "DAEMON_$j" "ezjail-admin console -e 'service katzenpost stop' $j \
+>/dev/null 2>&1; jexec $j sh -c 'prog=\$(sed -n \
+\"s|^ *\\(/usr/local/[^ ]*\\) -f .*|\\1|p\" \
+/usr/local/sbin/katzenpost-wrapper) \
+&& /usr/sbin/daemon -f -r -p /var/run/katzenpost.child.pid \
+-P /var/run/katzenpost.pid -u root \$prog -f \$(sysrc -n katzenpost_config) \
+&& sleep 5 && kill -0 \$(cat /var/run/katzenpost.child.pid)'"
 	done
 	sleep 8
 	step PS "ps -axww -o pid,ppid,jid,command | grep -E 'PID|daemon:|katzenpost|server -f' | grep -v grep"
@@ -264,11 +270,12 @@ smoke() {
 	halt
 	start
 	step JLS2 "jls"
-	step CLEAN2 "ls /usr/jails/allmixedup/var/lib/pq-katzenpost-mixserver; ! ls /usr/jails/*/var/lib/pq-katzenpost-*/*.db 2>/dev/null"
+	step STATE2 "ls /usr/jails/allmixedup/var/lib/pq-katzenpost-mixserver \
+&& ls /usr/jails/*/var/lib/pq-katzenpost-*/*.db"
 	keys | tee -a "$log"
 	halt
 	rc=0
-	for m in JLS DAEMON_respectmy DAEMON_allmixedup LISTEN JLS2 CLEAN2; do
+	for m in JLS DAEMON_respectmy DAEMON_allmixedup LISTEN JLS2 STATE2; do
 		if grep -q "^${m}_RC=0\$" "$log"; then echo "  $m: pass"; else echo "  $m: FAIL"; rc=1; fi
 	done
 	if [ "$(grep -c '^fixture keys: unchanged' "$log")" = 2 ]; then echo "  KEYS: pass"; else echo "  KEYS: FAIL"; rc=1; fi
