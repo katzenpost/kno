@@ -187,6 +187,9 @@ func setPins(body string, set map[string]string) (string, error) {
 }
 
 func output(name string, args ...string) (string, error) {
+	if name == "git" {
+		args = cli.GitArgs(args...)
+	}
 	cmd := exec.Command(name, args...)
 	cmd.Env = cli.GitEnv()
 	b, err := cmd.Output()

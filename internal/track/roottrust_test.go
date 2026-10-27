@@ -67,15 +67,11 @@ func TestACheckoutRootDoesNotOwnIsNotRoots(t *testing.T) {
 	}
 }
 
-func TestRootUsesACheckoutItOwns(t *testing.T) {
-	if os.Geteuid() != 0 {
-		t.Skip("needs root")
-	}
-	mine := fakeCheckout(t)
+func TestKnoUpdateTakesNoCheckoutFromTheWorkingDirectory(t *testing.T) {
+	fake := fakeCheckout(t)
 	t.Setenv("KNO_REPO", "")
-	t.Chdir(mine)
-	asRoot(t)
-	if got := repoDir(t.TempDir()); got != mine {
-		t.Errorf("repoDir = %q, want root's own checkout %q", got, mine)
+	t.Chdir(fake)
+	if got := repoDir(t.TempDir()); got == fake {
+		t.Errorf("repoDir takes the checkout in the working directory: %s", got)
 	}
 }

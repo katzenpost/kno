@@ -45,15 +45,20 @@ func CloneDir(home string) string {
 	return filepath.Join(home, "network-organizer")
 }
 
+func knoRepoData() (string, bool) {
+	r := os.Getenv("KNO_REPO")
+	if r == "" {
+		return "", false
+	}
+	return config.DataRootOf(r)
+}
+
 func repoDir(home string) string {
 	if r := os.Getenv("KNO_REPO"); r != "" && fsutil.Trusted(r) {
 		if d, ok := config.DataRootOf(r); ok {
 			return d
 		}
 		return r
-	}
-	if d, ok := config.CheckoutDir(); ok && fsutil.Trusted(d) {
-		return d
 	}
 	if d, ok := config.OwnClone(home, os.Getenv("HOME")); ok &&
 		fsutil.Trusted(d) {

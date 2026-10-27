@@ -187,6 +187,9 @@ func isGitDir(p string) bool {
 }
 
 func run(dir string, name string, args ...string) error {
+	if name == "git" {
+		args = cli.GitArgs(args...)
+	}
 	cmd := exec.Command(name, args...)
 	cmd.Dir, cmd.Env = dir, cli.GitEnv()
 	cmd.Stderr = os.Stderr

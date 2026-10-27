@@ -39,11 +39,12 @@ Description: katzenpost network name for this host.
 
 Template: kno-host-config/this_node
 Type: select
-Choices: %s
+Choices: none, %s
+Default: none
 Description: Which node does this host run?
- This host runs one node; pick it. The default matches this host's name when it
- can. Its services are configured to run and update here; you are not asked about
- pushing to other hosts.
+ This host runs one node; pick it. The default is the node with the name of
+ this host, or none. Its services are configured to run and update here; you
+ are not asked about pushing to other hosts.
 
 Template: kno-host-config/nodes
 Type: multiselect
@@ -104,12 +105,14 @@ db_subst kno-host-config/this_host hostname "$hn"
 
 db_fget kno-host-config/this_node seen || RET=false
 if [ "$RET" != true ]; then
+	v=none
 	for n in @NODELIST@; do
 		if [ "$n" = "$hn" ]; then
-			db_set kno-host-config/this_node "$n" || true
+			v=$n
 			break
 		fi
 	done
+	db_set kno-host-config/this_node "$v" || true
 fi
 
 state=1
@@ -158,12 +161,9 @@ db_get kno-host-config/network; net="$RET"
 db_get kno-host-config/this_host; this_host="$RET"
 if [ "$this_host" = true ]; then
 	db_get kno-host-config/this_node; nodes="$RET"
-	db_fget kno-host-config/this_node seen || RET=false
-	hn=$(hostname -s 2>/dev/null || hostname)
-	if [ "$RET" != true ] && [ "$nodes" != "$hn" ]; then
+	if [ "$nodes" = none ]; then
 		nodes=""
-		echo "kno-host-config: this host has the name of no node, so it" >&2
-		echo "kno-host-config: claims none. To pick one, run:" >&2
+		echo "kno-host-config: this host claims no node. To pick one, run:" >&2
 		echo "  sudo dpkg-reconfigure kno-host-config" >&2
 	fi
 else
