@@ -17,7 +17,7 @@ func TestAFreeBSDHostNeedsNoDeb(t *testing.T) {
 	if p := o.platforms(); len(p) != 0 {
 		t.Errorf("a build with no deb compiles katzenpost for %v", p)
 	}
-	if got := o.formats(); got != "freebsd+images" {
+	if got := o.formats(); got != "freebsd" {
 		t.Errorf("formats() = %q", got)
 	}
 }

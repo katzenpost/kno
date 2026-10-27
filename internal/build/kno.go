@@ -44,7 +44,7 @@ func knoDeb(o Options, rel, toolVer, arch string) (string, error) {
 		return "", fmt.Errorf("kno deb: %w", err)
 	}
 	ko.Version, ko.Verbose, ko.Arch, ko.OutDir = toolVer, o.Verbose, arch, filepath.Join(o.work(), "kno")
-	note("compiling kno %s for %s in the build container", toolVer, arch)
+	step("building kno %s for %s", toolVer, arch)
 	d, err := knodeb.Package(context.Background(), ko)
 	if err != nil {
 		return "", fmt.Errorf("kno deb (%s): %w", arch, err)

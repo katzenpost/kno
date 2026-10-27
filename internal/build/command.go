@@ -207,9 +207,6 @@ func (o Options) formats() string {
 	if !o.SkipFreeBSD {
 		out = append(out, "freebsd")
 	}
-	if !o.SkipDocker {
-		out = append(out, "images")
-	}
 	return strings.Join(out, "+")
 }
 
@@ -610,8 +607,9 @@ func runBuild(cmd *cobra.Command, v flags) {
 		fmt.Fprintf(os.Stderr, "kno build: %v\n", err)
 		os.Exit(1)
 	}
-	for _, p := range pkgs {
-		fmt.Println(p)
+	if err := listBuilt(os.Stdout, pkgs); err != nil {
+		fmt.Fprintf(os.Stderr, "kno build: %v\n", err)
+		os.Exit(1)
 	}
 
 	if v.export != "" {
@@ -622,6 +620,18 @@ func runBuild(cmd *cobra.Command, v flags) {
 		}
 		fmt.Fprintf(os.Stderr, "kno build: copied %d package(s) to %s\n", n, v.export)
 	}
+}
+
+func listBuilt(w io.Writer, pkgs []string) error {
+	pkgs = slices.Sorted(slices.Values(pkgs))
+	for _, p := range pkgs {
+		sum, _, err := fsutil.SHA256File(p)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(w, "%s  %s\n", sum, p)
+	}
+	return nil
 }
 
 func buildArches(repo string, v flags, svcs []string) []string {
