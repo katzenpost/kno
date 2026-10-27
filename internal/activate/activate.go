@@ -316,7 +316,8 @@ func ezjailPlan(o Options, backend string) (Plan, error) {
 	}
 	p := Plan{Backend: backend, Tag: o.Tag, Needs: "pkg", Packages: []string{kp}}
 	enabled := enabledJails()
-	var cutover strings.Builder
+	list := append([]string{}, enabled...)
+	var starts []Step
 	for _, sp := range specs {
 		add := []string{kp}
 		base := strings.TrimSuffix(filepath.Base(kp), ".pkg")
@@ -347,33 +348,30 @@ func ezjailPlan(o Options, backend string) (Plan, error) {
 			Step{Kind: StepWrite, Path: sp.Jail.ConfPath(), Content: sp.Jail.Conf(), Mode: 0o644})
 		switch {
 		case !slices.Contains(enabled, name):
-			p.Steps[len(p.Steps)-1].Log = "the jail " + name + " is ready with " + base + "; kno-host-cutover starts it"
+			list = append(list, name)
+			starts = append(starts,
+				Step{Kind: StepRun, Log: "start the jail " + name + " with " + base,
+					Argv: []string{"service", "jail", "start", name}},
+				Step{Kind: StepRun, Argv: []string{"jls", "-j", name, "name"}},
+				Step{Kind: StepRun,
+					Argv: []string{"ln", "-sfh", base, freebsd.RunningRoot(name)}})
 		case linkTarget(freebsd.RunningRoot(name)) != base || !jailRuns(name):
 			p.Steps = append(p.Steps,
 				Step{Kind: StepRun, Log: "restart the jail " + name + " with " + base, Argv: []string{"service", "jail", "restart", name}},
 				Step{Kind: StepRun, Argv: []string{"jls", "-j", name, "name"}},
 				Step{Kind: StepRun, Argv: []string{"ln", "-sfh", base, freebsd.RunningRoot(name)}})
 		}
-		cutover.WriteString(cutoverLine(sp, o.Rel) + "\n")
 	}
-	p.Steps = append(p.Steps, Step{Kind: StepWrite, Path: freebsd.CutoverFile, Content: cutover.String(), Mode: 0o644})
+	if len(starts) > 0 {
+		rc := "jail_enable=\"YES\"\njail_list=\"" + strings.Join(list, " ") + "\"\n"
+		p.Steps = append(p.Steps, Step{Kind: StepWrite, Path: freebsd.JailRCConf,
+			Content: rc, Mode: 0o644, Log: "write " + freebsd.JailRCConf})
+		p.Steps = append(p.Steps, starts...)
+	}
 	return p, nil
 }
 
 var spoolDB = regexp.MustCompile(`(?m)^\s*SpoolDB\s*=\s*"([^"]+)"`)
-
-func cutoverLine(sp freebsd.JailSpec, rel string) string {
-	if sp.Old == "" || sp.Jail.StateDir == "" {
-		return sp.Jail.Name + " - -"
-	}
-	files := []string{"*.pem"}
-	if b, err := os.ReadFile(filepath.Join(rel, "configs", filepath.Base(sp.ConfigSrc))); err == nil {
-		if m := spoolDB.FindSubmatch(b); m != nil && filepath.Dir(string(m[1])) == sp.Jail.StateDir {
-			files = append(files, filepath.Base(string(m[1])))
-		}
-	}
-	return strings.Join(append([]string{sp.Jail.Name, sp.Old, sp.Jail.StateDir}, files...), " ")
-}
 
 var enabledJails = freebsd.EnabledJails
 

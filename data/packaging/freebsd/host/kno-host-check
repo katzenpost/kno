@@ -19,10 +19,20 @@ cc=$("$J/basejail/usr/bin/cc" --version 2>/dev/null | head -1)
 case $cc in *"clang version 21.1.8"*) ok "basejail compiler: clang 21.1.8" ;; *) bad "basejail compiler ${cc:-missing}: want clang 21.1.8" ;; esac
 
 missing=""
-for p in children.max allow.mount allow.mount.nullfs allow.mount.tmpfs allow.mount.devfs enforce_statfs devfs_ruleset; do
+for p in children.max allow.mount allow.mount.devfs enforce_statfs \
+	devfs_ruleset; do
 	sysctl -q "security.jail.param.$p" >/dev/null 2>&1 || missing="$missing $p"
 done
 if [ -z "$missing" ]; then ok "the kernel knows the jail parameters for child jails"; else bad "the kernel has no jail parameter:$missing"; fi
+for m in nullfs tmpfs; do
+	if kldstat -q -m "$m"; then
+		ok "$m is loaded"
+	elif [ -f "/boot/kernel/$m.ko" ]; then
+		warn "$m is not loaded: kno-host-setup loads it"
+	else
+		bad "no $m module in /boot/kernel"
+	fi
+done
 if devfs rule -s 4 show 2>/dev/null | grep -q .; then ok "devfs ruleset 4 is loaded"; else bad "devfs ruleset 4 is not loaded"; fi
 
 if command -v ezjail-admin >/dev/null; then ok "ezjail $(pkg query %v ezjail 2>/dev/null)"; else bad "no ezjail-admin"; fi
@@ -62,8 +72,6 @@ if [ -n "$addr" ]; then
 	fi
 fi
 
-c=$(grep -n 'update-mixes' /etc/crontab)
-if [ -n "$c" ]; then say "crontab: $c"; else warn "/etc/crontab has no update-mixes line"; fi
 pfctl -s nat 2>/dev/null | sed 's/^/      pf nat: /'
 zfs list -H -o name,used,avail "$J" 2>/dev/null | awk '{ print "      zfs " $1 ": used " $2 ", free " $3 }'
 df -h "$J" | awk 'NR > 1 { print "      disk " $6 ": free " $4 }'

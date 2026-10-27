@@ -16,7 +16,7 @@ ITERLOG = kno-iterate.log
 .PHONY: help build tools test sim hooks print-debver install install-user \
 	install-test reconfigure upgrade packages repro report clean \
 	kno-deb built ci-image ci-shell ci \
-	freebsd-vmtest freebsd-jailtest
+	freebsd-vmtest freebsd-jailtest freebsd-knotest
 
 help:
 	@echo 'make build         build bin/kno'
@@ -36,6 +36,7 @@ help:
 	@echo 'make report        write $(LOG)'
 	@echo 'make clean         remove the kno packages'
 	@echo 'make ci            run the CI jobs in podman'
+	@echo 'make freebsd-knotest    run kno on the pietje fixture'
 
 print-debver:
 	@echo '$(DEBVER)'
@@ -240,6 +241,13 @@ ci:
 	mkdir -p .ci-local/go-mod .ci-local/go-build .ci-local/artifacts; \
 	chmod a+rwx .ci-local .ci-local/go-mod .ci-local/go-build \
 		.ci-local/artifacts 2>/dev/null || true; \
+	port=34567; \
+	while ss -ltn 2>/dev/null | grep -q "127.0.0.1:$$port "; do \
+		[ $$port = 34567 ] && echo "an earlier act holds 127.0.0.1:34567:" \
+			"$$(ss -ltnp 2>/dev/null | grep '127.0.0.1:34567 ' \
+			| grep -o 'pid=[0-9]*')" >&2; \
+		port=$$((port + 1)); \
+	done; \
 	$(ACT) -P ubuntu-26.04=$(CI_LOCAL_IMAGE) --rm --concurrent-jobs 1 \
 		--pull=false --privileged --network $(CI_LOCAL_NETWORK) \
 		--container-daemon-socket "$$endpoint" \
@@ -247,7 +255,7 @@ ci:
 		--env "GOMODCACHE=$(CURDIR)/.ci-local/go-mod" \
 		--env "GOCACHE=$(CURDIR)/.ci-local/go-build" \
 		--artifact-server-path "$(CURDIR)/.ci-local/artifacts" \
-		--artifact-server-addr 127.0.0.1 \
+		--artifact-server-addr 127.0.0.1 --artifact-server-port $$port \
 		$(if $(W),-W .github/workflows/$(W).yml,) $(ACT_ARGS)
 
 PKGDIR = $(or $(KNO_ARTIFACTS),$(HOME)/.local/share/katzenpost/kno)/releases/$(TAG)/pkgs
@@ -274,6 +282,16 @@ freebsd-vmtest:
 freebsd-jailtest:
 	$(need_pkg)
 	@pkg=$$(ls -1 '$(PKGDIR)'/katzenpost*.pkg | head -1); test/kno-freebsd-jailtest "$$pkg"
+
+FBSD_RELEASE = $(patsubst %/pkgs,%,$(PKGDIR))
+
+freebsd-knotest:
+	$(need_pkg)
+	@KNO_FBSD_VM_RELEASE='$(FBSD_RELEASE)' test/kno-freebsd-vm prepare
+	@src=$$(mktemp -d /var/tmp/kno-fbsd-src.XXXXXX); \
+	git clone -q --no-checkout . "$$src/repo" && \
+	git -C "$$src/repo" checkout -q -B knotest && \
+	test/kno-freebsd-kno "$$src/repo" test/fixtures/freebsd-host/kno.toml
 
 REGISTRY_NAME ?= kno-registry
 REGISTRY_PORT ?= 5000

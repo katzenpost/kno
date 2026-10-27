@@ -18,7 +18,6 @@ var (
 	JailLogs    = "/var/log/jails"
 	RootsDir    = "/var/db/kno/roots"
 	StatesDir   = "/var/db/kno/state"
-	CutoverFile = "/var/db/kno/cutover"
 )
 
 func JailRoot(jail, tag string) string { return filepath.Join(RootsDir, jail, tag) }

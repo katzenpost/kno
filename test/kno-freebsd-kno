@@ -14,7 +14,8 @@ J=/usr/jails
 KJ=$J/kno
 C=$KJ/var/jail
 KR=$KJ/var/db/kno/roots
-RS=$J/respectmy/var/lib/pq-katzenpost-authority
+NK=/var/tmp/kno-node-keys
+ST=$KJ/var/db/kno/state
 
 export GIT_SSH_COMMAND=false GIT_TERMINAL_PROMPT=0 SSH_ASKPASS_REQUIRE=never
 mkdir -p "$W"
@@ -22,8 +23,13 @@ mkdir -p "$W"
 
 say() { echo "== $*" | tee -a "$log"; }
 keys() {
-	if "$V" keys >"$W/keys.out" 2>&1; then mark "$1" 0; else mark "$1" 1; fi
-	cat "$W/keys.out" >>"$log"
+	ki=kpauthority/identity.private.pem
+	kl=kpserver/link.private.pem
+	if vm "cmp $NK/$ki $ST/$ki && cmp $NK/$kl $ST/$kl"; then
+		mark "$1" 0
+	else
+		mark "$1" 1
+	fi
 }
 mark() { echo "${1}_RC=$2" | tee -a "$log"; }
 vm() { "$V" ssh "$@"; }
@@ -45,8 +51,6 @@ record() {
 vmstep() {
 	vm "export PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin; { $2; } 2>&1; echo ${1}_RC=\$?" 2>&1 | tee -a "$log"
 }
-old='pgrep -lf -j respectmy "katzenpost-wrapper|katzenpost-dirauth" && pgrep -lf -j allmixedup "katzenpost-wrapper|/usr/local/bin/server"'
-noold='! pgrep -lf "katzenpost-wrapper|katzenpost-dirauth|/usr/local/bin/server"'
 new="[ \"\$(jexec kno jls -j kpauthority path)\" = /var/jail/kpauthority ] && [ \"\$(jexec kno jls -j kpserver path)\" = /var/jail/kpserver ] &&
 	[ \"\$(jexec kno jls -j kpclientd path)\" = /var/jail/kpclientd ] &&
 	procstat -b \"\$(cat $C/kpauthority/var/run/katzenpost.child.pid)\" | grep -q '/usr/local/sbin/kpdirauth\$' &&
@@ -65,18 +69,17 @@ up="KNO_URL=/root/kno.bundle KNO_TEST=1 KATZENPOST_EPOCH_DURATION=1ms"
 ku="jexec kno env $up"
 
 ka='lo42|10.42.0.14'
+nodes="'lo42|10.42.0.13' 'lo42|2a01:4f9:3100:4b60:1013::1'"
+nodes="$nodes 'lo42|10.42.0.10' 'lo42|2a01:4f9:3100:4b60:1010::1'"
 HD=/root/kno-host
-same() { echo "cmp $J/$1/var/lib/$2/$3 $KJ/var/db/kno/state/$4/$3"; }
 
-say "the VM as the jail host is today: hand-built daemons and update-mixes"
+say "a FreeBSD host with ezjail and the node keys, and no kno yet"
 "$V" stop >/dev/null 2>&1 || true
 "$V" start
-keys KEYS_START
-vmstep OLD_RUNS "$old"
 
-say "the fixture: the respectmy config carries the VM's own respectmy public keys"
-vm "cat $RS/identity.public.pem" >"$W/identity.public.pem"
-vm "cat $RS/link.public.pem" >"$W/link.public.pem"
+say "the respectmy config carries the public keys of the fixture node"
+vm "cat $NK/kpauthority/identity.public.pem" >"$W/identity.public.pem"
+vm "cat $NK/kpauthority/link.public.pem" >"$W/link.public.pem"
 gen="$src/data/networks/namenlos/.generated/configs/respectmy-pq-authority.toml"
 awk -v id="$W/identity.public.pem" -v ln="$W/link.public.pem" '
 function slurp(f,  l, s) { s = ""; while ((getline l < f) > 0) s = s l "\n"; close(f); return s }
@@ -92,9 +95,10 @@ me && ($1 in k) && $2 == "=" && index($3, "\"\"\"") == 1 {
 { print }
 ' "$gen" >"$W/respectmy.toml"
 mv "$W/respectmy.toml" "$gen"
-git -C "$src" -c user.email=jacob@appelbaum.net commit -q -am "fixture: respectmy carries the fixture VM's own public keys"
+git -C "$src" -c user.email=jacob@appelbaum.net commit -q -am \
+	"fixture: respectmy carries the public keys of the fixture node"
 
-say "the record of the fixture's release, built on Linux"
+say "the record of the release, built on Linux"
 (cd "$src" && go build -o "$W/kno" ./cmd/kno)
 rm -rf "$W/art"
 set +e
@@ -105,32 +109,40 @@ rel="$W/art/releases/$tag"
 record KEYS
 (cd "$rel/pkgs" && sha256sum ./*.pkg | sed 's|  \./| |' | sort -k2) >"$W/cross.sums"
 
-say "the host: check, then the baseline for the jail kno; the old jails keep running"
+say "the host: check, then the jail kno with the node addresses"
 vm "mkdir -p $HD"
-"$V" scp "$src"/data/packaging/freebsd/host/kno-host-check "$src"/data/packaging/freebsd/host/kno-host-setup \
-	"$src"/data/packaging/freebsd/host/kno-host-cutover "$src"/data/packaging/freebsd/host/kno-host-back vm:$HD/
+hs="$src"/data/packaging/freebsd/host
+"$V" scp "$hs"/kno-host-check "$hs"/kno-host-setup vm:$HD/
 vmstep CHECK "sh $HD/kno-host-check '$ka' >/tmp/check.log 2>&1; rc=\$?; grep -E '^(FAIL|WARN)|kno-host-check' /tmp/check.log; [ \$rc = 0 ]"
-vmstep SETUP "sh $HD/kno-host-setup '$ka' >/tmp/setup.log 2>&1; rc=\$?; tail -3 /tmp/setup.log; [ \$rc = 0 ] && $old &&
+vmstep SETUP "sh $HD/kno-host-setup '$ka' $nodes >/tmp/setup.log 2>&1; \
+rc=\$?; tail -3 /tmp/setup.log; [ \$rc = 0 ] &&
 	jls -j kno -n devfs_ruleset | grep -qx devfs_ruleset=4 && jls -j kno -n enforce_statfs | grep -qx enforce_statfs=1 &&
+	jls -j kno -n children.max | grep -qx children.max=8 &&
+	jls -j kno -n ip4.addr | grep -q 10.42.0.13 &&
 	jexec kno sh -c 'command -v go && command -v git' >/dev/null && ! pkg info -e kno"
 
-say "the jail kno builds the release and prepares its child jails without starting them"
+say "the jail kno builds the release, and the node keys go to its state"
 ship
 vmstep KNO "jexec kno git clone -q /root/kno.bundle /root/network-organizer && ls $KJ/root/network-organizer/cmd/kno >/dev/null"
 "$V" scp "$cfg" vm:$KJ/usr/local/etc/kno.toml
+pk=/root/.local/share/katzenpost/kno/releases/$tag/pkgs
 vmstep BUILD_IN_KNO "jexec kno sh -c 'cd /root/network-organizer && go run ./cmd/kno build -v' >/tmp/b.log 2>&1; rc=\$?; tail -2 /tmp/b.log; grep -A8 'does not match\|records no digest' /tmp/b.log | head -12; [ \$rc = 0 ] &&
-	grep -q 'This build matches the record of $tag' /tmp/b.log &&
-	jexec kno sh -c 'pkg add /root/.local/share/katzenpost/kno/releases/$tag/pkgs/kno-0*.pkg' >/dev/null && jexec kno kno --version && ! jexec kno kno --version | grep -q v0.0.0"
-vmstep PREPARE "jexec kno kno activate /root/.local/share/katzenpost/kno/releases/$tag $tag >/tmp/a.log 2>&1; rc=\$?; tail -4 /tmp/a.log; cat $KJ/var/db/kno/cutover; [ \$rc = 0 ] &&
-	[ -L $KR/kpserver/current ] && [ -f $KJ/etc/jail.conf.d/kpserver.conf ] && [ -z \"\$(jexec kno jls name)\" ] && $old"
+	grep -q 'the build matches the record of katzenpost ${tag#v}' /tmp/b.log &&
+	jexec kno sh -c 'pkg add $pk/kno-0*.pkg $pk/kno-host-config-*.pkg' \
+	>/dev/null &&
+	jexec kno kno --version && ! jexec kno kno --version | grep -q v0.0.0 &&
+	jexec kno service cron onestop >/dev/null"
+vmstep STATE "for j in kpauthority kpserver; do \
+install -d -m 700 $ST/\$j && cp -p $NK/\$j/*.pem $ST/\$j/ || exit 1; done"
 
-say "the cutover: the old jails stop, their state is copied, the child jails start"
-vmstep CUTOVER "sh $HD/kno-host-cutover -c update-mixes mixbuilder >/tmp/cut.log 2>&1; rc=\$?; tail -8 /tmp/cut.log; [ \$rc = 0 ] && sleep 5 && $noold && $new &&
-	grep -q '^#.*update-mixes' /etc/crontab && ls /usr/local/etc/ezjail/ | grep -c norun | grep -qx 3 &&
-	$(same respectmy pq-katzenpost-authority identity.private.pem kpauthority) && $(same allmixedup pq-katzenpost-mixserver link.private.pem kpserver) &&
-	[ -f $KJ/usr/local/etc/cron.d/kno-update ] && [ ! -e /usr/local/etc/cron.d/kno-update ] && jexec kno service cron onestop >/dev/null"
-vmstep FIRST "$ku VERIFY_STUB=ok /usr/local/bin/kno update >/tmp/u1.log 2>&1; grep -E 'install|restart|pending|ERROR' /tmp/u1.log | tail -8; grep -q pending /tmp/u1.log && ! grep -q 'restart the jail' /tmp/u1.log"
-vmstep JAILS "$noold && $new && ! pkg info -e katzenpost && [ \"\$(readlink $KR/kpauthority/running)\" = \"\$(readlink $KR/kpauthority/current)\" ]"
+say "the first kno update installs the release and starts the child jails"
+vmstep FIRST "$ku VERIFY_STUB=ok /usr/local/bin/kno update \
+>/tmp/u1.log 2>&1; \
+grep -E 'install|start|pending|ERROR' /tmp/u1.log | tail -8; \
+grep -q pending /tmp/u1.log"
+vmstep JAILS "$new && ! pkg info -e katzenpost && \
+[ \"\$(readlink $KR/kpauthority/running)\" = \
+\"\$(readlink $KR/kpauthority/current)\" ]"
 vmstep LISTEN "$listen"
 vmstep READONLY "$readonly"
 vmstep ISOLATED "$isolated"
@@ -151,7 +163,7 @@ else
 	mark REPRO 1
 fi
 
-say "a reboot brings the jail kno and its children back, and ezjail leaves the old ones down"
+say "a reboot brings the jail kno and its children back"
 boot0=$(vm 'sysctl -n kern.boottime' 2>/dev/null)
 vm "(sleep 2; shutdown -r now) >/dev/null 2>&1 &"
 i=0
@@ -160,17 +172,14 @@ until b=$(vm 'sysctl -n kern.boottime' 2>/dev/null) && [ -n "$b" ] && [ "$b" != 
 	[ "$i" -lt 120 ] || break
 	sleep 5
 done
-vmstep REBOOT "sleep 20; $new && $noold && $listen"
-
-say "the way back to the old jails"
-vmstep BACK "sh $HD/kno-host-back mixbuilder >/tmp/back.log 2>&1; rc=\$?; tail -3 /tmp/back.log; [ \$rc = 0 ] && sleep 8 && $old &&
-	! jls -j kno >/dev/null 2>&1 && [ -f /usr/local/etc/ezjail/kno.norun ] && grep -q '^[^#].*update-mixes' /etc/crontab && jls -j mixbuilder >/dev/null"
-keys KEYS_BACK
+vmstep REBOOT "sleep 20; $new && $listen"
+keys KEYS_REBOOT
 "$V" stop
 
 rc=0
-for m in KEYS_START OLD_RUNS BUILD RECORD_KEYS CHECK SETUP KNO BUILD_IN_KNO PREPARE CUTOVER FIRST JAILS LISTEN READONLY ISOLATED CLIENT \
-	KEYS_FIRST PROMOTE REPRO REBOOT BACK KEYS_BACK; do
+for m in BUILD RECORD_KEYS CHECK SETUP KNO BUILD_IN_KNO STATE FIRST JAILS \
+	LISTEN READONLY ISOLATED CLIENT KEYS_FIRST PROMOTE REPRO REBOOT \
+	KEYS_REBOOT; do
 	if grep -q "^${m}_RC=0\$" "$log"; then echo "  $m: pass"; else echo "  $m: FAIL"; rc=1; fi
 done
 echo "transcript: $log"
