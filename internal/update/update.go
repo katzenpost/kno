@@ -258,19 +258,36 @@ func (s *session) tickSteady() (int, error) {
 
 func (s *session) tickPending() (int, error) {
 	kv, err := readKV(s.pending)
-	if err != nil {
-		return 0, s.st(s.state, "steady")
-	}
 	tag, prev := kv["tag"], kv["prev"]
 	deadline, derr := strconv.ParseInt(kv["deadline"], 10, 64)
 
-	if tag == "" || derr != nil {
-		s.l.Warnf("kno cannot read the verify window file (tag='%s', deadline='%s')."+
-			" kno ends the verify window and does not roll back", tag, kv["deadline"])
-		if err := s.st(s.state, "steady"); err != nil {
+	if err != nil || tag == "" || derr != nil {
+		cur := readLine(s.o.Env.CurrentFile)
+		if cur == "" {
+			s.l.Warnf("kno cannot read the verify window file %s, and no release"+
+				" is current. kno returns to steady", s.pending)
+			if err := s.st(s.state, "steady"); err != nil {
+				return 1, err
+			}
+			return 0, s.rmPending()
+		}
+		if prev = readLine(s.lkg); prev == "" {
+			prev = cur
+		}
+		now := s.now().Unix()
+		from := now + int64(promoteFloor()/time.Second)
+		tag, deadline = cur, s.now().Add(s.o.Window).Unix()
+		kv = map[string]string{"tag": tag, "prev": prev,
+			"activated":   strconv.FormatInt(now, 10),
+			"promote":     strconv.FormatInt(from, 10),
+			"deadline":    strconv.FormatInt(deadline, 10),
+			"configs":     readLine(configsFile(s.o.Env.StateDir)),
+			"prevconfigs": s.o.Runner.Configs()}
+		if err := s.writePending(kv); err != nil {
 			return 1, err
 		}
-		return 0, s.rmPending()
+		s.l.Warnf("kno cannot read the verify window file %s. kno opens a new"+
+			" verify window for %s until %s", s.pending, tag, clock(deadline))
 	}
 
 	rel := filepath.Join(s.o.Env.ReleasesDir, tag)

@@ -148,3 +148,17 @@ func TestDeploymentRecordsDoNotReachThePackages(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAMalformedRecordIsAnError(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "mixy.toml")
+	bad := []byte("host = \"mixy\"\n[succeeded\ntag = \"v0.0.104\"\n")
+	if err := os.WriteFile(p, bad, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := LoadFile(p, "mixy"); err == nil {
+		t.Errorf("malformed TOML loaded as %+v with no error", r)
+	}
+	if got, _ := os.ReadFile(p); string(got) != string(bad) {
+		t.Errorf("loading changed the file: %q", got)
+	}
+}

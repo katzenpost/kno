@@ -215,13 +215,23 @@ jobs:
         run: kno build --node respectmy
 
       - name: vm install
+        if: ${{ !env.ACT }}
         run: make freebsd-vmtest
 
       - name: jail install
+        if: ${{ !env.ACT }}
         run: make freebsd-jailtest
 
       - name: kno in the jails
+        if: ${{ !env.ACT }}
         run: make freebsd-knotest
+
+      - name: no kvm under act
+        if: ${{ env.ACT }}
+        run: |
+          echo "act runs this job as a user that cannot open /dev/kvm."
+          echo "On the host, run: make freebsd-vmtest freebsd-jailtest" \
+            "freebsd-knotest"
 
   gate:
     name: gate

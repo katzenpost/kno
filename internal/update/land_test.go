@@ -2,6 +2,7 @@ package update
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -97,5 +98,30 @@ func TestARecordThatDidNotLandLandsOnTheNextRun(t *testing.T) {
 	writeRecord(l, e, he, mixyHost(), "v0.0.107", nil, nil, r, false, false, false)
 	if headOf(t, repo) == head {
 		t.Errorf("kno did not commit the record again after a failed landing:\n%s", b.String())
+	}
+}
+
+func TestAMalformedRecordIsKeptAndReported(t *testing.T) {
+	repo := recordRepo(t)
+	e := track.Env{Repo: repo, Network: "namenlos"}
+	he := hostState(t, filepath.Join(t.TempDir(), "mixy"), map[string]string{
+		"state": "steady\n", "current": "v0.0.107\n",
+		"last-known-good": "v0.0.107\n"})
+	bad := "host = \"mixy\"\n[succeeded\n"
+	p := record.PendingPath(he.StateDir)
+	if err := os.WriteFile(p, []byte(bad), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var b bytes.Buffer
+	l := track.Logger{Tool: "update", W: &b}
+	r := &RemoteRunner{Env: he, Host: mixyHost(), SSH: fakeSSH(t, 0, ""),
+		Out: &b, Log: l}
+	writeRecord(l, e, he, mixyHost(), "v0.0.107", nil, nil, r,
+		false, false, false)
+	if got, _ := os.ReadFile(p + ".bad"); string(got) != bad {
+		t.Errorf("the malformed record is gone: %s.bad holds %q", p, got)
+	}
+	if !strings.Contains(b.String(), "cannot read the deployment record") {
+		t.Errorf("kno did not report the malformed record:\n%s", b.String())
 	}
 }

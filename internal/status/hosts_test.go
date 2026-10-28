@@ -292,6 +292,23 @@ func TestAPendingHostShowsWhatWasInstalled(t *testing.T) {
 	}
 }
 
+func TestAnUnreadableRecordIsNamed(t *testing.T) {
+	repo := t.TempDir()
+	dir := record.Dir(repo, "namenlos")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(dir, "reed.toml")
+	if err := os.WriteFile(p, []byte("[deployed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	e := track.Env{Repo: repo, Network: "namenlos"}
+	got := installedVersions(e, "reed")
+	if !strings.Contains(got, "cannot read the deployment record") {
+		t.Errorf("an unreadable record shows %q", got)
+	}
+}
+
 func TestEachHostGetsOneMarkForItsState(t *testing.T) {
 	dir := t.TempDir()
 	e := track.Env{StateDir: dir}

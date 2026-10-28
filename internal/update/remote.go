@@ -890,6 +890,7 @@ func writeRecord(l track.Logger, e, he track.Env, h remoteHost, target string,
 			l.Logf("%s: now %s", h.Label, changed)
 		}
 	}
+	keepBadRecord(l, e, he, h.Label)
 	rec := recordFor(e, he, h, target, before, after, thisMachine())
 	wrote, err := persistRecord(e, he, rec, final)
 	if err != nil {
