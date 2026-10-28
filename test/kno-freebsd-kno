@@ -72,6 +72,9 @@ ka='lo42|10.42.0.14'
 nodes="'lo42|10.42.0.13' 'lo42|2a01:4f9:3100:4b60:1013::1'"
 nodes="$nodes 'lo42|10.42.0.10' 'lo42|2a01:4f9:3100:4b60:1010::1'"
 HD=/root/kno-host
+EZ=/usr/local/etc/ezjail
+handed="[ -f /etc/jail.conf.d/kno.conf ] && [ -f $EZ/kno.norun ] &&
+	[ ! -f $EZ/kno ]"
 
 say "a FreeBSD host with ezjail and the node keys, and no kno yet"
 "$V" stop >/dev/null 2>&1 || true
@@ -119,7 +122,20 @@ rc=\$?; tail -3 /tmp/setup.log; [ \$rc = 0 ] &&
 	jls -j kno -n devfs_ruleset | grep -qx devfs_ruleset=4 && jls -j kno -n enforce_statfs | grep -qx enforce_statfs=1 &&
 	jls -j kno -n children.max | grep -qx children.max=8 &&
 	jls -j kno -n ip4.addr | grep -q 10.42.0.13 &&
-	jexec kno sh -c 'command -v go && command -v git' >/dev/null && ! pkg info -e kno"
+	jexec kno sh -c 'command -v go && command -v git' >/dev/null &&
+	! pkg info -e kno &&
+	! grep -q 'jail_\* variables' /tmp/setup.log && $handed"
+
+say "a jail kno that ezjail starts goes to rc.d/jail"
+vmstep HANDOVER "service jail stop kno >/dev/null &&
+	rm /etc/jail.conf.d/kno.conf &&
+	sysrc jail_list-=kno >/dev/null && ezjail-admin config -r run kno &&
+	ezjail-admin start kno >/dev/null 2>&1 && jls -j kno >/dev/null &&
+	sh $HD/kno-host-setup '$ka' $nodes >/tmp/hand.log 2>&1; rc=\$?;
+	grep -v ^name= /tmp/hand.log | head -4; [ \$rc = 0 ] &&
+	! grep -q 'jail_\* variables' /tmp/hand.log && $handed &&
+	jls -j kno -n children.max | grep -qx children.max=8 &&
+	jls -j kno -n ip4.addr | grep -q 10.42.0.13"
 
 say "the jail kno builds the release, and the node keys go to its state"
 ship
@@ -165,6 +181,8 @@ fi
 
 say "a reboot brings the jail kno and its children back"
 boot0=$(vm 'sysctl -n kern.boottime' 2>/dev/null)
+con=/var/tmp/kno-fbsd-vm/console.log
+lines=$(wc -l <"$con")
 vm "(sleep 2; shutdown -r now) >/dev/null 2>&1 &"
 i=0
 until b=$(vm 'sysctl -n kern.boottime' 2>/dev/null) && [ -n "$b" ] && [ "$b" != "$boot0" ]; do
@@ -173,13 +191,19 @@ until b=$(vm 'sysctl -n kern.boottime' 2>/dev/null) && [ -n "$b" ] && [ "$b" != 
 	sleep 5
 done
 vmstep REBOOT "sleep 20; $new && $listen"
+if tail -n +"$lines" "$con" | grep -q 'Starting jails: kno' &&
+	! tail -n +"$lines" "$con" | grep -q 'jail_\* variables'; then
+	mark BOOT_CONSOLE 0
+else
+	mark BOOT_CONSOLE 1
+fi
 keys KEYS_REBOOT
 "$V" stop
 
 rc=0
-for m in BUILD RECORD_KEYS CHECK SETUP KNO BUILD_IN_KNO STATE FIRST JAILS \
-	LISTEN READONLY ISOLATED CLIENT KEYS_FIRST PROMOTE REPRO REBOOT \
-	KEYS_REBOOT; do
+for m in BUILD RECORD_KEYS CHECK SETUP HANDOVER KNO BUILD_IN_KNO STATE \
+	FIRST JAILS LISTEN READONLY ISOLATED CLIENT KEYS_FIRST PROMOTE REPRO \
+	REBOOT BOOT_CONSOLE KEYS_REBOOT; do
 	if grep -q "^${m}_RC=0\$" "$log"; then echo "  $m: pass"; else echo "  $m: FAIL"; rc=1; fi
 done
 echo "transcript: $log"

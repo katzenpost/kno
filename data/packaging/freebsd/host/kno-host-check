@@ -36,7 +36,14 @@ done
 if devfs rule -s 4 show 2>/dev/null | grep -q .; then ok "devfs ruleset 4 is loaded"; else bad "devfs ruleset 4 is not loaded"; fi
 
 if command -v ezjail-admin >/dev/null; then ok "ezjail $(pkg query %v ezjail 2>/dev/null)"; else bad "no ezjail-admin"; fi
-if [ -e "$E/kno" ] || [ -e "$E/kno.norun" ]; then warn "the ezjail kno exists"; else ok "no ezjail kno yet"; fi
+if [ -e "$E/kno" ]; then
+	warn "ezjail starts the jail kno:" \
+		"kno-host-setup hands it to rc.d/jail"
+elif [ -e /etc/jail.conf.d/kno.conf ]; then
+	ok "rc.d/jail starts the jail kno from /etc/jail.conf.d/kno.conf"
+else
+	ok "no jail kno yet"
+fi
 if pkg info -e kno; then warn "kno is installed on the host"; fi
 
 for f in "$E"/*; do
@@ -49,6 +56,11 @@ for f in "$E"/*; do
 	jls -j "$n" >/dev/null 2>&1 && run=running
 	boot=yes
 	[ "$f" = "$E/$n.norun" ] && boot=no
+	case " $(sysrc -n jail_list 2>/dev/null) " in
+	*" $n "*)
+		[ -f "/etc/jail.conf.d/$n.conf" ] && boot="yes, by rc.d/jail"
+		;;
+	esac
 	echo "jail  $n: $run, starts at boot: $boot, root $root, addresses $ip"
 	if [ "$run" = running ]; then
 		pgrep -lf -j "$n" 'katzenpost|kpdirauth|kpserver|/server|dirauth' 2>/dev/null | sed 's/^/        process /'
@@ -63,7 +75,7 @@ for f in "$E"/*; do
 done
 if [ -n "$addr" ]; then
 	a=${addr#*|}
-	if [ -f "$E/kno" ] && grep -qw "$a" "$E/kno"; then
+	if grep -qsw "$a" "$E/kno" "$E/kno.norun"; then
 		ok "the jail kno has $a"
 	elif ifconfig | grep -qw "inet6\{0,1\} $a" || grep -qsw "$a" "$E"/*; then
 		bad "$a is in use: choose a free address for the jail kno"
