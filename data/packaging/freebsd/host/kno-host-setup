@@ -19,8 +19,10 @@ for m in nullfs tmpfs; do
 	*) sysrc kld_list+=" $m" >/dev/null ;;
 	esac
 done
-[ -f "$E/kno.norun" ] && ezjail-admin config -r run kno
-if [ ! -f "$E/kno" ]; then
+C=/etc/jail.conf.d/kno.conf
+f=$E/kno
+[ -f "$E/kno.norun" ] && f=$E/kno.norun
+if [ ! -f "$f" ]; then
 	a=${addr#*|}
 	if ifconfig | grep -qw "inet6\{0,1\} $a" || grep -qsw "$a" "$E"/*; then
 		echo "kno-host-setup: $a is in use; choose a free address" >&2
@@ -29,31 +31,81 @@ if [ ! -f "$E/kno" ]; then
 	echo "create the ezjail kno on $addr"
 	ezjail-admin create kno "$addr" >/var/log/kno-host-setup.log 2>&1
 fi
-old=$(var "$E/kno" kno parameters)
+old=$(var "$f" kno parameters)
 want=$params
 for p in $old; do
 	case $p in children.max=*) want="$p ${params#children.max=8 }" ;; esac
 done
-changed=""
-if [ "$#" -gt 0 ] && [ "$(var "$E/kno" kno ip)" != "$ips" ]; then
+if [ "$#" -gt 0 ] && [ "$(var "$f" kno ip)" != "$ips" ]; then
 	echo "set the addresses of the jail kno: $ips"
-	sed -i '' "s#^export jail_kno_ip=.*#export jail_kno_ip=\"$ips\"#" "$E/kno"
-	changed=1
+	sed -i '' "s#^export jail_kno_ip=.*#export jail_kno_ip=\"$ips\"#" "$f"
 fi
 if [ "$old" != "$want" ]; then
 	echo "set the parameters of the jail kno: $want"
-	if grep -q '^export jail_kno_parameters=' "$E/kno"; then
-		sed -i '' "s|^export jail_kno_parameters=.*|export jail_kno_parameters=\"$want\"|" "$E/kno"
+	if grep -q '^export jail_kno_parameters=' "$f"; then
+		sed -i '' "s|^export jail_kno_parameters=.*|export \
+jail_kno_parameters=\"$want\"|" "$f"
 	else
-		echo "export jail_kno_parameters=\"$want\"" >>"$E/kno"
+		echo "export jail_kno_parameters=\"$want\"" >>"$f"
 	fi
+fi
+
+conf() {
+	q() { printf '"%s"' "$1"; }
+	v4="" v6=""
+	IFS=,
+	for a in $(var "$f" kno ip); do
+		case ${a#*|} in
+		*:*) v6="${v6:+$v6, }$(q "$a")" ;;
+		*) v4="${v4:+$v4, }$(q "$a")" ;;
+		esac
+	done
+	unset IFS
+	echo "kno {"
+	echo "	host.hostname = $(q "$(var "$f" kno hostname)");"
+	echo "	path = $(q "$(var "$f" kno rootdir)");"
+	[ -n "$v4" ] && echo "	ip4.addr = $v4;"
+	[ -n "$v6" ] && echo "	ip6.addr = $v6;"
+	echo "	mount.fstab = \"/etc/fstab.kno\";"
+	for m in devfs procfs fdescfs; do
+		[ "$(var "$f" kno "${m}_enable")" = YES ] && echo "	mount.$m;"
+	done
+	for p in $(var "$f" kno parameters); do
+		case $p in
+		*=*) echo "	${p%%=*} = ${p#*=};" ;;
+		*) echo "	$p;" ;;
+		esac
+	done
+	echo "	exec.clean;"
+	echo "	exec.start = $(q "$(var "$f" kno exec_start)");"
+	echo "	exec.stop = $(q "$(var "$f" kno exec_stop)");"
+	echo "}"
+}
+changed=""
+mkdir -p "${C%/*}"
+conf >"$C.new"
+if cmp -s "$C.new" "$C"; then
+	rm "$C.new"
+else
+	echo "write $C"
+	mv "$C.new" "$C"
 	changed=1
 fi
+if [ "$f" = "$E/kno" ]; then
+	echo "rc.d/jail starts the jail kno from $C, not ezjail"
+	jls -j kno >/dev/null 2>&1 && ezjail-admin stop kno >/dev/null
+	ezjail-admin config -r norun kno
+fi
+sysrc jail_enable=YES >/dev/null
+case " $(sysrc -n jail_list 2>/dev/null) " in
+*" kno "*) ;;
+*) sysrc jail_list+=" kno" >/dev/null ;;
+esac
 cp /etc/resolv.conf "$J/kno/etc/resolv.conf"
 if ! jls -j kno >/dev/null 2>&1; then
-	ezjail-admin start kno
+	service jail start kno
 elif [ -n "$changed" ]; then
-	ezjail-admin restart kno
+	service jail restart kno
 fi
 jexec kno env ASSUME_ALWAYS_YES=yes pkg install -y go git >/dev/null
 jls -j kno -n name ip4.addr allow.mount.devfs devfs_ruleset enforce_statfs
