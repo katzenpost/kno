@@ -1,0 +1,5 @@
+#!/bin/sh
+if { [ -r /dev/kvm ] && [ -w /dev/kvm ]; } || ! sudo -n true 2>/dev/null; then
+	exec qemu-system-x86_64 "$@"
+fi
+exec sudo -n qemu-system-x86_64 -runas "$(id -un)" "$@"

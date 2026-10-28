@@ -5,7 +5,7 @@ set pkgurl [lindex $argv 1]
 set vars   [lindex $argv 2]
 set ovmf   [lindex $argv 3]
 
-spawn qemu-system-x86_64 -enable-kvm -m 2560 -smp 2 \
+spawn [file dirname [info script]]/kno-qemu -enable-kvm -m 2560 -smp 2 \
     -drive if=pflash,format=raw,unit=0,readonly=on,file=$ovmf \
     -drive if=pflash,format=raw,unit=1,file=$vars \
     -drive file=$disk,if=virtio -snapshot \

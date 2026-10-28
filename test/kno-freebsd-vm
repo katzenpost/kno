@@ -68,7 +68,8 @@ agentcheck() {
 boot() {
 	running && { echo "the VM already runs (pid $(cat "$S/qemu.pid"))" >&2; exit 1; }
 	: >"$S/console.log"
-	qemu-system-x86_64 -enable-kvm -cpu host -m "$mem" -smp "$smp" \
+	: >"$S/qemu.pid"
+	"$SELF/kno-qemu" -enable-kvm -cpu host -m "$mem" -smp "$smp" \
 		-drive "if=pflash,format=raw,unit=0,readonly=on,file=$ovmf" \
 		-drive "if=pflash,format=raw,unit=1,file=$2" \
 		-drive "file=$1,if=virtio,format=qcow2" \
