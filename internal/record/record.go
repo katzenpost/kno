@@ -2,6 +2,7 @@ package record
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -118,10 +119,12 @@ func LoadFile(path, host string) (Record, error) {
 		return r, err
 	}
 	if err := toml.Unmarshal(b, &r); err != nil {
-		return Record{Host: host}, nil
+		return Record{Host: host}, fmt.Errorf("%s: %w: %v", path, ErrMalformed, err)
 	}
 	return r, nil
 }
+
+var ErrMalformed = errors.New("not valid TOML")
 
 func Write(repo, network string, r Record) (bool, error) {
 	return WriteFile(Path(repo, network, r.Host), r)

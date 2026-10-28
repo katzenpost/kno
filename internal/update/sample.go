@@ -1,6 +1,7 @@
 package update
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -116,6 +117,22 @@ func verdictOf(code *int) string {
 		return "this host could not ask"
 	}
 	return "not yet"
+}
+
+func keepBadRecord(l track.Logger, e, he track.Env, label string) {
+	_, err := record.LoadPending(he.StateDir, e.Repo, e.Network, label)
+	if !errors.Is(err, record.ErrMalformed) {
+		return
+	}
+	if p := record.PendingPath(he.StateDir); he.StateDir != "" {
+		if os.Rename(p, p+".bad") == nil {
+			l.Warnf("kno cannot read the deployment record (%v). kno keeps"+
+				" it as %s.bad and starts a new record", err, p)
+			return
+		}
+	}
+	l.Warnf("kno cannot read the deployment record (%v). kno starts a"+
+		" new record, and git keeps the earlier one", err)
 }
 
 func recordFor(e track.Env, he track.Env, h remoteHost, target string,

@@ -17,7 +17,7 @@ func TestACorruptPendingFileDecidesNothing(t *testing.T) {
 
 		write(t, filepath.Join(e.StateDir, "last-known-good"), "v0.0.1\n")
 
-		f := &fake{verifyRC: []int{2}}
+		f := &fake{verifyRC: []int{0}}
 		var out strings.Builder
 		Run(opts(e, f, &out))
 

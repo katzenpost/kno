@@ -186,7 +186,8 @@ func SecretKeyIn(pkgPath string) (string, error) {
 			return "", fmt.Errorf("%s: tar: %w", pkgPath, err)
 		}
 
-		if fsutil.IsSecretKey(path.Base(h.Name)) {
+		if fsutil.IsSecretKey(path.Base(h.Name)) ||
+			h.Typeflag == tar.TypeReg && fsutil.HasSecretContent(tr) {
 			return h.Name, nil
 		}
 	}

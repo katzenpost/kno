@@ -2,6 +2,7 @@ package status
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -673,7 +674,7 @@ func hostLine(e track.Env, l, target string, delivered map[string]bool) (mark, d
 				" verify. kno update installs them again only after a commit changes them."+
 				" kno doctor --host %s says why", target, strings.Join(svcs, " "), l)
 		}
-		if smp, _ := installedSample(e, l); smp != nil {
+		if smp, _, _ := installedSample(e, l); smp != nil {
 			have, want := smp.Packages["kno"], push.KnoVersionFor(e.Repo, target)
 			if have != "" && want != "" && deb.CompareVersions(have, want) < 0 {
 				return "UPDATE", "has " + target + "; kno update installs kno " + want
@@ -743,10 +744,11 @@ func verdictText(code string) string {
 	return "exit " + code
 }
 
-func installedSample(e track.Env, label string) (*record.Sample, string) {
+func installedSample(e track.Env, label string) (
+	*record.Sample, string, error) {
 	rec, err := record.LoadPending(hostStateDir(e, label), e.Repo, e.Network, label)
 	if err != nil {
-		return nil, ""
+		return nil, "", err
 	}
 	s := rec.Deployed
 	note := ""
@@ -756,11 +758,14 @@ func installedSample(e track.Env, label string) (*record.Sample, string) {
 	if s == nil {
 		s, note = rec.Observed, "  (seen before the last install)"
 	}
-	return s, note
+	return s, note, nil
 }
 
 func installedVersions(e track.Env, label string) string {
-	s, note := installedSample(e, label)
+	s, note, err := installedSample(e, label)
+	if errors.Is(err, record.ErrMalformed) {
+		return fmt.Sprintf("kno cannot read the deployment record (%v)", err)
+	}
 	if s == nil || len(s.Packages) == 0 {
 		return ""
 	}
