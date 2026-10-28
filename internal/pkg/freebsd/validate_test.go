@@ -306,3 +306,28 @@ func TestAConfigPackageKeepsItsVersionWhileItsContentIsTheSame(t *testing.T) {
 		t.Error("a changed config has the content ID of the old one")
 	}
 }
+
+func TestAKeyUnderAPlainNameIsFound(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "root")
+	d := filepath.Join(root, "usr/local/etc")
+	if err := os.MkdirAll(d, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	key := "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n"
+	err := os.WriteFile(filepath.Join(d, "config.dat"), []byte(key), 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := writePkg(root, t.TempDir(), Meta{Name: "x", Version: "1",
+		Origin: "net/x", Comment: "x", Www: "https://x", Desc: "x"}, 1600000000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found, err := SecretKeyIn(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found == "" {
+		t.Error("a private key named config.dat passed the install check")
+	}
+}
