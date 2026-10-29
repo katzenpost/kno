@@ -5,7 +5,7 @@ default_os = "debian-13"
   allmixedup = "amd64"
   annares = "ppc64el"
   cryptonymity = "amd64"
-  gnunet = "amd64"
+  firefly = "amd64"
   haywood = "amd64"
   lilly = "amd64"
   luscus = "amd64"
@@ -14,6 +14,7 @@ default_os = "debian-13"
   oneeyedman = "arm64"
   reed = "amd64"
   respectmy = "amd64"
+  tortuna = "amd64"
   wauland = "amd64"
   wauland2 = "amd64"
   windfall = "amd64"
@@ -23,7 +24,7 @@ default_os = "debian-13"
 [os]
   allmixedup = "freebsd-14.5"
   annares = "ubuntu-26.04"
-  gnunet = "debian-13"
+  firefly = "debian-13"
   haywood = "ubuntu-24.04"
   lilly = "ubuntu-24.04"
   luscus = "debian-13"
@@ -32,6 +33,7 @@ default_os = "debian-13"
   oneeyedman = "debian-13"
   reed = "ubuntu-24.04"
   respectmy = "freebsd-14.5"
+  tortuna = "debian-13"
   windfall = "debian-13"
   windfallgw = "debian-13"
   windfallservice = "debian-13"
@@ -44,7 +46,7 @@ default_os = "debian-13"
   [operators.cryptonymity]
     nodes = ["cryptonymity", "wauland", "wauland2"]
   [operators.gnunet]
-    nodes = ["gnunet"]
+    nodes = ["firefly", "tortuna"]
   [operators.luscus]
     nodes = ["luscus", "oneeyedman"]
   [operators.omelas]
@@ -59,6 +61,10 @@ default_os = "debian-13"
 
   [[lan.group]]
     nodes = ["luscus", "oneeyedman"]
+
+[placement]
+  gnunet-pq-authority = "tortuna"
+  gnunet-pq-gatewaynode = "firefly"
 
 [identity]
   allmixedup-pq-gatewaynode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nNS5KsQ1YX1MRoRv+kBJnGT0O625ijNSp36vw/4u7tvgb/JAGrv1AWvELKJh4gGnW\nPv8kwhxSbAB+BWQHQCyJ6IW56axDQQGIS168ddtNELje0BYkXbA4Hy0phi6UfCqK\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
