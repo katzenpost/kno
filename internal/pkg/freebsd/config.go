@@ -82,11 +82,7 @@ func PackageConfig(rel, tag, rev, svc string, s Svc, repo, abi string, version f
 	}
 	kp := Version(deb.Version(tag, rev) + s.BinaryStamp)
 	post := postInstall(s.StateDir)
-	stamp := s.Stamp
-	if s.BinaryStamp > stamp {
-		stamp = s.BinaryStamp
-	}
-	ver := Version(deb.Version(tag, rev) + stamp)
+	ver := Version(deb.Version(tag, rev) + s.Stamp)
 	if version != nil {
 		id, err := deb.RootContentID(root)
 		if err != nil {

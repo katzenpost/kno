@@ -878,7 +878,7 @@ func freebsdConfigPkgs(o Options, rel, abi string, ids *contentIDs) ([]string, e
 		if rs.Backend != "freebsd-ezjail" {
 			continue
 		}
-		s := freebsd.SvcOf(rs, deb.ConfigStamp(o.Repo, o.Network, svc))
+		s := freebsd.SvcOf(rs, deb.ConfigStamp(o.Repo, o.Network, svc, "client"))
 		s.BinaryStamp = deb.ConfigStamp(o.Repo, o.Network, "client")
 		cp, err := freebsd.PackageConfig(rel, o.Tag, o.Revision, svc, s, o.Repo, abi, version(svc))
 		if err != nil {

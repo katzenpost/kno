@@ -9,7 +9,7 @@ set minkb    [lindex $argv 5]
 set smp [expr {[info exists ::env(KNO_VMTEST_SMP)] ? $::env(KNO_VMTEST_SMP) : 4}]
 set mem [expr {[info exists ::env(KNO_VMTEST_MEM)] ? $::env(KNO_VMTEST_MEM) : 4096}]
 
-spawn qemu-system-x86_64 -enable-kvm -m $mem -smp $smp \
+spawn [file dirname [info script]]/kno-qemu -enable-kvm -m $mem -smp $smp \
     -drive if=pflash,format=raw,unit=0,readonly=on,file=$ovmf \
     -drive if=pflash,format=raw,unit=1,file=$vars \
     -drive file=$disk,if=virtio,format=qcow2 \
