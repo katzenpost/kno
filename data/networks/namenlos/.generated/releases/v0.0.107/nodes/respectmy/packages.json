@@ -4,11 +4,11 @@
   "written": "2026-10-20T07:12:37Z",
   "packages": [
     {
-      "name": "namenlos-config-respectmy-pq-authority-0.0.107.20261023180000.g7f835bb.pkg",
-      "version": "0.0.107.20261023180000.g7f835bb",
-      "sha256": "cd0fdb750bfad0f982d2b83c940eda2e3538415eaec01d3dc808da42ad5da4b8",
-      "bytes": 13773,
-      "content": "f57071702b1ff26d695abbf7e5ed5768"
+      "name": "namenlos-config-respectmy-pq-authority-0.0.107.20261029214512.pkg",
+      "version": "0.0.107.20261029214512",
+      "sha256": "56a41241f58259e50ed03b9842b1185bb6fc25038fc1f293186e905d4fc494f0",
+      "bytes": 13581,
+      "content": "4e137545f09c1d51f0cfbb72bae0bbd9"
     }
   ]
 }

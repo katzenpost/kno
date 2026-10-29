@@ -4,12 +4,12 @@
   "written": "2026-10-20T07:12:37Z",
   "packages": [
     {
-      "name": "namenlos-config-oneeyedman-pq-mixserver_0.0.107-1+20260908113702.g3d6b2ff_arm64.deb",
+      "name": "namenlos-config-oneeyedman-pq-mixserver_0.0.107-1+20261029214512.gbd368cf_arm64.deb",
       "arch": "arm64",
-      "version": "0.0.107-1+20260908113702.g3d6b2ff",
-      "sha256": "dc21f75238346990c8b7afff2f83569a49dfd369097f7d49b4bdbcbd20615db8",
-      "bytes": 13840,
-      "content": "0acbbd0649d4d7104af9db2c4a03cc59",
+      "version": "0.0.107-1+20261029214512.gbd368cf",
+      "sha256": "79099e191069265d793c7764ece9fae1c491f0227a887902351590bb5f999660",
+      "bytes": 13700,
+      "content": "1317b4323891e86b958aa0f7de53c566",
       "scripts": [
         "postinst",
         "preinst",

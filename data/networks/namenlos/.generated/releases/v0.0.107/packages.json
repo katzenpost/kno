@@ -12,23 +12,38 @@
     "go_version": "1.26.10",
     "build_image": "docker.io/library/golang@sha256:ee3901c61e423732605a51f1b8157c849ec01194ea0a274213b5202b2c11e7bf",
     "deb_image": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
-    "tool": "0.0.107-1+20261027143247.ge814082"
+    "tool": "(devel)"
   },
   "packages": [
     {
-      "name": "katzenpost-0.0.107-debian13-amd64.tar.gz",
-      "sha256": "772d3a308862ecb4ce4211434d1dfdbc3d234ea6e6502ab9fc0608557c99c4d5",
-      "bytes": 115915162
+      "name": "katzenpost-0.0.107+20261029214512.gbd368cf-debian13-amd64.tar.gz",
+      "sha256": "6fd0fcdcf95ebeedc263aeb15e8f3c1888dd8aa359a8aef6b9da58e8286695be",
+      "bytes": 115917894
     },
     {
-      "name": "katzenpost-0.0.107-debian13-arm64.tar.gz",
-      "sha256": "715a070d51112a57849101d028eeba74ffd727ddf1fc60f88760fba0889d7023",
-      "bytes": 96278568
+      "name": "katzenpost-0.0.107+20261029214512.gbd368cf-debian13-arm64.tar.gz",
+      "sha256": "a0f130e27c642358cce00e93c2e92c24b4f8061dfe22bacb0f204e3c488c3b6f",
+      "bytes": 96281239
     },
     {
-      "name": "katzenpost-0.0.107-freebsd-amd64.tar.gz",
-      "sha256": "dfe015348246e2f0eaac5df42e05daca86a9f14bb9dc41c079739392ebc2e608",
-      "bytes": 99790709
+      "name": "katzenpost-0.0.107+20261029214512.gbd368cf-freebsd-amd64.tar.gz",
+      "sha256": "fd7074876f2ac2697fc9cd294e427fe1928bd2809d02e0c08ebc880e98448577",
+      "bytes": 99790315
+    },
+    {
+      "name": "katzenpost-0.0.107+20261029214512.gbd368cf-ubuntu24.04-amd64.tar.gz",
+      "sha256": "424ef49767d03236862d4fc082d624dd86f25ff5faa770e3a1a51afa0bff6d9e",
+      "bytes": 118075613
+    },
+    {
+      "name": "katzenpost-0.0.107+20261029214512.gbd368cf-ubuntu25.04-amd64.tar.gz",
+      "sha256": "e0aad8d4fd4c437786da15eff537f5432de641346a7dc0fbfd64971d5fc125e8",
+      "bytes": 116020833
+    },
+    {
+      "name": "katzenpost-0.0.107+20261029214512.gbd368cf-ubuntu26.04-ppc64el.tar.gz",
+      "sha256": "188cc9d69fadd8b3afa59b7c1ae5188765b8257f6bf43c20437d928a6fe04527",
+      "bytes": 107936532
     },
     {
       "name": "katzenpost-0.0.107-hpqc-src.tar.gz",
@@ -41,25 +56,10 @@
       "bytes": 2911313
     },
     {
-      "name": "katzenpost-0.0.107-ubuntu24.04-amd64.tar.gz",
-      "sha256": "cbbd7d2f058e2a6274f1ceeba043c2862fe6e92a7e18c56169dd78afee13e55b",
-      "bytes": 118069952
-    },
-    {
-      "name": "katzenpost-0.0.107-ubuntu25.04-amd64.tar.gz",
-      "sha256": "ca269cb9abe77be0dea1c55639ae9b9ca781d657f6d4430f1a786e45f40f70a7",
-      "bytes": 116021451
-    },
-    {
-      "name": "katzenpost-0.0.107-ubuntu26.04-ppc64el.tar.gz",
-      "sha256": "82a08928a008a8d1a3f2bb0ecb293f30e3ee896f39ed32686f42882823eba0c2",
-      "bytes": 107941326
-    },
-    {
-      "name": "katzenpost-0.0.107.pkg",
-      "version": "0.0.107",
-      "sha256": "93a37383954b0fff9ab042176cc82a9fedf4d4359969496640d380031be5c4cf",
-      "bytes": 92422672
+      "name": "katzenpost-0.0.107.20261029214512.pkg",
+      "version": "0.0.107.20261029214512",
+      "sha256": "fbdf5f306afbd81614ab5d01c8b8d4758d0ef5a200c1dbf24f9d00df550868eb",
+      "bytes": 92423622
     },
     {
       "name": "katzenpost_0.0.107+debian13_amd64.deb",
@@ -67,7 +67,6 @@
       "version": "0.0.107",
       "sha256": "445f8405bbcc9eedd1a14a8c055cbee7b1827dfffabcd40a0ec2326171646d8a",
       "bytes": 83796944,
-      "content": "445f8405bbcc9eedd1a14a8c055cbee7b1827dfffabcd40a0ec2326171646d8a",
       "scripts": [
         "postinst",
         "postrm",
@@ -80,7 +79,6 @@
       "version": "0.0.107",
       "sha256": "73f4ba264f4859858f437c13aae925d546fe024359b948773d644f6569bad035",
       "bytes": 64803500,
-      "content": "73f4ba264f4859858f437c13aae925d546fe024359b948773d644f6569bad035",
       "scripts": [
         "postinst",
         "postrm",
@@ -93,7 +91,6 @@
       "version": "0.0.107",
       "sha256": "baf989899e8cc5685fa165a3f5b02eb3c7ff01e3f6d85f9e9b2acc1668b13286",
       "bytes": 92288302,
-      "content": "baf989899e8cc5685fa165a3f5b02eb3c7ff01e3f6d85f9e9b2acc1668b13286",
       "scripts": [
         "postinst",
         "postrm",
@@ -106,7 +103,6 @@
       "version": "0.0.107",
       "sha256": "6ee6a3b6cdaba68ba69b6caca69b30c71509e51c55bd633cd1593b872689ab36",
       "bytes": 90744920,
-      "content": "6ee6a3b6cdaba68ba69b6caca69b30c71509e51c55bd633cd1593b872689ab36",
       "scripts": [
         "postinst",
         "postrm",
@@ -119,7 +115,6 @@
       "version": "0.0.107",
       "sha256": "4c6c0b765ed12c799f3fc4e72efc50ddd15ebf19084e83b40a7f2d4e3a014745",
       "bytes": 82300114,
-      "content": "4c6c0b765ed12c799f3fc4e72efc50ddd15ebf19084e83b40a7f2d4e3a014745",
       "scripts": [
         "postinst",
         "postrm",

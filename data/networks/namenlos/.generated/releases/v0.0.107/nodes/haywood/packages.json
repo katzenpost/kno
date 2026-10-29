@@ -4,12 +4,12 @@
   "written": "2026-10-20T07:12:37Z",
   "packages": [
     {
-      "name": "namenlos-config-haywood-pq-gatewaynode_0.0.107-1+20260908113702.g3d6b2ff_amd64.deb",
+      "name": "namenlos-config-haywood-pq-gatewaynode_0.0.107-1+20261029214512.gbd368cf_amd64.deb",
       "arch": "amd64",
-      "version": "0.0.107-1+20260908113702.g3d6b2ff",
-      "sha256": "2bbf24a8af85fde8d681b8924dbcabed7a40df191341b9fc639fbc8c7761790f",
-      "bytes": 13904,
-      "content": "12d34ccadb5182499825ae669fbbfb5c",
+      "version": "0.0.107-1+20261029214512.gbd368cf",
+      "sha256": "464d17084448d784ca8f4dfffce9e976b81aae0f8ab18ed14f7b787a6c9177a3",
+      "bytes": 13772,
+      "content": "30d6ed907de400f22f7eb431c36107cc",
       "scripts": [
         "postinst",
         "preinst",
