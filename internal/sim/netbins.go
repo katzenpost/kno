@@ -35,7 +35,7 @@ func (r *run) daemonsOf() ([]daemon, error) {
 	}
 	out := make([]daemon, 0, len(svcs))
 	for _, s := range svcs {
-		node := nodeOf(s)
+		node := r.serviceNode(s)
 		out = append(out, daemon{Base: s,
 			Arch: config.NodeArch(r.Repo, r.Network, node),
 			OS:   r.containerOS(node)})

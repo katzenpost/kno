@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
 )
@@ -18,6 +19,10 @@ const (
 )
 
 func NodeOfPackage(name string) string {
+	return packageNode("", "", name)
+}
+
+func packageNode(repo, network, name string) string {
 	svc, ok := configPkgService(name)
 	if !ok {
 		stem, isPkg := freebsd.SplitPkgName(name)
@@ -26,7 +31,7 @@ func NodeOfPackage(name string) string {
 			return ""
 		}
 	}
-	node, _, ok := strings.Cut(svc, "-pq-")
+	node, ok := config.ServiceNode(repo, network, svc)
 	if !ok {
 		return ""
 	}
@@ -95,10 +100,10 @@ func committedEntries(repo, network, tag, kind string) ([]PackageSum, error) {
 	return entries, nil
 }
 
-func splitByNode(pkgs []PackageSum) (top []PackageSum, nodes map[string][]PackageSum) {
+func splitByNode(repo, network string, pkgs []PackageSum) (top []PackageSum, nodes map[string][]PackageSum) {
 	nodes = map[string][]PackageSum{}
 	for _, p := range pkgs {
-		if n := NodeOfPackage(p.Name); n != "" {
+		if n := packageNode(repo, network, p.Name); n != "" {
 			nodes[n] = append(nodes[n], p)
 			continue
 		}

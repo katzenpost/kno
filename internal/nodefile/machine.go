@@ -13,10 +13,11 @@ import (
 const MachinesDir = "machines"
 
 type Machine struct {
-	Operator string `toml:"operator"`
-	Arch     string `toml:"arch"`
-	OS       string `toml:"os"`
-	LAN      string `toml:"lan"`
+	Operator string   `toml:"operator"`
+	Services []string `toml:"services"`
+	Arch     string   `toml:"arch"`
+	OS       string   `toml:"os"`
+	LAN      string   `toml:"lan"`
 }
 
 func Machines(editable string) (map[string]Machine, error) {
@@ -41,7 +42,7 @@ func Machines(editable string) (map[string]Machine, error) {
 		}
 		if extra := md.Undecoded(); len(extra) > 0 {
 			return nil, fmt.Errorf("%s/%s: unknown key %s. A machine file has operator,"+
-				" arch, os and lan", MachinesDir, e.Name(), extra[0])
+				" arch, os, lan and services", MachinesDir, e.Name(), extra[0])
 		}
 		out[name] = m
 	}

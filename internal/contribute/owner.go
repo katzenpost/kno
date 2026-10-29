@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/knopath"
-	"github.com/katzenpost/kno/internal/nodefile"
 )
 
 var sharedFiles = map[string]bool{
@@ -106,7 +106,7 @@ func Owners(repo, network string) map[string]string {
 			continue
 		}
 		name, cfg, key := scanNode(string(b))
-		node, ok := nodefile.NodeOf(cfg)
+		node, ok := config.ServiceNode(repo, network, cfg)
 		if !ok {
 			continue
 		}

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/knopath"
 
 	"github.com/katzenpost/kno/internal/fsutil"
@@ -66,7 +67,8 @@ func Stage(repo, network, relDir string, svcs []string, localPeers map[string]st
 		for k, v := range localPeers {
 			pmap[k] = v
 		}
-		for k, v := range peers.NodePeers(repo, network, nodeOfSvc(svc)) {
+		node, _ := config.ServiceNode(repo, network, svc)
+		for k, v := range peers.NodePeers(repo, network, node) {
 			pmap[k] = v
 		}
 		out := string(data)
@@ -79,9 +81,9 @@ func Stage(repo, network, relDir string, svcs []string, localPeers map[string]st
 		}
 
 		for _, kd := range s.KeysSrc {
-			ksrc := filepath.Join(knopath.EditableDir(repo, network), kd)
+			ksrc := filepath.Join(knopath.KeysDir(repo, network), filepath.Base(kd))
 			if !fsutil.IsDir(ksrc) {
-				ksrc = filepath.Join(repo, kd)
+				ksrc = filepath.Join(knopath.EditableDir(repo, network), kd)
 			}
 			if !fsutil.IsDir(ksrc) {
 				return fmt.Errorf("%s: key source missing: %s", svc, kd)
@@ -114,13 +116,6 @@ func Stage(repo, network, relDir string, svcs []string, localPeers map[string]st
 		return err
 	}
 	return os.Rename(tmp, relDir)
-}
-
-func nodeOfSvc(svc string) string {
-	if i := strings.Index(svc, "-pq-"); i > 0 {
-		return svc[:i]
-	}
-	return svc
 }
 
 var (

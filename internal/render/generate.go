@@ -33,7 +33,8 @@ type networkFileT struct {
 	Lan       struct {
 		Group []lanGroupT `toml:"group"`
 	} `toml:"lan"`
-	Identity map[string]string `toml:"identity"`
+	Placement map[string]string `toml:"placement,omitempty"`
+	Identity  map[string]string `toml:"identity"`
 }
 
 func Generate(netDir, gen string) error {
@@ -142,7 +143,14 @@ func writeNetworkFile(netDir, out string) error {
 	if err != nil {
 		return err
 	}
+	n.Placement = map[string]string{}
 	for name, m := range ms {
+		for _, svc := range m.Services {
+			if prev, ok := n.Placement[svc]; ok {
+				return fmt.Errorf("service %s placed on both %s and %s", svc, prev, name)
+			}
+			n.Placement[svc] = name
+		}
 		if m.Arch != "" {
 			if n.Arch == nil {
 				n.Arch = map[string]string{}
@@ -170,14 +178,21 @@ func writeNetworkFile(netDir, out string) error {
 	if err := decode(filepath.Join(src, "manifest.toml"), &m); err != nil {
 		return err
 	}
+	known := map[string]bool{}
 	n.Identity = map[string]string{}
 	for _, ref := range m.Node {
 		var nd nodeT
 		if err := decode(filepath.Join(src, ref.Config), &nd); err != nil {
 			return err
 		}
+		known[nd.ConfigName] = true
 		if nd.ConfigName != "" && nd.IdentityPublicKey != "" {
 			n.Identity[nd.ConfigName] = nd.IdentityPublicKey
+		}
+	}
+	for svc, host := range n.Placement {
+		if !known[svc] {
+			return fmt.Errorf("machine %s: unknown service %s", host, svc)
 		}
 	}
 	var b bytes.Buffer

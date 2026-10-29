@@ -224,13 +224,6 @@ func pickNodeDef(r *bufio.Reader, all []string, prompt, def string) string {
 	}
 }
 
-func nodeOf(svc string) string {
-	if i := strings.Index(svc, "-pq-"); i > 0 {
-		return svc[:i]
-	}
-	return svc
-}
-
 func matchNode(all []string, host string) string {
 	if host == "" {
 		return ""
@@ -590,7 +583,7 @@ func run(out string) {
 		svcs := config.ClaimedServices(repo, c.Network, c.Nodes)
 		place := map[string]string{}
 		for _, s := range svcs {
-			place[s] = ask(r, "host label for "+s, cmp.Or(priorLabel(priorHosts, s), nodeOf(s)))
+			place[s] = ask(r, "host label for "+s, cmp.Or(priorLabel(priorHosts, s), serviceHost(repo, c.Network, s)))
 		}
 		labels := []string{}
 		for _, l := range place {
@@ -718,4 +711,9 @@ func boolDef(b bool) string {
 		return "y"
 	}
 	return "n"
+}
+
+func serviceHost(repo, network, svc string) string {
+	n, _ := config.ServiceNode(repo, network, svc)
+	return n
 }

@@ -123,3 +123,21 @@ func TestGenerateFailsWhenAServiceDoesNotResolve(t *testing.T) {
 	}
 	wantError(t, Generate(net, t.TempDir()), "mixa-pq-mixserver.toml")
 }
+
+func TestGenerateRefusesAmbiguousOrUnknownMachineServices(t *testing.T) {
+	for _, tc := range []struct{ name, a, b, want string }{
+		{"duplicate", "auth-pq-authority", "auth-pq-authority", "placed on both"},
+		{"unknown", "ghost-pq-authority", "mixa-pq-mixserver", "unknown service ghost-pq-authority"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			net := fixture(t)
+			dir := filepath.Join(net, "editable-configs", "machines")
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				t.Fatal(err)
+			}
+			put(t, filepath.Join(dir, "a.toml"), "operator = \"group\"\nservices = [\""+tc.a+"\"]\n")
+			put(t, filepath.Join(dir, "b.toml"), "operator = \"group\"\nservices = [\""+tc.b+"\"]\n")
+			wantError(t, Generate(net, t.TempDir()), tc.want)
+		})
+	}
+}

@@ -168,8 +168,12 @@ func Compile(ctx context.Context, o Options, bindir string) error {
 }
 
 func CompileLocal(ctx context.Context, o Options, goVersion, out string) error {
+	src, err := sourceRoot(o.source())
+	if err != nil {
+		return err
+	}
 	cmd := exec.CommandContext(ctx, "sh", "-c", goBuild(out))
-	cmd.Dir = o.source()
+	cmd.Dir = src
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+o.goos(), "GOARCH="+GoArch(o.Arch),
 		"GOFLAGS=", "GOTOOLCHAIN="+compile.GoToolchain(goVersion), "KNO_VERSION="+o.Version)
 	cmd.Stdout, cmd.Stderr = o.out(), o.out()
@@ -180,10 +184,14 @@ func CompileLocal(ctx context.Context, o Options, goVersion, out string) error {
 }
 
 func compileKno(ctx context.Context, o Options, bindir string) error {
+	src, err := sourceRoot(o.source())
+	if err != nil {
+		return err
+	}
 
 	args := []string{"run", "--rm",
 		"--platform", "linux/" + runtime.GOARCH,
-		"-v", compile.MustMount(o.source(), "/repo:ro"),
+		"-v", compile.MustMount(src, "/repo:ro"),
 		"-v", compile.MustMount(bindir, "/out:rw"),
 		"-e", "CGO_ENABLED=0", "-e", "GOOS=" + o.goos(), "-e", "GOARCH=" + GoArch(o.Arch),
 	}

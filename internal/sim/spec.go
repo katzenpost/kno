@@ -158,7 +158,7 @@ func (r *run) deriveSpec() ([]daemon, error) {
 		if ip == "" {
 			return nil, fmt.Errorf("no IPv4 address in %s", base)
 		}
-		node := nodeOf(base)
+		node := r.serviceNode(base)
 		ctr := r.ctrForIP(ip)
 		ctrs[ctr] = true
 		out = append(out, daemon{Ctr: ctr, IP: ip, Base: base, Bin: bin,
@@ -469,4 +469,9 @@ func containsAny(lines []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func (r *run) serviceNode(svc string) string {
+	n, _ := config.ServiceNode(r.Repo, r.Network, svc)
+	return n
 }

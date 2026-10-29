@@ -18,7 +18,6 @@ import (
 	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/knover"
-	"github.com/katzenpost/kno/internal/nodefile"
 	"github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/service"
@@ -270,7 +269,7 @@ func groupHosts(repo, network string, c config.Config, groups []string) ([]strin
 	var out []string
 	for label, h := range c.Hosts {
 		for _, s := range config.HostServices(repo, c, h) {
-			if n, _ := nodefile.NodeOf(s); want[n] {
+			if n, _ := config.ServiceNode(repo, network, s); want[n] {
 				out = append(out, label)
 				break
 			}
@@ -287,7 +286,7 @@ func groupServices(repo, network string, groups []string) ([]string, error) {
 	}
 	var out []string
 	for _, svc := range gcServices(repo, network) {
-		if n, _ := nodefile.NodeOf(svc); want[n] {
+		if n, _ := config.ServiceNode(repo, network, svc); want[n] {
 			out = append(out, svc)
 		}
 	}
