@@ -57,6 +57,15 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
 
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && !env.ACT }}
+        with:
+          name: sim-package-manifest
+          path: |
+            ${{ env.PKGS }}/packages.json
+            ${{ env.PKGS }}/SHA256SUMS
+          if-no-files-found: ignore
+
       - name: validate
         run: '"$RUNNER_TEMP/kno" sim validate'
 
@@ -138,6 +147,15 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
 
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && !env.ACT }}
+        with:
+          name: build-package-manifest
+          path: |
+            ${{ env.PKGS }}/packages.json
+            ${{ env.PKGS }}/SHA256SUMS
+          if-no-files-found: ignore
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -213,6 +231,15 @@ jobs:
 
       - name: pkgs
         run: kno build --node respectmy
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() && !env.ACT }}
+        with:
+          name: freebsd-package-manifest
+          path: |
+            ${{ env.KNO_ARTIFACTS }}/releases/*/pkgs/packages.json
+            ${{ env.KNO_ARTIFACTS }}/releases/*/pkgs/SHA256SUMS
+          if-no-files-found: ignore
 
       - name: vm install
         if: ${{ !env.ACT }}
