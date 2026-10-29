@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/katzenpost/kno/internal/config"
+	"github.com/katzenpost/kno/internal/testutil"
 )
 
 func TestAskHostDefaultsToPriorSSH(t *testing.T) {
@@ -340,5 +341,20 @@ func TestSetupWritesTheFileKnoReadsFirst(t *testing.T) {
 	}
 	if got := config.ResolvePath(""); got != dest {
 		t.Errorf("setup writes %s, and kno reads %s", dest, got)
+	}
+}
+
+func TestGnunetSetupDefaultsToTheMachineCarryingEachService(t *testing.T) {
+	repo := testutil.RepoRoot(t)
+	for svc, host := range map[string]string{"gnunet-pq-authority": "tortuna", "gnunet-pq-gatewaynode": "firefly"} {
+		if got := serviceHost(repo, "namenlos", svc); got != host {
+			t.Errorf("%s defaults to %s, want %s", svc, got, host)
+		}
+	}
+	nodes := config.ListNodes(repo, "namenlos")
+	for _, host := range []string{"tortuna", "firefly"} {
+		if got := matchNode(nodes, host); got != host {
+			t.Errorf("hostname %s guessed as %s", host, got)
+		}
 	}
 }
