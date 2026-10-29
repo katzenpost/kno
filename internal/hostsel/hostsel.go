@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/katzenpost/kno/internal/cli"
-	"github.com/katzenpost/kno/internal/nodefile"
 
 	"github.com/spf13/cobra"
 
@@ -126,7 +125,7 @@ func GroupLabels(e track.Env, group string) ([]string, error) {
 			continue
 		}
 		for _, svc := range svcs {
-			if node, _ := nodefile.NodeOf(svc); want[node] {
+			if node, _ := config.ServiceNode(e.Repo, e.Network, svc); want[node] {
 				labels = append(labels, label)
 				break
 			}

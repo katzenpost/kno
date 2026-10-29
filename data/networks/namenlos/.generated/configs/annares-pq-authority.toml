@@ -305,10 +305,6 @@ vkdQm1uuoKMh1qC6oRRsgQ==
   Identifier = "waulandgateway"
   IdentityPublicKeyPem = "wauland_gateway_id_pub_key.pem"
 
-[[GatewayNodes]]
-  Identifier = "windfallgw"
-  IdentityPublicKeyPem = "windfallgw_id_pub_key.pem"
-
 [[ServiceNodes]]
   Identifier = "annares"
   IdentityPublicKeyPem = "annares_provider_id_pub_key.pem"

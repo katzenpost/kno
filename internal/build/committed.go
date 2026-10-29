@@ -229,8 +229,13 @@ func record(repo, network, tag, dir string, prune bool) ([]string, error) {
 
 	base := CommittedDir(repo, network, tag)
 	out := kindDir(repo, network, tag, fresh.kind())
-	freshTop, freshNodes := splitByNode(fresh.Packages)
-	oldTop, legacy := splitByNode(recordedFlat(out))
+	for _, dir := range append([]string{out}, nodeRecordDirs(base)...) {
+		if _, _, err := mergeEntries(recordedFlat(dir), tag, fresh, false); err != nil {
+			return nil, err
+		}
+	}
+	freshTop, freshNodes := splitByNode(repo, network, fresh.Packages)
+	oldTop, legacy := splitByNode(repo, network, recordedFlat(out))
 	var wrote []string
 
 	top := fresh

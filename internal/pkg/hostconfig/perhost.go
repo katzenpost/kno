@@ -95,7 +95,7 @@ func sshHostname(ssh string) string {
 	return h
 }
 
-func ForHost(c config.Config, label string) config.Config {
+func ForHost(c config.Config, label string, repos ...string) config.Config {
 	h := c.Hosts[label]
 	out := config.Config{Network: c.Network, Peers: c.Peers}
 	out.Update = c.Update
@@ -117,6 +117,9 @@ func ForHost(c config.Config, label string) config.Config {
 	seen := map[string]bool{}
 	for _, s := range h.Services {
 		n, _ := nodefile.NodeOf(s)
+		if len(repos) > 0 {
+			n, _ = config.ServiceNode(repos[0], config.NetworkOf(c), s)
+		}
 		if !seen[n] {
 			seen[n] = true
 			out.Nodes = append(out.Nodes, n)
@@ -133,7 +136,7 @@ func StageHost(c config.Config, label, root, repo, network, goos string) (config
 	if _, ok := c.Hosts[label]; !ok {
 		return config.Config{}, "", false, fmt.Errorf("no host %q in the operator config", label)
 	}
-	hc := ForHost(c, label)
+	hc := ForHost(c, label, repo)
 	if err := os.RemoveAll(root); err != nil {
 		return config.Config{}, "", false, err
 	}

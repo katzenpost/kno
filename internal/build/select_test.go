@@ -240,3 +240,30 @@ func TestTheWholeNetworkBuildsEveryArchItsNodesRun(t *testing.T) {
 		t.Errorf("a build with no services gave %v, want the amd64 arm64 default", got)
 	}
 }
+
+func TestGnunetSelectsTwoHostsWithSeparateServices(t *testing.T) {
+	repo := testutil.RepoRoot(t)
+	const network = "namenlos"
+	c := config.Config{Network: network, Nodes: []string{"firefly", "tortuna"}, Hosts: map[string]config.Host{
+		"firefly": {Services: []string{"gnunet-pq-gatewaynode"}},
+		"tortuna": {Services: []string{"gnunet-pq-authority"}},
+	}}
+	hosts, err := selectHosts(repo, flags{group: "gnunet", network: network}, c)
+	if err != nil || strings.Join(hosts, " ") != "firefly tortuna" {
+		t.Fatalf("group hosts=%v, err=%v", hosts, err)
+	}
+	svcs, err := groupServices(repo, network, []string{"gnunet"})
+	if err != nil || strings.Join(svcs, " ") != "gnunet-pq-authority gnunet-pq-gatewaynode" {
+		t.Fatalf("group services=%v, err=%v", svcs, err)
+	}
+	for host, want := range map[string]string{"tortuna": "gnunet-pq-authority", "firefly": "gnunet-pq-gatewaynode"} {
+		t.Setenv("KNO_HOST", host)
+		got, _ := configScope(repo, c)
+		if strings.Join(got, " ") != host {
+			t.Errorf("local %s builds hosts %v", host, got)
+		}
+		if got := config.ClaimedServices(repo, network, []string{host}); strings.Join(got, " ") != want {
+			t.Errorf("%s builds %v, want only %s", host, got, want)
+		}
+	}
+}

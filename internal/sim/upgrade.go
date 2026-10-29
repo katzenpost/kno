@@ -139,7 +139,7 @@ func (r *run) rehearsals(svcs []daemon) ([]rehearsal, error) {
 	for _, n := range splitList(r.Rehearse) {
 		h := rehearsal{Node: n, Pull: pull[n], Fail: n == r.Fail, Ctr: r.Net + "_h_" + n}
 		for _, s := range svcs {
-			if nodeOf(s.Base) != n {
+			if r.serviceNode(s.Base) != n {
 				continue
 			}
 			if h.IP != "" && h.IP != s.IP {
@@ -152,7 +152,7 @@ func (r *run) rehearsals(svcs []daemon) ([]rehearsal, error) {
 			return nil, fmt.Errorf("node %s has no service in %s", n, r.Network)
 		}
 		for _, s := range svcs {
-			if s.Ctr == h.Old && nodeOf(s.Base) != n {
+			if s.Ctr == h.Old && r.serviceNode(s.Base) != n {
 				return nil, fmt.Errorf("node %s shares its address with %s; the rehearsal"+
 					" replaces the whole container, so choose another node", n, s.Base)
 			}

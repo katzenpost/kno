@@ -22,7 +22,6 @@ import (
 	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/knover"
-	"github.com/katzenpost/kno/internal/nodefile"
 	"github.com/katzenpost/kno/internal/parallel"
 	"github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
@@ -161,7 +160,7 @@ func (o Options) hostArch(label string) string {
 		return deb.ArchAll
 	}
 	for _, svc := range config.HostServices(o.Repo, *o.Config, h) {
-		n, _ := nodefile.NodeOf(svc)
+		n, _ := config.ServiceNode(o.Repo, o.Network, svc)
 		if a := config.NodeArch(o.Repo, o.Network, n); a != "" {
 			return a
 		}
@@ -193,7 +192,7 @@ func (c *contentIDs) all() map[deb.PkgID]string {
 }
 
 func (o Options) serviceTarget(svc string) (string, string) {
-	node, _ := nodefile.NodeOf(svc)
+	node, _ := config.ServiceNode(o.Repo, o.Network, svc)
 	return config.NodeArch(o.Repo, o.Network, node), o.nodeOS(node)
 }
 
@@ -218,7 +217,7 @@ func (o Options) platforms() []compile.Platform {
 		if !BackendFormats(o.Repo, o.Network, []string{svc})["deb"] {
 			continue
 		}
-		node, _ := nodefile.NodeOf(svc)
+		node, _ := config.ServiceNode(o.Repo, o.Network, svc)
 		a := config.NodeArch(o.Repo, o.Network, node)
 		if a == "" || !arches[a] {
 			continue
@@ -291,7 +290,7 @@ func (o Options) hostConfigDigests() map[string]string {
 	}
 	out := make(map[string]string, len(o.Hosts))
 	for _, h := range o.Hosts {
-		b, err := json.Marshal(hostconfig.ForHost(*o.Config, h))
+		b, err := json.Marshal(hostconfig.ForHost(*o.Config, h, o.Repo))
 		if err != nil {
 			return nil
 		}
@@ -916,7 +915,7 @@ func ArchesForServices(repo, network string, svcs []string) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, svc := range svcs {
-		n, _ := nodefile.NodeOf(svc)
+		n, _ := config.ServiceNode(repo, network, svc)
 		a := config.NodeArch(repo, network, n)
 		if a != "" && !seen[a] {
 			seen[a] = true

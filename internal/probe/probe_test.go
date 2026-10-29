@@ -50,7 +50,6 @@ func TestParseConfigRealConfigs(t *testing.T) {
 		{"wauland2-pq-mixserver", "mix", "wauland2", []string{"185.108.77.114:18182"}},
 		{"mixy-pq-mixserver", "mix", "mixy", []string{"91.208.34.78:4242"}},
 		{"reed-pq-mixserver", "mix", "reed", []string{"185.193.125.85:443"}},
-		{"windfall-pq-gatewaynode", "gateway", "windfallgw", []string{"74.50.67.182:30209"}},
 	}
 	for _, c := range cases {
 		t.Run(c.base, func(t *testing.T) {
@@ -120,8 +119,8 @@ func TestScanConfigs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(eps) != 28 {
-		t.Fatalf("scanned %d endpoints, want 28 (27 services, annares-pq-authority announcing two)", len(eps))
+	if len(eps) != 27 {
+		t.Fatalf("scanned %d endpoints, want 27 (26 services, annares-pq-authority announcing two)", len(eps))
 	}
 	byKey := map[string]string{}
 	for _, ep := range eps {

@@ -139,7 +139,7 @@ git push origin main
 On the node:
 
 ```sh
-kno edit --node windfallgw-gateway --keys
+kno edit --node haywood-gateway --keys
 kno contribute --apply --merge
 ```
 

@@ -3,6 +3,7 @@ package knodeb
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/katzenpost/kno/internal/testutil"
@@ -28,5 +29,26 @@ func TestTheKnoPackageCompilesFromTheModuleNotTheDataRoot(t *testing.T) {
 func TestNoModuleIsAnError(t *testing.T) {
 	if _, err := sourceRoot(t.TempDir()); err == nil {
 		t.Fatal("a directory with no go.mod above it gave a module root")
+	}
+}
+
+func TestCompileMountsTheModuleForAnArm64Package(t *testing.T) {
+	root := testutil.ModuleRoot(t)
+	tmp := t.TempDir()
+	capture := filepath.Join(tmp, "args")
+	engine := filepath.Join(tmp, "podman")
+	write(t, engine, "#!/bin/sh\nprintf '%s\\n' \"$@\" > \""+capture+"\"\n", 0o755)
+	o := Options{Repo: filepath.Join(root, "data"), Arch: "arm64", Image: "test:image", Podman: engine}
+	if err := Compile(t.Context(), o, tmp); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{root + ":/repo:ro", "GOARCH=arm64", "cd /repo && go build"} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("build invocation is missing %q:\n%s", want, b)
+		}
 	}
 }

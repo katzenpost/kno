@@ -1,3 +1,4 @@
 operator = "gnunet"
 arch = "amd64"
 os = "debian-13"
+services = ["gnunet-pq-authority"]

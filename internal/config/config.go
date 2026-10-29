@@ -626,7 +626,7 @@ func ListNodes(repo, network string) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, e := range ents {
-		p, ok := nodefile.NodeOf(e.Name())
+		p, ok := ServiceNode(repo, network, strings.TrimSuffix(e.Name(), ".toml"))
 		if !ok {
 			continue
 		}
@@ -655,7 +655,7 @@ func ClaimedServices(repo, network string, nodes []string) []string {
 		if !strings.HasSuffix(e.Name(), ".toml") {
 			continue
 		}
-		if node, ok := nodefile.NodeOf(n); ok && want[node] {
+		if node, ok := ServiceNode(repo, network, n); ok && want[node] {
 			out = append(out, n)
 		}
 	}
@@ -705,7 +705,18 @@ func UnclaimedHosts(repo string, c Config) []string {
 	return out
 }
 
+func ServiceNode(repo, network, svc string) (string, bool) {
+	n, err := readNetworkFile(repo, network)
+	if err == nil {
+		if host := n.Placement[svc]; host != "" {
+			return host, true
+		}
+	}
+	return nodefile.NodeOf(svc)
+}
+
 type networkFile struct {
+	Placement map[string]string `toml:"placement"`
 	Default   string            `toml:"default"`
 	DefaultOS string            `toml:"default_os"`
 	Arch      map[string]string `toml:"arch"`
@@ -929,7 +940,7 @@ func emitSh(c Config, repo, hostLabel string) {
 	}
 	arch, osname := "", ""
 	if svcs != "" {
-		n, _ := nodefile.NodeOf(strings.Fields(svcs)[0])
+		n, _ := ServiceNode(repo, NetworkOf(c), strings.Fields(svcs)[0])
 		arch = NodeArch(repo, NetworkOf(c), n)
 		osname = NodeOS(repo, NetworkOf(c), n)
 	}
