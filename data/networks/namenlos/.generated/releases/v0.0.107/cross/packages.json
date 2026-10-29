@@ -17,34 +17,34 @@
   },
   "packages": [
     {
-      "name": "katzenpost-0.0.107+20261029214512.gbd368cf-debian13-amd64.tar.gz",
-      "sha256": "6fd0fcdcf95ebeedc263aeb15e8f3c1888dd8aa359a8aef6b9da58e8286695be",
-      "bytes": 115917894
+      "name": "katzenpost-0.0.107+20261029223246.g134cc4b-debian13-amd64.tar.gz",
+      "sha256": "f56ac08db6c99f33ba23105d72f034aae2049d537a0221a74423aea2a8405afa",
+      "bytes": 115918062
     },
     {
-      "name": "katzenpost-0.0.107+20261029214512.gbd368cf-debian13-arm64.tar.gz",
-      "sha256": "b0ced559246f664d2941be5c9e29ad6eb4b0ba6b21b99f8803956da70c3d8f1e",
-      "bytes": 96281054
+      "name": "katzenpost-0.0.107+20261029223246.g134cc4b-debian13-arm64.tar.gz",
+      "sha256": "bef5ca9fd5edb5df9ac1e2e8edf419667382b454fa78a22966ffca13fc77c5d0",
+      "bytes": 96281212
     },
     {
-      "name": "katzenpost-0.0.107+20261029214512.gbd368cf-freebsd-amd64.tar.gz",
-      "sha256": "fd7074876f2ac2697fc9cd294e427fe1928bd2809d02e0c08ebc880e98448577",
-      "bytes": 99790315
+      "name": "katzenpost-0.0.107+20261029223246.g134cc4b-freebsd-amd64.tar.gz",
+      "sha256": "31b468fa3eb3b13948efd98715f655590821f25ceca413ff2364cc5cbc06facb",
+      "bytes": 99790371
     },
     {
-      "name": "katzenpost-0.0.107+20261029214512.gbd368cf-ubuntu24.04-amd64.tar.gz",
-      "sha256": "424ef49767d03236862d4fc082d624dd86f25ff5faa770e3a1a51afa0bff6d9e",
-      "bytes": 118075613
+      "name": "katzenpost-0.0.107+20261029223246.g134cc4b-ubuntu24.04-amd64.tar.gz",
+      "sha256": "09c9d4a6231c0cb038957b8bc41c6f7c45ac18b3e3542127c1721926a967dd6c",
+      "bytes": 118075630
     },
     {
-      "name": "katzenpost-0.0.107+20261029214512.gbd368cf-ubuntu25.04-amd64.tar.gz",
-      "sha256": "e0aad8d4fd4c437786da15eff537f5432de641346a7dc0fbfd64971d5fc125e8",
-      "bytes": 116020833
+      "name": "katzenpost-0.0.107+20261029223246.g134cc4b-ubuntu25.04-amd64.tar.gz",
+      "sha256": "9598f2cb874db21ab4152309f50e079be593fddc81c3d45b7227d05746f854f2",
+      "bytes": 116020742
     },
     {
-      "name": "katzenpost-0.0.107+20261029214512.gbd368cf-ubuntu26.04-ppc64el.tar.gz",
-      "sha256": "81212573226f0b2be22b46ba02a45f3d554f6e0286c7f6659c797db846fcb2a5",
-      "bytes": 107936535
+      "name": "katzenpost-0.0.107+20261029223246.g134cc4b-ubuntu26.04-ppc64el.tar.gz",
+      "sha256": "88199f69365be48d7a25a432f9f8edca4e7d25a996d7d62eae2021477229befa",
+      "bytes": 107936483
     },
     {
       "name": "katzenpost-0.0.107-hpqc-src.tar.gz",
@@ -57,9 +57,9 @@
       "bytes": 2911313
     },
     {
-      "name": "katzenpost-0.0.107.20261029214512.pkg",
-      "version": "0.0.107.20261029214512",
-      "sha256": "fbdf5f306afbd81614ab5d01c8b8d4758d0ef5a200c1dbf24f9d00df550868eb",
+      "name": "katzenpost-0.0.107.20261029223246.pkg",
+      "version": "0.0.107.20261029223246",
+      "sha256": "3fb73559fb346022c7db7ca9ba51183c9ae2bcf0916cde681930c05f5e93e2a4",
       "bytes": 92423622
     },
     {
