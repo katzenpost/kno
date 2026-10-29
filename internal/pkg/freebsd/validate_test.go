@@ -331,3 +331,60 @@ func TestAKeyUnderAPlainNameIsFound(t *testing.T) {
 		t.Error("a private key named config.dat passed the install check")
 	}
 }
+
+func TestStampedBinaryPackageAndConfigDependencyAgree(t *testing.T) {
+	t.Setenv("SOURCE_DATE_EPOCH", "1600000000")
+	repo, bin, rel := t.TempDir(), t.TempDir(), mkRelease(t)
+	fakeBins(t, bin)
+	first, err := PackageStamped(bin, rel, "v0.0.107", "", repo, DefaultABI, "+20261001000000.gabcdef0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := PackageStamped(bin, rel, "v0.0.107", "", repo, DefaultABI, "+20261001000000.gabcdef0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != again {
+		t.Fatalf("same stamp changed package name: %s -> %s", first, again)
+	}
+	second, err := PackageStamped(bin, rel, "v0.0.107", "", repo, DefaultABI, "+20261002000000.gabcdef1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second {
+		t.Fatal("changed client stamp overwrote the old package")
+	}
+	binary, err := Validate(second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := Svc{Build: "server", ConfigSrc: "configs/x-pq-mixserver.toml", ConfigDst: "/usr/local/etc/katzenpost/x-pq-mixserver.toml", StateDir: "/var/lib/pq-katzenpost-mixserver", BinaryStamp: "+20261002000000.gabcdef1"}
+	svc.Stamp = "+20260930000000.gabcdef2"
+	svc.BinaryStamp = "+20261001000000.gabcdef0"
+	previous, err := PackageConfig(rel, "v0.0.107", "", "x-pq-mixserver", svc, repo, DefaultABI, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc.BinaryStamp = "+20261002000000.gabcdef1"
+	cfg, err := PackageConfig(rel, "v0.0.107", "", "x-pq-mixserver", svc, repo, DefaultABI, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg == previous {
+		t.Fatal("changed binary dependency overwrote the config package")
+	}
+	for _, e := range readPkg(t, cfg) {
+		if e.hdr.Name != "+COMPACT_MANIFEST" {
+			continue
+		}
+		var m vManifest
+		if err := json.Unmarshal(e.data, &m); err != nil {
+			t.Fatal(err)
+		}
+		if m.Deps["katzenpost"].Version != binary.Version {
+			t.Fatalf("config requires %s, binary is %s", m.Deps["katzenpost"].Version, binary.Version)
+		}
+		return
+	}
+	t.Fatal("config package has no manifest")
+}

@@ -17,6 +17,9 @@ var configBuilderPaths = []string{
 func configPaths(repo, network, svc string) []string {
 	cfgs := knopath.ConfigsDir(repo, network)
 	paths := []string{filepath.Join(cfgs, svc+".toml")}
+	if svc == "client" {
+		paths = append(paths, filepath.Join(cfgs, "thinclient.toml"))
+	}
 	if b, err := os.ReadFile(paths[0]); err == nil && strings.Contains(string(b), "courier.toml") {
 		paths = append(paths, filepath.Join(cfgs, "courier.toml"))
 	}
@@ -29,6 +32,9 @@ func configPaths(repo, network, svc string) []string {
 	out = append(out,
 		":(glob)networks/"+network+"/**/keys/**",
 		":(glob)networks/"+network+"/**/services/"+svc+".conf")
+	if svc == "client" {
+		out = append(out, ":(top)internal/build/tarball.go", ":(top)data/packaging/freebsd/rc.d")
+	}
 	return append(out, configBuilderPaths...)
 }
 

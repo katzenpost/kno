@@ -55,12 +55,13 @@ func postInstall(stateDir string) string {
 }
 
 type Svc struct {
-	Build     string
-	ConfigSrc string
-	ConfigDst string
-	StateDir  string
-	KeysSrc   []string
-	Stamp     string
+	Build       string
+	ConfigSrc   string
+	ConfigDst   string
+	StateDir    string
+	KeysSrc     []string
+	BinaryStamp string
+	Stamp       string
 }
 
 func SvcOf(rs service.Service, stamp string) Svc {
@@ -79,9 +80,13 @@ func PackageConfig(rel, tag, rev, svc string, s Svc, repo, abi string, version f
 	if err != nil {
 		return "", err
 	}
-	kp := Version(deb.Version(tag, rev))
+	kp := Version(deb.Version(tag, rev) + s.BinaryStamp)
 	post := postInstall(s.StateDir)
-	ver := Version(deb.Version(tag, rev) + s.Stamp)
+	stamp := s.Stamp
+	if s.BinaryStamp > stamp {
+		stamp = s.BinaryStamp
+	}
+	ver := Version(deb.Version(tag, rev) + stamp)
 	if version != nil {
 		id, err := deb.RootContentID(root)
 		if err != nil {

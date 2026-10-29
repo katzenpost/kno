@@ -35,13 +35,17 @@ func tarballs(o tarballOpts) ([]string, error) {
 	ver := strings.TrimPrefix(o.Tag, "v")
 
 	configs := clientConfigs(o.Rel)
+	bundleVersion := ver
+	if len(configs) > 0 {
+		bundleVersion += deb.ConfigStamp(o.Repo, o.Network, "client")
+	}
 
 	var out []string
 	add := func(bindir, token string) error {
 		if !hasFiles(bindir) {
 			return nil
 		}
-		name := fmt.Sprintf("katzenpost-%s-%s", ver, token)
+		name := fmt.Sprintf("katzenpost-%s-%s", bundleVersion, token)
 		dst := filepath.Join(dir, name+".tar.gz")
 		if err := release.Tarball(bindir, name, dst, epoch, configs...); err != nil {
 			return fmt.Errorf("%s: %w", name, err)

@@ -220,6 +220,10 @@ func StageBin(bindir, rel string) error {
 }
 
 func Package(bindir, rel, tag, rev, repo, abi string) (string, error) {
+	return PackageStamped(bindir, rel, tag, rev, repo, abi, "")
+}
+
+func PackageStamped(bindir, rel, tag, rev, repo, abi, stamp string) (string, error) {
 	if abi == "" {
 		abi = DefaultABI
 	}
@@ -240,7 +244,7 @@ func Package(bindir, rel, tag, rev, repo, abi string) (string, error) {
 		return "", err
 	}
 
-	version := Version(deb.Version(tag, rev))
+	version := Version(deb.Version(tag, rev) + stamp)
 	out := filepath.Join(pkgs, pkgName+"-"+version+".pkg")
 	meta := Meta{
 		Name: pkgName, Version: version, Origin: pkgOrigin, Abi: abi,
