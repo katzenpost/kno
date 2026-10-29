@@ -2,10 +2,13 @@ package build
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -198,4 +201,75 @@ func keys(m map[string]bool) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func TestClientConfigChangesGiveBinaryBundlesNewNames(t *testing.T) {
+	t.Setenv("SOURCE_DATE_EPOCH", "1600000000")
+	repo := gitRepo(t)
+	network := "n"
+	cfg := filepath.Join(repo, "networks", network, ".generated", "configs", "client.toml")
+	if err := os.MkdirAll(filepath.Dir(cfg), 0755); err != nil {
+		t.Fatal(err)
+	}
+	commit := func(body, date string) {
+		t.Helper()
+		if err := os.WriteFile(cfg, []byte(body), 0644); err != nil {
+			t.Fatal(err)
+		}
+		for _, args := range [][]string{{"add", "-A"}, {"commit", "-qm", "client config"}} {
+			cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
+			cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@example", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@example", "GIT_AUTHOR_DATE="+date, "GIT_COMMITTER_DATE="+date, "GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=core.hooksPath", "GIT_CONFIG_VALUE_0=/dev/null")
+			if b, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("git: %v\n%s", err, b)
+			}
+		}
+	}
+	work, rel := t.TempDir(), t.TempDir()
+	platform := compile.Platform{Arch: "arm64", OS: "debian-13"}
+	fakeBin(t, binDir(work, platform))
+	fakeBin(t, filepath.Join(work, "fbsd", "bin"))
+	makeBundles := func() []string {
+		t.Helper()
+		b, err := os.ReadFile(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(rel, "client.toml"), b, 0644); err != nil {
+			t.Fatal(err)
+		}
+		got, err := tarballs(tarballOpts{Repo: repo, Network: network, Tag: "v1.2.3", Work: work, Rel: rel, Platforms: []compile.Platform{platform}, FreeBSDABI: "FreeBSD:14:amd64"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	commit("gateway = \"windfallgw\"\n", "2026-10-01T10:00:00Z")
+	first := makeBundles()
+	snapshots := map[string][]byte{}
+	for _, p := range first {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshots[p] = b
+	}
+	if got := makeBundles(); !reflect.DeepEqual(got, first) {
+		t.Fatalf("unchanged inputs renamed bundles: %v -> %v", first, got)
+	}
+	for _, p := range first {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(b, snapshots[p]) {
+			t.Fatalf("unchanged inputs changed %s", p)
+		}
+	}
+	commit("gateway = \"firefly\"\n", "2026-10-02T10:00:00Z")
+	second := makeBundles()
+	for i, p := range second {
+		if p == first[i] {
+			t.Fatalf("changed client config overwrote recorded bundle %s", p)
+		}
+	}
 }

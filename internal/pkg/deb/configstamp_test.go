@@ -1,6 +1,7 @@
 package deb
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -129,5 +130,30 @@ func TestARecordedConfigKeepsItsVersionUntilItsInputsChange(t *testing.T) {
 		"s_0.0.107-1+20261021100000.gabcdef0_amd64.deb\n"})
 	if got := ConfigStamp(repo, "n", "s"); got != "+20261021100000.gabcdef0" {
 		t.Errorf("a record of two configs of one tag: stamp %q, want the newer +20261021100000.gabcdef0", got)
+	}
+}
+
+func TestClientStampTracksBothConfigsAndBundlePackaging(t *testing.T) {
+	_, repo, commit := stampRepo(t)
+	client := "data/networks/n/.generated/configs/client.toml"
+	thin := "data/networks/n/.generated/configs/thinclient.toml"
+	commit("2026-10-01T10:00:00Z", map[string]string{client: "gateway = \"windfallgw\"\n", thin: "address = \"@katzenpost\"\n"})
+	previous := ConfigStamp(repo, "n", "client")
+	for i, files := range []map[string]string{
+		{client: "gateway = \"firefly\"\n"},
+		{thin: "address = \"@other\"\n"},
+		{"data/packaging/freebsd/rc.d/kpclientd": "updated\n"},
+		{"internal/build/tarball.go": "package build\n"},
+	} {
+		commit(fmt.Sprintf("2026-10-%02dT10:00:00Z", i+2), files)
+		current := ConfigStamp(repo, "n", "client")
+		if current == previous {
+			t.Fatalf("client stamp did not change for %v", files)
+		}
+		previous = current
+	}
+	commit("2026-10-06T10:00:00Z", map[string]string{"README.md": "unrelated\n"})
+	if got := ConfigStamp(repo, "n", "client"); got != previous {
+		t.Fatalf("unrelated commit changed client stamp: %s -> %s", previous, got)
 	}
 }

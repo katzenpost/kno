@@ -630,7 +630,7 @@ func Build(o Options) ([]string, error) {
 		if err := freebsd.CrossCompile(o.Repo, work, bindir, sysroot, o.Tag, pins, caches); err != nil {
 			return nil, fmt.Errorf("freebsd cross build: %w", err)
 		}
-		fp, err := freebsd.Package(bindir, rel, o.Tag, o.Revision, o.Repo, pins["FREEBSD_ABI"])
+		fp, err := freebsd.PackageStamped(bindir, rel, o.Tag, o.Revision, o.Repo, pins["FREEBSD_ABI"], deb.ConfigStamp(o.Repo, o.Network, "client"))
 		if err != nil {
 			return nil, fmt.Errorf("freebsd pkg: %w", err)
 		}
@@ -785,7 +785,7 @@ func buildNative(o Options, rel, work string, pins map[string]string, ids *conte
 	if err := parallel.Run(jobs, tasks); err != nil {
 		return nil, err
 	}
-	pkg, err := freebsd.Package(bindir, rel, o.Tag, o.Revision, o.Repo, pins["FREEBSD_ABI"])
+	pkg, err := freebsd.PackageStamped(bindir, rel, o.Tag, o.Revision, o.Repo, pins["FREEBSD_ABI"], deb.ConfigStamp(o.Repo, o.Network, "client"))
 	if err != nil {
 		return nil, fmt.Errorf("freebsd pkg: %w", err)
 	}
@@ -878,8 +878,9 @@ func freebsdConfigPkgs(o Options, rel, abi string, ids *contentIDs) ([]string, e
 		if rs.Backend != "freebsd-ezjail" {
 			continue
 		}
-		cp, err := freebsd.PackageConfig(rel, o.Tag, o.Revision, svc,
-			freebsd.SvcOf(rs, deb.ConfigStamp(o.Repo, o.Network, svc)), o.Repo, abi, version(svc))
+		s := freebsd.SvcOf(rs, deb.ConfigStamp(o.Repo, o.Network, svc))
+		s.BinaryStamp = deb.ConfigStamp(o.Repo, o.Network, "client")
+		cp, err := freebsd.PackageConfig(rel, o.Tag, o.Revision, svc, s, o.Repo, abi, version(svc))
 		if err != nil {
 			return nil, fmt.Errorf("freebsd config pkg: %w", err)
 		}
