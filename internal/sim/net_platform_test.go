@@ -134,8 +134,8 @@ func TestNodeFilesAreTheNodesNotTheManifest(t *testing.T) {
 			t.Fatalf("the manifest was taken for a node file")
 		}
 	}
-	if len(files) != 27 {
-		t.Errorf("found %d node files, namenlos has 27", len(files))
+	if len(files) != 26 {
+		t.Errorf("found %d node files, namenlos has 26", len(files))
 	}
 }
 

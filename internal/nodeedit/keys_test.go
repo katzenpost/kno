@@ -34,7 +34,7 @@ func TestImportKeysPutsTheNewKeysInEveryFileThatHoldsThem(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	n, err := Pick(Mine(repo, "namenlos", []string{"windfall"}), "windfallgw-gateway")
+	n, err := Pick(Mine(repo, "namenlos", []string{"gnunet"}), "gnunet-gateway")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,10 +42,10 @@ func TestImportKeysPutsTheNewKeysInEveryFileThatHoldsThem(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]string{
-		"gateway-id-keys/windfallgw_id_pub_key.pem":   id,
-		"gateway-link-keys/windfallgw.linkpubkey.pem": link,
-		"mixserver-keys/windfallgw_id_pub_key.pem":    id,
-		"mixserver-keys/windfallgw.linkpubkey.pem":    link,
+		"gateway-id-keys/gnunet_provider_id_pub_key.pem": id,
+		"gateway-link-keys/gnunet.linkpubkey.pem":        link,
+		"mixserver-keys/gnunet_provider_id_pub_key.pem":  id,
+		"mixserver-keys/gnunet.linkpubkey.pem":           link,
 	}
 	for got, from := range want {
 		a, _ := os.ReadFile(filepath.Join(keys, got))

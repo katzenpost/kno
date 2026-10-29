@@ -134,11 +134,6 @@ role = "gateway"
 config = "nodes/waulandgateway-gateway.toml"
 
 [[node]]
-name = "windfallgw"
-role = "gateway"
-config = "nodes/windfallgw-gateway.toml"
-
-[[node]]
 name = "annares"
 role = "servicenode"
 config = "nodes/annares-servicenode.toml"

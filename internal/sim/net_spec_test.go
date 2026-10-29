@@ -232,8 +232,8 @@ func TestDeriveSpecGroupsColocatedServices(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(svcs) != 27 {
-		t.Errorf("derived %d services; the committed testnet has 27", len(svcs))
+	if len(svcs) != 26 {
+		t.Errorf("derived %d services; the committed testnet has 26", len(svcs))
 	}
 	if n := len(distinctCtrs(svcs)); n != 15 {
 		t.Errorf("derived %d host containers; the committed testnet has 15", n)
