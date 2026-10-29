@@ -359,19 +359,28 @@ func TestStampedBinaryPackageAndConfigDependencyAgree(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc := Svc{Build: "server", ConfigSrc: "configs/x-pq-mixserver.toml", ConfigDst: "/usr/local/etc/katzenpost/x-pq-mixserver.toml", StateDir: "/var/lib/pq-katzenpost-mixserver", BinaryStamp: "+20261002000000.gabcdef1"}
-	svc.Stamp = "+20260930000000.gabcdef2"
+	svc.Stamp = "+20261001000000.gabcdef0"
 	svc.BinaryStamp = "+20261001000000.gabcdef0"
 	previous, err := PackageConfig(rel, "v0.0.107", "", "x-pq-mixserver", svc, repo, DefaultABI, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	svc.BinaryStamp = "+20261002000000.gabcdef1"
+	svc.Stamp = "+20261002000000.gabcdef1"
 	cfg, err := PackageConfig(rel, "v0.0.107", "", "x-pq-mixserver", svc, repo, DefaultABI, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cfg == previous {
 		t.Fatal("changed binary dependency overwrote the config package")
+	}
+	svc.Stamp = "+20261001120000.gabcdef2"
+	changed, err := PackageConfig(rel, "v0.0.107", "", "x-pq-mixserver", svc, repo, DefaultABI, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed == cfg {
+		t.Fatal("service stamp was hidden by the binary dependency stamp")
 	}
 	for _, e := range readPkg(t, cfg) {
 		if e.hdr.Name != "+COMPACT_MANIFEST" {

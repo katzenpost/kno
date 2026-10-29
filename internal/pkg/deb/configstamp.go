@@ -38,9 +38,15 @@ func configPaths(repo, network, svc string) []string {
 	return append(out, configBuilderPaths...)
 }
 
-func ConfigStamp(repo, network, svc string) string {
+func ConfigStamp(repo, network, svc string, dependencies ...string) string {
 	paths := configPaths(repo, network, svc)
-	stamp := recordedStamp(repo, network, svc, paths)
+	for _, dependency := range dependencies {
+		paths = append(paths, configPaths(repo, network, dependency)...)
+	}
+	stamp := ""
+	if len(dependencies) == 0 {
+		stamp = recordedStamp(repo, network, svc, paths)
+	}
 	if stamp == "" {
 		args := append([]string{"-C", repo, "log", "-1", "--format=%cd.g%h",
 			"--date=format:%Y%m%d%H%M%S", "--"}, paths...)

@@ -157,3 +157,30 @@ func TestClientStampTracksBothConfigsAndBundlePackaging(t *testing.T) {
 		t.Fatalf("unrelated commit changed client stamp: %s -> %s", previous, got)
 	}
 }
+
+func TestConfigStampTracksDependenciesAcrossTimezones(t *testing.T) {
+	_, repo, commit := stampRepo(t)
+	service := "data/networks/n/.generated/configs/a-pq-authority.toml"
+	client := "data/networks/n/.generated/configs/client.toml"
+	commit("2026-10-29T21:45:12+01:00", map[string]string{
+		service: "identity = \"first\"\n",
+		client:  "gateway = \"first\"\n",
+	})
+	first := ConfigStamp(repo, "n", "a-pq-authority", "client")
+	commit("2026-10-29T21:13:00Z", map[string]string{service: "identity = \"second\"\n"})
+	second := ConfigStamp(repo, "n", "a-pq-authority", "client")
+	if second == first || second != ConfigStamp(repo, "n", "a-pq-authority") {
+		t.Fatalf("newer service commit did not determine the stamp: %s -> %s", first, second)
+	}
+	commit("2026-10-29T21:13:30Z", map[string]string{
+		"data/networks/n/.generated/releases/v1/nodes/a/SHA256SUMS": "abc  namenlos-config-a-pq-authority_1+20261029214512.gabcdef0_all.deb\n",
+	})
+	if got := ConfigStamp(repo, "n", "a-pq-authority", "client"); got != second {
+		t.Fatalf("record commit changed dependency stamp: %s -> %s", second, got)
+	}
+	commit("2026-10-29T21:14:00Z", map[string]string{client: "gateway = \"second\"\n"})
+	third := ConfigStamp(repo, "n", "a-pq-authority", "client")
+	if third == second || third != ConfigStamp(repo, "n", "client") {
+		t.Fatalf("newer dependency commit did not determine the stamp: %s -> %s", second, third)
+	}
+}
