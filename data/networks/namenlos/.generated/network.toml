@@ -18,7 +18,6 @@ default_os = "debian-13"
   wauland = "amd64"
   wauland2 = "amd64"
   windfall = "amd64"
-  windfallgw = "amd64"
   windfallservice = "amd64"
 
 [os]
@@ -35,7 +34,6 @@ default_os = "debian-13"
   respectmy = "freebsd-14.5"
   tortuna = "debian-13"
   windfall = "debian-13"
-  windfallgw = "debian-13"
   windfallservice = "debian-13"
 
 [operators]
@@ -90,7 +88,6 @@ default_os = "debian-13"
   wauland-pq-storagenode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nLQNgyDMATBGCIyBcURCFiIe6OQYphqOr3B6j0Yja8F1Zs2YPDhMNxdC3Bt6DX23v\n0sz9towmjK3M5sQKHItJBIymhwMJKjR27123vJp3Ev9s3TGfcmeiBRehtsp05QPi\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
   wauland2-pq-mixserver = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nl+WaWZILp0Ng4kU8M45ph64lHjiaRXDIe2iuCaFzCPF5A5U4to7bodEIa5/E9oXe\n82CibZIaNxQaHF06Qi+eG9u4d9I9ot33ctjNn5FsPUwobLX/vcnDt5Djig690xAR\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
   windfall-pq-authority = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\n+oxlrZurSc3JD/eJsRmSabtFVsbFB/N1fSZSHTEajndgX/rGGZTCiBqMDqXC/qTS\ndfvVb+yOmo+pnbnEeWuCecXFplODH92p83pp+nzmMadGUprzadL9smufJlb7+GkD\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
-  windfall-pq-gatewaynode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nWyyr5BwC3mDLFinozim6EHkBVP6SH+7atnwbTjY/GLVJTG+R2jVHBT61l6so8c9p\noma6r+eRKxzq+yyS8Timimw2X6HxW7DtwGmdCnWngBImmlF2hH2Ugf8cR08Lcs9h\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
   windfall-pq-mixserver = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nXl42G/qq1SLkDy0dwecPlWuQxzFGcItuduAe1au5gtw/W7WZv5ShP4H5Ki2JOVhU\no9llxQqboQ+GS/RMB/sAX5xLbodHdzGwubrwuc7xt/SDpA2uCSy2dkkwfA35C9nI\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
   windfall-pq-servicenode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nYXbiLFwAiD+WYDaEZGz9LK00ABYaFsxtp2pI0eHegfgRSSN94LfVp8GK08rpTLCG\nOt1nne6eFZcyvvCVWELfGXjgKbXQAxMwfCfdF0yfdDWOsDmC2iqP0APe8imt9ysz\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
   windfall-pq-storagenode-2 = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\ny30wWXluToNF2Onc7fntu0+P1ATF6aDlbEEIOc5yDFn1V2/eKhbe7iC3ERPCAfdN\ngbwkv1dGaInf1q4jwgTTdQDMQe1LC7VUJjcYGX6k5YXlzqVSIZDKk9dsxbubaM+C\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
