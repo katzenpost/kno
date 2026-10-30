@@ -72,6 +72,9 @@ func tarballs(o tarballOpts) ([]string, error) {
 		}
 		out = append(out, srcs...)
 	}
+	if err := normalizeArchiveCompression(dir, out, o.Pins); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
