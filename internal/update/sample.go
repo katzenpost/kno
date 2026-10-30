@@ -44,7 +44,7 @@ func (r *RemoteRunner) sample(note string) *record.Sample {
 }
 
 func sampleCmd(units []string) string {
-	cmd := `dpkg-query -W -f '${Package} ${Version}\n' katzenpost kno 'namenlos-config-*' 2>/dev/null; echo '#units'`
+	cmd := `dpkg-query -W -f '${Package} ${Version}\n' katzenpost kno 'kno-host-config*' 'namenlos-config-*' 2>/dev/null; echo '#units'`
 	if len(units) > 0 {
 		cmd += "; systemctl is-active " + strings.Join(units, " ") + " 2>/dev/null"
 	}

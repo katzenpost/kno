@@ -221,6 +221,10 @@ func (r *RemoteRunner) Build(tag string) error { return r.Stage.ensure(tag) }
 
 func (r *RemoteRunner) Activate(tag, rel string) error {
 	r.pushErr = nil
+	if r.alreadyInstalled(tag) {
+		r.Log.Logf("%s: target packages are already installed; keeping them and running verification", r.Host.Label)
+		return nil
+	}
 	if rc := push.Run(r.Out, r.Host.Label, tag, r.Mode, r.Dry); rc != 0 {
 		r.pushErr = fmt.Errorf("push %s to %s failed (%d)", tag, r.Host.Label, rc)
 		return r.pushErr
@@ -660,7 +664,7 @@ func (t *ticker) wait() {
 		if !ok {
 			return
 		}
-		t.l.Logf("%s: %s. Next check %s", t.h.Label, progress(kv), clockShort(next.Unix()))
+		t.l.Logf("%s: %s. Next check %s", t.h.Label, progress(kv, t.v.Promote || sameRelease(t.he, t.target)), clockShort(next.Unix()))
 		t.sleep(next.Sub(now))
 		if t.step(false) != 0 && t.closed() {
 			return
@@ -755,12 +759,14 @@ func nextCheck(kv map[string]string, now time.Time) (time.Time, bool) {
 	return next, true
 }
 
-func progress(kv map[string]string) string {
+func progress(kv map[string]string, promoteNow bool) string {
 	parts := []string{"verifying " + kv["tag"]}
 	if kv["checked"] != "" {
 		parts = append(parts, "last verify "+clockShortOf(kv["checked"])+": "+verdictWord(kv["verdict"]))
 	}
-	if a, err := strconv.ParseInt(kv["activated"], 10, 64); err == nil {
+	if promoteNow {
+		parts = append(parts, "promotion after the next passing verify")
+	} else if a, err := strconv.ParseInt(kv["activated"], 10, 64); err == nil {
 		parts = append(parts, "promotion from "+clockShort(a+int64(promoteFloor()/time.Second)))
 	}
 	parts = append(parts, "window closes "+clockShortOf(kv["deadline"]))
