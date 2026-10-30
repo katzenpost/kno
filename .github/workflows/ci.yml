@@ -13,6 +13,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   sim:
@@ -25,11 +26,19 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-go@v7
+      - name: reuse successful matching job
+        id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/reuse.py --workflow ci.yml --job "sim"
+
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 
-      - name: env
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: env
         run: |
           {
             echo "KNO_REPO=$PWD"
@@ -39,51 +48,62 @@ jobs:
             echo "SIM=--emulate --epoch 5m --minimal-build"
           } >> "$GITHUB_ENV"
 
-      - name: build kno
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: build kno
         run: go build -o "$RUNNER_TEMP/kno" ./cmd/kno
 
-      - name: sim binaries
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: sim binaries
         run: '"$RUNNER_TEMP/kno" sim build --net cisim $SIM'
 
-      - name: validate
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: validate
         run: 'KNO_ARTIFACTS="$SIM_ARTIFACTS" "$RUNNER_TEMP/kno" sim validate'
 
       - name: register qemu
-        if: ${{ !env.ACT }}
+        if: ${{ steps.reuse.outputs.reused != 'true' && (!env.ACT) }}
         run: |
           d=1f1c20bb35e5fbe18a9e0de7883b3fa2267af0427dba4bdab9b7fd77a0594b4a
           img=docker.io/polyarch/qemu-user-static@sha256:$d
           docker run --rm --privileged "$img" --reset -p yes
 
       - name: apparmor pasta fixup
-        if: ${{ !env.ACT }}
+        if: ${{ steps.reuse.outputs.reused != 'true' && (!env.ACT) }}
         run: |
           p=/etc/apparmor.d/usr.bin.pasta
           sudo sed -i 's/^}$/  signal receive set=term peer=podman,\n}/' "$p"
           sudo apparmor_parser -r "$p"
 
-      - name: keys
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: keys
         run: '"$RUNNER_TEMP/kno" sim keys --net cisim --pkgs "$PKGS" $SIM'
 
-      - name: configs
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: configs
         run: '"$RUNNER_TEMP/kno" sim configs --net cisim $SIM'
 
-      - name: up
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: up
         run: '"$RUNNER_TEMP/kno" sim up --net cisim $SIM'
 
-      - name: verify
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: verify
         run: '"$RUNNER_TEMP/kno" sim verify --net cisim $SIM'
 
-      - name: message
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: message
         run: '"$RUNNER_TEMP/kno" sim message --net cisim $SIM'
 
-      - name: probe
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: probe
         run: '"$RUNNER_TEMP/kno" sim probe --net cisim $SIM'
 
-      - name: down
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: down
         run: '"$RUNNER_TEMP/kno" sim down --net cisim $SIM'
 
-      - name: mutation
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: mutation
         run: |
           KNO="$RUNNER_TEMP/kno" SIM_PKGS="/var/tmp/kno-sim-$(id -u)-cisim/pkgs" \
             sh scripts/sim-mutation.sh
@@ -93,18 +113,26 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 60
     outputs:
-      sums: ${{ steps.build.outputs.sums }}
+      sums: ${{ steps.reuse.outputs.sums || steps.build.outputs.sums }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-go@v7
+      - name: reuse successful matching job
+        id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/reuse.py --workflow ci.yml --job "build" --sums
+
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 
-      - name: env
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: env
         run: |
           t=$(sed -n 's/^KATZENPOST_REF=//p' data/thirdparty/pins.env)
           {
@@ -113,7 +141,8 @@ jobs:
             echo "PKGS=$RUNNER_TEMP/artifacts/releases/$t/pkgs"
           } >> "$GITHUB_ENV"
 
-      - name: build
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: build
         id: build
         run: |
           go run ./cmd/kno build --arches amd64,arm64,ppc64el --skip-freebsd
@@ -140,6 +169,9 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: CI reuse policy tests
+        run: python3 -B -m unittest discover -s ci -p '*_test.py'
+
       - name: install linters
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
@@ -157,7 +189,7 @@ jobs:
   freebsd:
     name: freebsd
     outputs:
-      sums: ${{ steps.pkgs.outputs.sums }}
+      sums: ${{ steps.reuse.outputs.sums || steps.pkgs.outputs.sums }}
     runs-on: ubuntu-26.04
     timeout-minutes: 150
     env:
@@ -169,11 +201,19 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-go@v7
+      - name: reuse successful matching job
+        id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/reuse.py --workflow ci.yml --job "freebsd" --sums
+
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 
-      - name: env
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: env
         run: |
           t=$(sed -n 's/^KATZENPOST_REF=//p' data/thirdparty/pins.env)
           {
@@ -186,7 +226,7 @@ jobs:
           go build -o "$RUNNER_TEMP/bin/kno" ./cmd/kno
 
       - name: kvm
-        if: ${{ !env.ACT }}
+        if: ${{ steps.reuse.outputs.reused != 'true' && (!env.ACT) }}
         run: |
           r='KERNEL=="kvm", GROUP="kvm", MODE="0666"'
           echo "$r, OPTIONS+=\"static_node=kvm\"" \
@@ -194,17 +234,20 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: tools
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: tools
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 qemu-utils ovmf expect
 
-      - uses: actions/cache@v6
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: actions/cache@v6
         with:
           path: ~/.cache/katzenpost/kno/freebsd
           key: freebsd-${{ hashFiles('data/thirdparty/pins.env') }}
 
-      - name: pkgs
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: pkgs
         id: pkgs
         run: |
           services=
@@ -227,19 +270,19 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: vm install
-        if: ${{ !env.ACT }}
+        if: ${{ steps.reuse.outputs.reused != 'true' && (!env.ACT) }}
         run: make freebsd-vmtest
 
       - name: jail install
-        if: ${{ !env.ACT }}
+        if: ${{ steps.reuse.outputs.reused != 'true' && (!env.ACT) }}
         run: make freebsd-jailtest
 
       - name: kno in the jails
-        if: ${{ !env.ACT }}
+        if: ${{ steps.reuse.outputs.reused != 'true' && (!env.ACT) }}
         run: make freebsd-knotest
 
       - name: no kvm under act
-        if: ${{ env.ACT }}
+        if: ${{ steps.reuse.outputs.reused != 'true' && (env.ACT) }}
         run: |
           echo "act runs this job as a user that cannot open /dev/kvm."
           echo "On the host, run: make freebsd-vmtest freebsd-jailtest" \

@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: kno-packages-${{ github.head_ref || github.ref_name }}
@@ -27,18 +28,32 @@ jobs:
         target: [amd64, arm64, ppc64el]
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: reuse successful matching job
+        id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/reuse.py --workflow kno-packages.yml --job "package (${{ matrix.builder.runner }}, ${{ matrix.builder.arch }}, ${{ matrix.target }})"
+
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - run: sudo apt-get update && sudo apt-get install -y podman
-      - if: matrix.builder.arch == 'ppc64le'
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        run: sudo apt-get update && sudo apt-get install -y podman
+      - if: ${{ steps.reuse.outputs.reused != 'true' && (matrix.builder.arch == 'ppc64le') }}
         run: |
           docker run --rm --privileged docker.io/polyarch/qemu-user-static@sha256:1f1c20bb35e5fbe18a9e0de7883b3fa2267af0427dba4bdab9b7fd77a0594b4a --reset -p yes
-      - run: make kno-deb ARCH="$TARGET" DEBVER=0.0.107-1 EPOCH=1792480357
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        run: make kno-deb ARCH="$TARGET" DEBVER=0.0.107-1 EPOCH=1792480357
         env:
           TARGET: ${{ matrix.target }}
           KNO_BUILD_ARCH: ${{ matrix.builder.arch }}
-      - run: |
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        run: |
           test "$(dpkg-deb -f dist/kno/kno_0.0.107-1_${TARGET}.deb Architecture)" = "$TARGET"
           test "$(dpkg-deb -f dist/host-config/kno-host-config_0.0.107-1_all.deb Architecture)" = all
           python3 - <<'PY'
@@ -51,7 +66,7 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
       - name: FreeBSD host packages
-        if: matrix.target == 'amd64'
+        if: ${{ steps.reuse.outputs.reused != 'true' && (matrix.target == 'amd64') }}
         env:
           BUILDER: ${{ matrix.builder.arch }}
         run: |
