@@ -113,7 +113,7 @@ func recordAt(repo, network, tag, rev string) (string, func(), error) {
 	return filepath.Join(tmp, sub), done, nil
 }
 
-func checkRecord(l track.Logger, o Options, pkgs string, required bool, rev string) int {
+func checkRecord(l track.Logger, o Options, pkgs string, required bool, rev string, packages ...string) int {
 	repo, done := o.trustedRepo(), func() {}
 	if rev != "" {
 		r, d, err := recordAt(repo, o.Network, o.Tag, rev)
@@ -124,7 +124,7 @@ func checkRecord(l track.Logger, o Options, pkgs string, required bool, rev stri
 		repo, done = r, d
 	}
 	defer done()
-	d, err := build.DiffAgainstCommitted(repo, o.Network, o.Tag, pkgs, "")
+	d, err := build.DiffAgainstCommitted(repo, o.Network, o.Tag, pkgs, "", packages...)
 	switch {
 	case errors.Is(err, build.ErrNoCommittedSums) && !required:
 		l.Warnf("the repository has no record of %s. kno installs the packages unchecked", o.Tag)

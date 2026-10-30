@@ -431,6 +431,11 @@ func hostServices(repo string, c config.Config, hosts []string) []string {
 }
 
 func runBuild(cmd *cobra.Command, v flags) {
+	if v.verbose {
+		executable, _ := os.Executable()
+		fmt.Fprintf(cmd.ErrOrStderr(), "kno build: running kno %s, %s, %s/%s, executable %s\n",
+			cli.Version(), runtime.Version(), runtime.GOOS, runtime.GOARCH, executable)
+	}
 	repo := config.RepoDir()
 	if repo == "" {
 		fmt.Fprintln(os.Stderr, "kno build: cannot locate the network repo (set KNO_REPO)")

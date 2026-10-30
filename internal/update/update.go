@@ -670,15 +670,25 @@ func (r ToolRunner) Build(tag string) error {
 		Native:      compile.NativeBuild(),
 		SkipDocker:  true,
 	}
-	if _, err := build.Build(o); err != nil {
+	packages, err := build.Build(o)
+	if err != nil {
 		return err
 	}
-	return r.checkRecord(tag, filepath.Join(r.Env.ReleasesDir, tag, "pkgs"))
+	return r.checkSelectedRecord(tag, filepath.Join(r.Env.ReleasesDir, tag, "pkgs"), o.Kind(), packages)
 }
 
 func (r ToolRunner) checkRecord(tag, pkgs string) error {
 	err := build.VerifyAgainstCommitted(r.Env.Repo, r.Env.Network, tag, pkgs,
 		sign.NodePath)
+	return r.recordResult(tag, err)
+}
+
+func (r ToolRunner) checkSelectedRecord(tag, dir, kind string, packages []string) error {
+	err := build.VerifyBuildPackages(r.Env.Repo, r.Env.Network, tag, dir, sign.NodePath, kind, packages)
+	return r.recordResult(tag, err)
+}
+
+func (r ToolRunner) recordResult(tag string, err error) error {
 	switch {
 	case errors.Is(err, build.ErrNoCommittedSums):
 		r.sayUnrecorded(tag)
