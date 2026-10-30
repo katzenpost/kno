@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/katzenpost/kno/internal/attest"
+	"github.com/katzenpost/kno/internal/config"
 )
 
 func TestRepoDirFindsAClonedKnoRepo(t *testing.T) {
@@ -462,5 +463,29 @@ func TestAFailedKatzenpostCloneNamesTheLocalWay(t *testing.T) {
 	err := e.EnsureRepos(Logger{Tool: "t", W: io.Discard}, true)
 	if err == nil || !strings.Contains(err.Error(), "KATZENPOST_REPO") {
 		t.Errorf("err = %v, want one that names KATZENPOST_REPO", err)
+	}
+}
+
+func TestBuildAndUpdateKeepTheSameCheckoutWithoutAnOverride(t *testing.T) {
+	top := t.TempDir()
+	mkRepo(t, top, manifestPath, "[network]\n")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("KNO_HOME", home)
+	t.Setenv("KNO_REPO", "")
+	t.Chdir(top)
+	want := config.RepoDir()
+	if got := repoDir(home); got != want {
+		t.Fatalf("update selected %s, build selected %s", got, want)
+	}
+	e := Env{Home: home, Repo: repoDir(home), KnoURL: filepath.Join(home, "nonexistent")}
+	if err := e.EnsureKnoRepo(Logger{Tool: "t", W: io.Discard}); err != nil {
+		t.Fatal(err)
+	}
+	if e.Repo != want {
+		t.Fatalf("update changed repository: %s -> %s", want, e.Repo)
+	}
+	if _, err := os.Stat(CloneDir(home)); !os.IsNotExist(err) {
+		t.Fatalf("created a redundant checkout: %v", err)
 	}
 }

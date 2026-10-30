@@ -486,13 +486,13 @@ func comparableKey(key string, user Config) bool {
 const DataDir = "data"
 
 func RepoDir() string {
-	if r := os.Getenv("KNO_REPO"); r != "" {
+	if r := os.Getenv("KNO_REPO"); r != "" && fsutil.Trusted(r) {
 		return dataRoot(r)
 	}
-	if d, ok := CheckoutDir(); ok {
+	if d, ok := CheckoutDir(); ok && fsutil.Trusted(d) {
 		return d
 	}
-	if d, ok := OwnClone(os.Getenv("KNO_HOME"), os.Getenv("HOME")); ok {
+	if d, ok := OwnClone(os.Getenv("KNO_HOME"), os.Getenv("HOME")); ok && fsutil.Trusted(d) {
 		return d
 	}
 	if dir, err := EmbeddedRepo(); err == nil {
