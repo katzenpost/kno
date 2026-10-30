@@ -133,7 +133,7 @@ func newRootCommand() *cobra.Command {
 		"release sign",
 		"render",
 		"setup",
-		"sim all", "sim configs", "sim down", "sim keys", "sim message",
+		"sim all", "sim build", "sim configs", "sim down", "sim keys", "sim message",
 		"sim probe", "sim up", "sim upgrade", "sim verify",
 		"topology-propose",
 		"unquarantine",

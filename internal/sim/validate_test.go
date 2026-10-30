@@ -46,7 +46,7 @@ func TestValidateRejectsMissingAuthorityIdentity(t *testing.T) {
 	repo := testutil.RepoRoot(t)
 	bin := t.TempDir()
 	body := "#!/bin/sh\necho 'open /var/lib/katzenpost/identity.public.pem: no such file' >&2\nexit 1\n"
-	if err := os.WriteFile(filepath.Join(bin, "pq-katzenpost-authority"), []byte(body), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(bin, "kpdirauth"), []byte(body), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	r, err := Validate(Options{Repo: repo, Network: "namenlos", BinDir: bin, Services: []string{"respectmy-pq-authority"}})

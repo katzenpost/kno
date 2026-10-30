@@ -17,7 +17,7 @@ func FindBinaries(repo, network, tag string) (dir, how string, cleanup func(), e
 	if d := installedDir(repo, network); d != "" {
 		return d, "installed on this host", noop, nil
 	}
-	deb, err := releaseDeb(tag)
+	deb, err := releaseDeb(repo, network, tag)
 	if err != nil {
 		return "", "", noop, err
 	}
@@ -53,7 +53,7 @@ func installedDir(repo, network string) string {
 	return ""
 }
 
-func releaseDeb(tag string) (string, error) {
+func releaseDeb(repo, network, tag string) (string, error) {
 	rel := filepath.Join(knopath.Artifacts(), "releases", tag, "pkgs")
 	arch := activate.HostArch()
 	hits, err := filepath.Glob(filepath.Join(rel, "katzenpost_*_"+arch+".deb"))
@@ -64,6 +64,15 @@ func releaseDeb(tag string) (string, error) {
 		return "", fmt.Errorf("no katzenpost package for %s in %s\n"+
 			"  'kno build' makes one, or point --bin at a directory of daemons",
 			arch, rel)
+	}
+	p := newRun(NetOptions{Repo: repo, Network: network}).clientPlatform()
+	if deb := pickDeb(hits, p); deb != "" {
+		return deb, nil
+	}
+	for _, hit := range hits {
+		if strings.Contains(filepath.Base(hit), "+sim") {
+			return "", fmt.Errorf("no native preflight package for %s in %s", p, rel)
+		}
 	}
 	return newestDeb(hits), nil
 }
@@ -78,7 +87,15 @@ func daemonDir(root string) string {
 }
 
 func daemonFor(dir, build, dst string) string {
-	for _, name := range []string{filepath.Base(dst), "kp" + strings.TrimPrefix(build, "kp")} {
+	aliases := map[string][]string{
+		"pq-katzenpost-authority":       {"kpdirauth", "dirauth"},
+		"pq-katzenpost-mixserver":       {"kpserver", "server"},
+		"pq-katzenpost-storage-replica": {"kpreplica", "replica"},
+		"pq-katzenpost-courier":         {"kpcourier", "courier"},
+	}
+	names := []string{filepath.Base(dst), "kp" + strings.TrimPrefix(build, "kp")}
+	names = append(names, aliases[filepath.Base(dst)]...)
+	for _, name := range names {
 		if p := filepath.Join(dir, name); name != "kp" {
 			if _, err := os.Stat(p); err == nil {
 				return p
