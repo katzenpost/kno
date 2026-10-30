@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -265,6 +267,42 @@ func TestClientConfigChangesGiveBinaryBundlesNewNames(t *testing.T) {
 			t.Fatalf("unchanged inputs changed %s", p)
 		}
 	}
+	record := CommittedDir(repo, network, "v1.2.3")
+	if err := os.MkdirAll(record, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var sums bytes.Buffer
+	for _, p := range first {
+		fmt.Fprintf(&sums, "%x  %s\n", sha256.Sum256(snapshots[p]), filepath.Base(p))
+	}
+	if err := os.WriteFile(filepath.Join(record, SumsName), sums.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	packer := filepath.Join(repo, "internal", "build", "tarball.go")
+	if err := os.MkdirAll(filepath.Dir(packer), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(packer, []byte("packaging implementation changed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	commit("gateway = \"windfallgw\"\n", "2026-10-01T11:00:00Z")
+	if got := makeBundles(); !reflect.DeepEqual(got, first) {
+		t.Fatalf("byte-identical recorded bundles renamed after packaging changes: %v -> %v", first, got)
+	}
+	for _, p := range first {
+		b, err := os.ReadFile(p)
+		if err != nil || !bytes.Equal(b, snapshots[p]) {
+			t.Fatalf("reused recorded name without reproducing its bytes: %s, %v", p, err)
+		}
+	}
+	binary := filepath.Join(binDir(work, platform), "server")
+	if err := os.WriteFile(binary, []byte("changed binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := makeBundles(); got[0] == first[0] {
+		t.Fatal("changed binaries reused the recorded bundle name")
+	}
+	fakeBin(t, binDir(work, platform))
 	commit("gateway = \"firefly\"\n", "2026-10-02T10:00:00Z")
 	second := makeBundles()
 	for i, p := range second {
