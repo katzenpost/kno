@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	knorepo "github.com/katzenpost/kno/data"
 	"github.com/katzenpost/kno/internal/testutil"
 )
 
@@ -23,10 +24,18 @@ chmod 0440 /etc/sudoers.d/test-admin
 mkdir -p /etc/katzenpost
 h=$(hostname)
 printf 'network = "namenlos"\nnodes = ["mixy"]\n\n[hosts."%s"]\nhostname = "%s"\n' "$h" "$h" >/etc/katzenpost/kno.toml
-mkdir -p /etc/cron.d
+mkdir -p /etc/cron.d /root/network-organizer/data
+cp -R /d/repo/. /root/network-organizer/data/
 dir=/home/op/.local/share/katzenpost/kno/pkgs/v9.9.9
 su op -c "mkdir -p $dir/pkgs && cp /d/pkgs/* $dir/pkgs/"
 check "the user stages the release without root" "[ -f $dir/pkgs/SHA256SUMS ]"
+su op -c "printf tampered >>$dir/pkgs/katzenpost_9.9.9+debian13_amd64.deb; cd $dir/pkgs && sha256sum *.deb >SHA256SUMS"
+if su op -c "sudo -n kno activate $dir v9.9.9" >/tmp/tampered.log 2>&1; then
+ check "root rejects a staged package that differs from its own record" false
+else
+ check "root rejects a staged package that differs from its own record" "! dpkg -s katzenpost >/dev/null 2>&1"
+fi
+su op -c "cp /d/pkgs/* $dir/pkgs/"
 su op -c "sudo -n kno activate $dir v9.9.9" >/tmp/activate.log 2>&1
 check "sudo kno activate installs the staged packages" "dpkg -s katzenpost >/dev/null 2>&1"
 su op -c "sudo -n kno activate --schedule=cron" >/tmp/schedule.log 2>&1
@@ -67,6 +76,17 @@ func TestACopyStagedReleaseInstallsThroughTheAdminsSudo(t *testing.T) {
 		sums.WriteString(hex.EncodeToString(h[:]) + "  " + n + "\n")
 	}
 	if err := os.WriteFile(filepath.Join(pkgs, "SHA256SUMS"), []byte(sums.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	repo := filepath.Join(dir, "repo")
+	if err := knorepo.Materialize(repo); err != nil {
+		t.Fatal(err)
+	}
+	record := filepath.Join(repo, "networks", "namenlos", ".generated", "releases", "v9.9.9")
+	if err := os.MkdirAll(record, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(record, "SHA256SUMS"), []byte(sums.String()), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "check.sh"), []byte(copyInstallScript), 0o755); err != nil {

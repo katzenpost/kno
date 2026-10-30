@@ -67,11 +67,11 @@ func TestACheckoutRootDoesNotOwnIsNotRoots(t *testing.T) {
 	}
 }
 
-func TestKnoUpdateTakesNoCheckoutFromTheWorkingDirectory(t *testing.T) {
+func TestKnoUpdateUsesTheTrustedCheckoutInTheWorkingDirectory(t *testing.T) {
 	fake := fakeCheckout(t)
 	t.Setenv("KNO_REPO", "")
 	t.Chdir(fake)
-	if got := repoDir(t.TempDir()); got == fake {
-		t.Errorf("repoDir takes the checkout in the working directory: %s", got)
+	if got := repoDir(t.TempDir()); got != fake {
+		t.Errorf("repoDir ignored the trusted checkout: got %s, want %s", got, fake)
 	}
 }

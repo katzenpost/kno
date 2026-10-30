@@ -57,3 +57,18 @@ func (t *ticker) reconcile(r *RemoteRunner) bool {
 	t.l.Logf("%s: runs the recorded packages of %s. kno's state said %s, and kno corrects it", t.h.Label, t.target, was)
 	return true
 }
+
+func (r *RemoteRunner) alreadyInstalled(tag string) bool {
+	if r.Force || r.Dry || r.Before == nil || len(r.Host.Services) == 0 {
+		return false
+	}
+	wantKno := push.KnoVersionFor(r.Env.Repo, tag)
+	if r.Before.Packages["kno-host-config-"+r.Host.Label] != wantKno || wantKno == "" {
+		return false
+	}
+	stamps := map[string]string{}
+	for _, svc := range r.Host.Services {
+		stamps[svc] = deb.ConfigStamp(r.Env.Repo, r.Env.Network, svc)
+	}
+	return runsRecorded(deb.Version(tag, ""), wantKno, stamps, r.Before.Packages)
+}

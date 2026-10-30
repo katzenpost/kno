@@ -1,7 +1,6 @@
 package activate
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -126,9 +125,6 @@ func checkRecord(l track.Logger, o Options, pkgs string, required bool, rev stri
 	defer done()
 	d, err := build.DiffAgainstCommitted(repo, o.Network, o.Tag, pkgs, "", packages...)
 	switch {
-	case errors.Is(err, build.ErrNoCommittedSums) && !required:
-		l.Warnf("the repository has no record of %s. kno installs the packages unchecked", o.Tag)
-		return 0
 	case err != nil:
 		l.Errorf("%v. kno installs nothing", err)
 		return 1
@@ -138,14 +134,31 @@ func checkRecord(l track.Logger, o Options, pkgs string, required bool, rev stri
 		}
 		l.Errorf("%d package(s) do not match the record of %s. kno installs nothing", len(d.Mismatched), o.Tag)
 		return 1
-	case len(d.Unnamed) > 0 && required:
-		l.Errorf("the record of %s does not name %s, and require_signatures is on. kno installs nothing",
+	case len(d.Unnamed) > 0:
+		l.Errorf("the record of %s does not name %s. kno installs nothing",
 			o.Tag, strings.Join(d.Unnamed, ", "))
 		return 1
-	case len(d.Unnamed) > 0:
-		l.Warnf("the record of %s does not name %s. kno installs them unchecked", o.Tag, strings.Join(d.Unnamed, ", "))
 	}
 	return 0
 }
 
 var unitName = regexp.MustCompile(`^kp[a-z]+(@[A-Za-z0-9_.-]+)?(\.service)?$`)
+
+func ensureActivationRepo(l track.Logger, e *track.Env, tag string) error {
+	if !fsutil.Trusted(e.Repo) {
+		return fmt.Errorf("the release record repository is not trusted: %s", e.Repo)
+	}
+	if _, err := os.Stat(filepath.Join(build.CommittedDir(e.Repo, e.Network, tag), build.SumsName)); err == nil {
+		return nil
+	}
+	if err := e.EnsureKnoRepo(l); err != nil {
+		return err
+	}
+	if !fsutil.Trusted(e.Repo) {
+		return fmt.Errorf("the release record repository is not trusted: %s", e.Repo)
+	}
+	if _, err := os.Stat(filepath.Join(build.CommittedDir(e.Repo, e.Network, tag), build.SumsName)); err != nil {
+		return fmt.Errorf("the trusted repository has no record of %s: %w", tag, err)
+	}
+	return nil
+}

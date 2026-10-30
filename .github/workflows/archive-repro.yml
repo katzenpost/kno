@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: archive-repro-${{ github.head_ref || github.ref_name }}
@@ -24,11 +25,24 @@ jobs:
         go: [1.26.10, 1.27.2]
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: reuse successful matching job
+        id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/reuse.py --workflow archive-repro.yml --job "source-archives (${{ matrix.runner }}, ${{ matrix.go }})"
+
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
-      - run: sudo apt-get update && sudo apt-get install -y podman
-      - run: go test ./internal/build -run '^TestSourceArchivesMatchCommittedDigests$' -count=1 -v
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        run: sudo apt-get update && sudo apt-get install -y podman
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        run: go test ./internal/build -run '^TestSourceArchivesMatchCommittedDigests$' -count=1 -v
         env:
           KNO_TEST_SOURCE_ARCHIVES: '1'
           GOTOOLCHAIN: go${{ matrix.go }}

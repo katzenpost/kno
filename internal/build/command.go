@@ -22,6 +22,7 @@ import (
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/service"
 	"github.com/katzenpost/kno/internal/source"
+	"github.com/katzenpost/kno/internal/track"
 )
 
 type flags struct {
@@ -436,9 +437,9 @@ func runBuild(cmd *cobra.Command, v flags) {
 		fmt.Fprintf(cmd.ErrOrStderr(), "kno build: running kno %s, %s, %s/%s, executable %s\n",
 			cli.Version(), runtime.Version(), runtime.GOOS, runtime.GOARCH, executable)
 	}
-	repo := config.RepoDir()
-	if repo == "" {
-		fmt.Fprintln(os.Stderr, "kno build: cannot locate the network repo (set KNO_REPO)")
+	repo, err := buildRepository(v.offline || v.dry, cmd.ErrOrStderr())
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "kno build: %v\n", err)
 		os.Exit(1)
 	}
 	pins, err := source.ParsePins(filepath.Join(repo, "thirdparty", "pins.env"))
@@ -771,4 +772,17 @@ func warpedCommand() *cobra.Command {
 
 	v.skipFbsd, v.skipDocker = true, true
 	return cmd
+}
+
+func buildRepository(offline bool, out io.Writer) (string, error) {
+	e, err := track.LoadEnv()
+	if err != nil {
+		return "", err
+	}
+	if !offline {
+		if err := e.EnsureKnoRepo(track.Logger{Tool: "build", W: out}); err != nil {
+			return "", err
+		}
+	}
+	return e.Repo, nil
 }

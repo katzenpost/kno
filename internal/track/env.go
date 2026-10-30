@@ -60,6 +60,9 @@ func repoDir(home string) string {
 		}
 		return r
 	}
+	if d, ok := config.CheckoutDir(); ok && fsutil.Trusted(d) {
+		return d
+	}
 	if d, ok := config.OwnClone(home, os.Getenv("HOME")); ok &&
 		fsutil.Trusted(d) {
 		return d

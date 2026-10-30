@@ -404,3 +404,20 @@ func TestConfigPackagesThatFailedVerifyAreNotAnUpdate(t *testing.T) {
 		}
 	}
 }
+
+func TestSameReleaseStatusDoesNotAdvertiseTheNewReleaseWait(t *testing.T) {
+	dir := t.TempDir()
+	host := knopath.HostState(dir, "lilly")
+	if err := os.MkdirAll(host, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{"state": "pending\n", "current": "v0.0.107\n", "last-known-good": "v0.0.107\n", "pending": "tag=v0.0.107\nactivated=1792000000\npromote=1792002400\ndeadline=1792005400\n"} {
+		if err := os.WriteFile(filepath.Join(host, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mark, detail := hostLine(track.Env{StateDir: dir}, "lilly", "v0.0.107", nil)
+	if mark != "VERIFY" || strings.Contains(detail, "promotion from") || !strings.Contains(detail, "next passing verify") {
+		t.Fatalf("%s: %s", mark, detail)
+	}
+}

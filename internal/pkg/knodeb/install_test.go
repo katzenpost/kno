@@ -53,9 +53,13 @@ ck "unit drops the old script"  "! [ -f /etc/systemd/system/kno-update.service ]
 ck "cron calls 'kno update'"    "! [ -f /etc/cron.d/kno-update ] || grep -q '/usr/bin/kno update' /etc/cron.d/kno-update"
 ck "cron drops the old script"  "! [ -f /etc/cron.d/kno-update ] || ! grep -q 'bin/kno-update' /etc/cron.d/kno-update"
 
+printf 'kno-host-config kno-host-config/this_host boolean true\nkno-host-config kno-host-config/this_node select %s\n' "$NODE" | debconf-set-selections
 DEBIAN_FRONTEND=noninteractive dpkg -i --force-depends /d/host-config.deb || fail=1
 ck "kno.toml written"           "[ -f /etc/katzenpost/kno.toml ]"
 ck "kno runs"                   "kno backup-keys --help >/dev/null 2>&1"
+ck "installed CLI runs from home without source" "cd /root && kno status >/tmp/kno-status 2>&1"
+ck "host configuration selects the requested node" "grep -Eq 'nodes: +$NODE' /tmp/kno-status"
+ck "status requires no source checkout or Go installation" "! [ -d /root/network-organizer ] && ! [ -d /root/katzenpost ] && ! command -v go >/dev/null 2>&1"
 
 echo "RESULT fail=$fail"
 `
@@ -89,13 +93,14 @@ func TestPackagesBootstrapAHost(t *testing.T) {
 		}
 	}
 
-	for _, c := range []struct{ name, brk string }{
-		{"fresh install", "0"},
-		{"upgrade over the superseded layout", "1"},
+	for _, c := range []struct{ name, brk, node string }{
+		{"desktop-built package on firefly without source", "0", "firefly"},
+		{"desktop-built package on tortuna without source", "0", "tortuna"},
+		{"upgrade over the superseded layout", "1", "mixy"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			out, err := exec.Command(podman, "run", "--rm", "--network=none",
-				"-e", "BREAK="+c.brk, "-v", dir+":/d:ro,Z",
+				"-e", "BREAK="+c.brk, "-e", "NODE="+c.node, "-v", dir+":/d:ro,Z",
 				"debian:bookworm-slim", "sh", "/d/check.sh").CombinedOutput()
 			t.Logf("container output:\n%s", out)
 			if err != nil {
@@ -105,7 +110,7 @@ func TestPackagesBootstrapAHost(t *testing.T) {
 				t.Errorf("the installed host is not correctly prepared")
 			}
 
-			if n := strings.Count(string(out), "  ok    "); n < 18 {
+			if n := strings.Count(string(out), "  ok    "); n < 21 {
 				t.Errorf("only %d assertions ran; the check script did not complete", n)
 			}
 		})

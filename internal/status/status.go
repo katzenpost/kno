@@ -659,7 +659,9 @@ func hostLine(e track.Env, l, target string, delivered map[string]bool) (mark, d
 		if kv["checked"] != "" {
 			parts = append(parts, "last verify "+when(kv["checked"])+": "+verdictText(kv["verdict"]))
 		}
-		if kv["promote"] != "" {
+		if lkg == kv["tag"] && lkg != "" {
+			parts = append(parts, "promotion after the next passing verify")
+		} else if kv["promote"] != "" {
 			parts = append(parts, "promotion from "+when(kv["promote"]))
 		}
 		parts = append(parts, "window closes "+when(kv["deadline"]))
