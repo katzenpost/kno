@@ -15,7 +15,7 @@ import (
 )
 
 func ToolVersion(repo, network, tag string) string {
-	return knover.Version(repo, tag)
+	return knodeb.ToolVersion(repo, tag, knover.Revision(repo, tag))
 }
 
 func KnoPackage(repo, network, tag, rel string) (string, error) {
@@ -23,7 +23,7 @@ func KnoPackage(repo, network, tag, rel string) (string, error) {
 	if err := os.Setenv("SOURCE_DATE_EPOCH", epochFor(o)); err != nil {
 		return "", err
 	}
-	toolVer := knover.Version(repo, tag)
+	toolVer := ToolVersion(repo, network, tag)
 	if compile.NativeBuild() {
 		pins, err := source.ParsePins(filepath.Join(repo, "thirdparty", "pins.env"))
 		if err != nil {
@@ -44,7 +44,12 @@ func knoDeb(o Options, rel, toolVer, arch string) (string, error) {
 		return "", fmt.Errorf("kno deb: %w", err)
 	}
 	ko.Version, ko.Verbose, ko.Arch, ko.OutDir = toolVer, o.Verbose, arch, filepath.Join(o.work(), "kno")
-	step("building kno %s for %s", toolVer, arch)
+	if ko.Binary != "" {
+		note("using the running kno binary from %s", ko.Binary)
+		step("packaging installed kno %s for %s", toolVer, arch)
+	} else {
+		step("building kno %s for %s", toolVer, arch)
+	}
 	d, err := knodeb.Package(context.Background(), ko)
 	if err != nil {
 		return "", fmt.Errorf("kno deb (%s): %w", arch, err)
