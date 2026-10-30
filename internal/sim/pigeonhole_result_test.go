@@ -58,7 +58,7 @@ func TestPigeonholeRejectsZeroExitFailureAndBoundsTheRemoteProcess(t *testing.T)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(string(got), "timeout\n--signal=TERM\n--kill-after=5s\n") {
+			if !strings.Contains(string(got), "exec timeout --signal=TERM --kill-after=5s") {
 				t.Fatalf("remote command lacks a timeout: %s", got)
 			}
 			if !success && strings.Count(string(got), "/simbin/cp-bench") != 3 {

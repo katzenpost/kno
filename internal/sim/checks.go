@@ -134,17 +134,24 @@ func (r *run) pigeonhole() error {
 	stalled := 0
 	for i := 1; i <= 3; i++ {
 		remaining, have := spend.left()
-		if !have {
+		if !have || remaining <= 10*time.Second {
 			stalled++
 			break
 		}
-		limit := remaining / time.Duration(4-i)
-		seconds := max(1, int((limit-10*time.Second)/time.Second))
-		out, err, timedOut := attempt(limit, "exec", "-e", r.epochEnv(), r.kpc,
-			"timeout", "--signal=TERM", "--kill-after=5s", strconv.Itoa(seconds)+"s", "/simbin/cp-bench",
+		limit := remaining - 10*time.Second
+		idle := min(budget/3, limit)
+		r.log.Logf("cp-bench attempt %d: %s remaining, inactivity limit %s", i, remaining.Round(time.Second), idle.Round(time.Second))
+		seconds := max(1, int(limit/time.Second))
+		pidfile := fmt.Sprintf("/tmp/kno-cpbench-%d.pid", i)
+		cmd := podmanCmd(context.Background(), "exec", "-e", r.epochEnv(), r.kpc,
+			"sh", "-ec", `printf '%s\n' "$$" > "$1"; shift; exec timeout --signal=TERM --kill-after=5s "$@"`,
+			"kno-cpbench", pidfile, strconv.Itoa(seconds)+"s", "/simbin/cp-bench",
 			"-config", "/sim/thinclient.toml",
 			"-payload", payload,
 			"-metrics", "", "-log-level", envStr("CPBENCH_LOG_LEVEL", "DEBUG"))
+		ctx, cancel := context.WithTimeout(context.Background(), limit)
+		out, err, timedOut := transferAttempt(ctx, idle, cmd, func() { r.stopTransfer(pidfile) })
+		cancel()
 		attemptLog := filepath.Join(r.Work, fmt.Sprintf("cpbench-%d.log", i))
 		_ = os.WriteFile(attemptLog, out, 0o644)
 		_ = os.WriteFile(logPath, out, 0o644)
@@ -177,6 +184,24 @@ func (r *run) pigeonhole() error {
 			" (see %s, and the courier and replica containers, which are still up)", budget, logPath)
 	}
 	return fmt.Errorf("cp-bench pigeonhole round trip failed (see %s)", logPath)
+}
+
+func (r *run) stopTransfer(pidfile string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	out, err := podmanCmd(ctx, "exec", r.kpc, "sh", "-ec", `
+file=$1
+[ -f "$file" ] || exit 0
+pid=$(cat "$file")
+case "$pid" in ''|0|1|*[!0-9]*) exit 1;; esac
+/bin/kill -TERM -- "-$pid" 2>/dev/null || true
+sleep 5
+/bin/kill -KILL -- "-$pid" 2>/dev/null || true
+rm -f "$file"
+`, "kno-stop-transfer", pidfile).CombinedOutput()
+	if err != nil {
+		r.log.Warnf("stop cp-bench process group: %v: %s", err, out)
+	}
 }
 
 func (r *run) dumpPigeonholeLogs() {
