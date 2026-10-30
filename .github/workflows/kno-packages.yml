@@ -50,3 +50,17 @@ jobs:
           PY
         env:
           TARGET: ${{ matrix.target }}
+      - name: FreeBSD host packages
+        if: matrix.target == 'amd64'
+        env:
+          BUILDER: ${{ matrix.builder.arch }}
+        run: |
+          . data/thirdparty/pins.env
+          mkdir -p dist/freebsd "$RUNNER_TEMP/freebsd-cache"
+          podman run --rm --platform "linux/$BUILDER" \
+            -v "$PWD:/repo:ro" -v "$PWD/dist/freebsd:/out:rw" \
+            -v "$RUNNER_TEMP/freebsd-cache:/cache:rw" \
+            -e KNO_CACHE=/cache -e GOMODCACHE=/cache/gomodcache \
+            -e GOCACHE=/cache/gobuild -w /repo \
+            "${BUILD_IMAGE%%:*}@$BUILD_IMAGE_DIGEST" \
+            go run ./ci/freebsd-packages --out /out --version 0.0.107-1

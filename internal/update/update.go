@@ -607,19 +607,24 @@ type ToolRunner struct {
 	Since string
 	Log   track.Logger
 
-	verified *int
-	Out      io.Writer
+	selectionFailed bool
+	verified        *int
+	Out             io.Writer
 }
 
-func (r ToolRunner) Track() (string, int) {
+func (r *ToolRunner) Track() (string, int) {
+	r.selectionFailed = false
 	if r.Fetch {
 		if err := r.Env.EnsureRepos(r.Log, true); err != nil {
+			r.selectionFailed = true
 			r.Log.Errorf("%v", err)
 			return "", 1
 		}
 	}
 	target, why := r.Env.Target()
 	if target == "" {
+		r.selectionFailed = true
+		r.reportExistingBuild()
 		r.Log.Errorf("%s", noTarget(why))
 		return "", 1
 	}
@@ -867,6 +872,12 @@ func Start(stderr io.Writer, v Flags) int {
 	}
 
 	l := track.Logger{Tool: "update", W: stderr}
+	before := localSample(e, "before this deployment", "")
+	if before != nil && len(before.Packages) > 0 {
+		l.Logf("%s: installed packages: %s", localLabel(e), packageList(before.Packages))
+	} else {
+		l.Logf("installed package versions are unavailable")
+	}
 	if v.Dry || os.Getenv("DRY_RUN") == "1" {
 
 		if _, ok := config.GitRoot(e.Repo); !ok {
@@ -891,7 +902,6 @@ func Start(stderr io.Writer, v Flags) int {
 		Out:         stderr,
 	}
 	dry := v.Dry || os.Getenv("DRY_RUN") == "1"
-	before := localSample(e, "before this deployment", "")
 	rc := Run(Options{
 		Env:          e,
 		Policy:       policyOf(e, v),
@@ -904,7 +914,7 @@ func Start(stderr io.Writer, v Flags) int {
 		Runner:       runner,
 		After:        newSelfUpgrade(e, track.Logger{Tool: "update", W: stderr}, runner.Sudo).Run,
 	})
-	if !dry {
+	if !dry && !runner.selectionFailed {
 		recordLocal(track.Logger{Tool: "update", W: stderr}, e, runner, before, v.Push)
 	}
 	return rc

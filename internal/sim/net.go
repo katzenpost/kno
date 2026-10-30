@@ -33,11 +33,12 @@ type NetOptions struct {
 	Pull     string
 	Fail     string
 
-	Emulate   bool
-	Keep      bool
-	NoCourier bool
-	LogLevel  string
-	Verbose   bool
+	Emulate      bool
+	Keep         bool
+	NoCourier    bool
+	MinimalBuild bool
+	LogLevel     string
+	Verbose      bool
 
 	Out io.Writer
 }
@@ -60,7 +61,7 @@ type run struct {
 	ix   *debIndex
 }
 
-var Stages = []string{"keys", "configs", "up", "verify", "message", "probe", "upgrade", "down", "all"}
+var Stages = []string{"build", "keys", "configs", "up", "verify", "message", "probe", "upgrade", "down", "all"}
 
 func CheckEpoch(d time.Duration) error {
 	if d < MinEpoch {
@@ -113,6 +114,8 @@ func RunNet(o NetOptions, stage string) error {
 	}
 	r := newRun(o)
 	switch stage {
+	case "build":
+		return r.provisionPackages()
 	case "keys":
 		return r.keysStage()
 	case "configs":
