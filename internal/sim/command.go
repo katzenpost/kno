@@ -30,6 +30,7 @@ func Command() *cobra.Command {
 }
 
 var stageHelp = map[string]string{
+	"build":   "prepare only the packages needed by this test network",
 	"keys":    "build the packages and tools, and make a fresh keyset",
 	"configs": "render the configs from the network data with the fresh keys",
 	"up":      "start the containers, install katzenpost, wait for consensus",
@@ -76,6 +77,7 @@ func stageCommand(stage string) *cobra.Command {
 	f.BoolVar(&o.Emulate, "emulate", false, "run each node on its own architecture through binfmt")
 	f.BoolVar(&o.Keep, "keep", false, "keep the network after a run that passes")
 	f.BoolVar(&o.NoCourier, "no-courier", false, "disable the couriers and skip cp-bench; give it to every stage")
+	f.BoolVar(&o.MinimalBuild, "minimal-build", false, "build only the binaries this sim needs in temporary sim packages")
 	f.StringVar(&o.LogLevel, "log-level", "DEBUG", "daemon log level")
 	return cmd
 }
@@ -168,12 +170,9 @@ func Report(w io.Writer, r Result, network, tag, how string) int {
 	fmt.Fprintf(w, "sim validate: %s at %s, binaries %s\n", network, tag, how)
 	tw := tabwriter.NewWriter(w, 0, 8, 2, ' ', 0)
 	for _, o := range r.Outcomes {
-		mark := "  ok  "
-		switch o.State {
-		case "failed":
-			mark = "  FAIL"
-		case "needs the node", "no binary":
-			mark = "  --  "
+		mark := "  FAIL"
+		if o.State == "ok" {
+			mark = "  ok  "
 		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", mark, o.Service, o.Binary, note(o))
 	}
@@ -189,6 +188,10 @@ func Report(w io.Writer, r Result, network, tag, how string) int {
 	}
 	if r.Checked() == 0 {
 		fmt.Fprintf(w, "  No daemon accepted or refused a config, so this run checked nothing.\n")
+		return 1
+	}
+	if r.Checked() != len(r.Outcomes) {
+		fmt.Fprintln(w, "  Validation is incomplete: every configured service must be accepted.")
 		return 1
 	}
 	return 0
