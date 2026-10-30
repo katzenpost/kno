@@ -57,8 +57,8 @@ sim: build
 
 install-test: kno-deb
 	@KNO_DEB_INSTALL_TEST=1 KNO_DEB='$(CURDIR)/$(DEB)' KNO_HOST_CONFIG_DEB='$(CURDIR)/$(HOSTDEB)' \
-		go test -count=1 -run 'TestConfigPackageMovesTheKeysOfAnOldLayoutHost|TestPackagesBootstrapAHost|TestACopyStagedReleaseInstallsThroughTheAdminsSudo' \
-		./internal/pkg/deb ./internal/pkg/knodeb ./internal/activate
+		go test -count=1 -run 'TestConfigPackageMovesTheKeysOfAnOldLayoutHost|TestPackagesBootstrapAHost|TestACopyStagedReleaseInstallsThroughTheAdminsSudo|TestPackagedLillyUpgradeRefreshesLegacyStatusInputs' \
+		./internal/pkg/deb ./internal/pkg/knodeb ./internal/pkg/hostconfig ./internal/activate
 
 repro: build
 	@rm -rf '$(REPRO)'

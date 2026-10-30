@@ -31,6 +31,8 @@ Description: kno.toml for the %s host of the %s network
  was built: which %s services run here, how updates are applied and whether a
  signed tag is required. Installs /etc/katzenpost/kno.toml; your edits to it
  are kept.
+ Generated network files are refreshed under /etc/katzenpost/kno; the authority
+ file there is a public network reference for status tools.
 `
 
 const perHostPostinst = `#!/bin/sh
@@ -206,7 +208,11 @@ func AssembleHostRoot(c config.Config, label, version, rootParent, repo, network
 		if u := c.KpclientdUser(label); u != "" {
 			client = fmt.Sprintf(accountCheck, u, label, u)
 		}
-		client += clientRestart
+		migration, err := networkFiles(root, repo, network, hc.Hosts[label].Services)
+		if err != nil {
+			return "", err
+		}
+		client += migration + clientRestart
 	}
 	files := []struct {
 		name string
