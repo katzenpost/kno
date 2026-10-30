@@ -84,3 +84,16 @@ func TestPigeonholeFailureIncludesCourierLogFiles(t *testing.T) {
 		t.Fatal("courier.log was omitted from failure evidence")
 	}
 }
+
+func TestPigeonholeFailureIncludesTheClientDaemonError(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "kpclientd.log"), []byte("createCourierEnvelopesFromPayload: underlying error\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	r := &run{NetOptions: NetOptions{Out: &out}, data: dir}
+	r.dumpPigeonholeLogs()
+	if !strings.Contains(out.String(), "underlying error") {
+		t.Fatal("client daemon failure was omitted: " + out.String())
+	}
+}

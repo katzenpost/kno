@@ -181,13 +181,17 @@ func (r *run) pigeonhole() error {
 
 func (r *run) dumpPigeonholeLogs() {
 	logs, err := filepath.Glob(filepath.Join(r.data, "*", "*.log"))
-	if err != nil || len(logs) == 0 {
+	if err != nil {
 		return
+	}
+	clientLog := filepath.Join(r.data, "kpclientd.log")
+	if _, err := os.Stat(clientLog); err == nil {
+		logs = append(logs, clientLog)
 	}
 	sort.Strings(logs)
 	for _, p := range logs {
 		name := filepath.Base(filepath.Dir(p))
-		if !strings.Contains(name, "courier") && !strings.Contains(name, "storagenode") &&
+		if p != clientLog && !strings.Contains(name, "courier") && !strings.Contains(name, "storagenode") &&
 			!strings.Contains(name, "servicenode") {
 			continue
 		}
