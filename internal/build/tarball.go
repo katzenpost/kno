@@ -24,6 +24,7 @@ type tarballOpts struct {
 	Source  bool
 	Pins    map[string]string
 	ToolVer string
+	Kind    string
 }
 
 func tarballs(o tarballOpts) ([]string, error) {
@@ -44,6 +45,16 @@ func tarballs(o tarballOpts) ([]string, error) {
 	add := func(bindir, token string) error {
 		if !hasFiles(bindir) {
 			return nil
+		}
+		if len(configs) > 0 {
+			recorded, err := recordedClientBundle(o, bindir, token, epoch, configs)
+			if err != nil {
+				return err
+			}
+			if recorded != "" {
+				out = append(out, recorded)
+				return nil
+			}
 		}
 		name := fmt.Sprintf("katzenpost-%s-%s", bundleVersion, token)
 		dst := filepath.Join(dir, name+".tar.gz")
