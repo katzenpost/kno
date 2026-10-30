@@ -43,7 +43,7 @@ func TestMainReportsAndExits(t *testing.T) {
 	}{
 		{name: "render", what: "render", repo: repo, want: "configs match"},
 		{name: "operator", what: "operator", repo: repo, want: "operator: "},
-		{name: "topology", what: "topology", repo: repo, want: "known gap"},
+		{name: "topology", what: "topology", repo: repo, want: "topology: "},
 		{name: "all", what: "all", repo: repo, want: "operator+render+topology: "},
 
 		{
