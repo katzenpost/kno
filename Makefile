@@ -9,7 +9,6 @@ ARCH = $(shell dpkg --print-architecture 2>/dev/null || echo amd64)
 NETWORK = namenlos
 DEB = dist/kno/kno_$(DEBVER)_$(ARCH).deb
 HOSTDEB = dist/host-config/kno-host-config_$(DEBVER)_all.deb
-KNOBIN = dist/kno/.root/usr/bin/kno
 LOG = kno-debug.log
 ITERLOG = kno-iterate.log
 
@@ -104,7 +103,7 @@ $(DEB): $(SOURCES) $(EMBEDDED) | tools
 
 $(HOSTDEB): $(DEB)
 	@echo '==> kno-host-config $(DEBVER)'
-	@SOURCE_DATE_EPOCH='$(EPOCH)' KNO_VERBOSE=$(if $(V),$(V),0) KNO_BIN='$(KNOBIN)' \
+	@SOURCE_DATE_EPOCH='$(EPOCH)' KNO_VERBOSE=$(if $(V),$(V),0) \
 		sh scripts/host-config-build.sh $(NETWORK) $(DEBVER) >/dev/null
 
 test:

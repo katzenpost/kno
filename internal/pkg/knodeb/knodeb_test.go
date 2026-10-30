@@ -72,7 +72,7 @@ func TestKnoDebRootMatchesShell(t *testing.T) {
 		maint = "parity test <noreply@example.invalid>"
 	)
 
-	for _, arch := range []string{"amd64", "ppc64el"} {
+	for _, arch := range []string{"amd64", "arm64", "ppc64el"} {
 		t.Run(arch, func(t *testing.T) {
 			tmp := t.TempDir()
 			podman := filepath.Join(tmp, "podman")
