@@ -168,12 +168,9 @@ func Report(w io.Writer, r Result, network, tag, how string) int {
 	fmt.Fprintf(w, "sim validate: %s at %s, binaries %s\n", network, tag, how)
 	tw := tabwriter.NewWriter(w, 0, 8, 2, ' ', 0)
 	for _, o := range r.Outcomes {
-		mark := "  ok  "
-		switch o.State {
-		case "failed":
-			mark = "  FAIL"
-		case "needs the node", "no binary":
-			mark = "  --  "
+		mark := "  FAIL"
+		if o.State == "ok" {
+			mark = "  ok  "
 		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", mark, o.Service, o.Binary, note(o))
 	}
@@ -189,6 +186,10 @@ func Report(w io.Writer, r Result, network, tag, how string) int {
 	}
 	if r.Checked() == 0 {
 		fmt.Fprintf(w, "  No daemon accepted or refused a config, so this run checked nothing.\n")
+		return 1
+	}
+	if r.Checked() != len(r.Outcomes) {
+		fmt.Fprintln(w, "  Validation is incomplete: every configured service must be accepted.")
 		return 1
 	}
 	return 0

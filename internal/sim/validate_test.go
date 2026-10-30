@@ -42,25 +42,23 @@ func TestKeyDirsIgnoresOtherAbsolutePaths(t *testing.T) {
 	}
 }
 
-func TestNeedsNodeClassifiesWhatOnlyTheNodeHas(t *testing.T) {
-	for _, s := range []string{
-		"open /var/lib/pq-katzenpost-authority/identity.public.pem: no such file or directory",
-		"open /var/lib/katzenpost/identity.private.pem: no such file",
-		"Authorities section must contain self",
-	} {
-		if !needsNode(s) {
-			t.Errorf("not classified as needing the node: %q", s)
-		}
+func TestValidateRejectsMissingAuthorityIdentity(t *testing.T) {
+	repo := testutil.RepoRoot(t)
+	bin := t.TempDir()
+	body := "#!/bin/sh\necho 'open /var/lib/katzenpost/identity.public.pem: no such file' >&2\nexit 1\n"
+	if err := os.WriteFile(filepath.Join(bin, "pq-katzenpost-authority"), []byte(body), 0o755); err != nil {
+		t.Fatal(err)
 	}
-
-	for _, s := range []string{
-		"toml: line 12: expected value but found ']'",
-		"unknown field WireKEMScheme",
-		"pem.FromFile error: open /var/lib/x/peer_id_pub_key.pem: no such file",
-	} {
-		if needsNode(s) {
-			t.Errorf("wrongly excused: %q", s)
-		}
+	r, err := Validate(Options{Repo: repo, Network: "namenlos", BinDir: bin, Services: []string{"respectmy-pq-authority"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Outcomes) != 1 || r.Failed() != 1 || r.Outcomes[0].State != "failed" {
+		t.Fatalf("missing authority identity was excused: %v", r.Outcomes)
+	}
+	var out strings.Builder
+	if code := Report(&out, r, "namenlos", "v1", "given"); code != 1 {
+		t.Fatalf("refusal exited %d: %s", code, out.String())
 	}
 }
 
@@ -196,5 +194,28 @@ func TestPrepareSaysWhyItRunsOnTheHost(t *testing.T) {
 	defer done()
 	if !strings.Contains(fallback, "kno-no-such-engine") {
 		t.Errorf("Prepare fell back to the host and said %q", fallback)
+	}
+}
+
+func TestValidateFailsWhenOnlySomeServicesWereChecked(t *testing.T) {
+	for _, state := range []string{"needs the node", "no binary"} {
+		var out strings.Builder
+		r := Result{Outcomes: []Outcome{{Service: "mix", State: "ok"}, {Service: "authority", State: state}}}
+		if code := Report(&out, r, "namenlos", "v1", "given"); code != 1 {
+			t.Fatalf("partial validation exited %d: %s", code, out.String())
+		}
+		if !strings.Contains(out.String(), "FAIL") {
+			t.Fatalf("incomplete validation was not marked failed: %s", out.String())
+		}
+	}
+}
+
+func TestValidateFailsForAnExplicitMissingConfig(t *testing.T) {
+	r, err := Validate(Options{Repo: t.TempDir(), Network: "n", Services: []string{"absent-pq-authority"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Outcomes) != 1 || r.Failed() != 1 {
+		t.Fatalf("missing config was silently omitted: %v", r.Outcomes)
 	}
 }

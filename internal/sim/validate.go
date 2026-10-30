@@ -76,19 +76,6 @@ func (r Result) Checked() int {
 	return n
 }
 
-func needsNode(out string) bool {
-	for _, s := range []string{
-		"identity.public.pem: no such file",
-		"identity.private.pem: no such file",
-		"Authorities section must contain self",
-	} {
-		if strings.Contains(out, s) {
-			return true
-		}
-	}
-	return false
-}
-
 func Validate(o Options) (Result, error) {
 	var r Result
 	svcs := o.Services
@@ -101,10 +88,12 @@ func Validate(o Options) (Result, error) {
 	}
 	for _, svc := range svcs {
 		cfg := ConfigPath(o.Repo, o.Network, svc)
+		out := Outcome{Service: svc, Config: cfg}
 		if _, err := os.Stat(cfg); err != nil {
+			out.State, out.Detail = "failed", err.Error()
+			r.Outcomes = append(r.Outcomes, out)
 			continue
 		}
-		out := Outcome{Service: svc, Config: cfg}
 		s, err := service.ResolveService(o.Repo, o.Network, svc)
 		if err != nil || s.BinaryDst == "" {
 			out.State, out.Detail = "no binary", "this service names no binary"
@@ -123,8 +112,6 @@ func Validate(o Options) (Result, error) {
 		switch {
 		case err == nil:
 			out.State = "ok"
-		case needsNode(string(b)):
-			out.State, out.Detail = "needs the node", firstError(string(b))
 		default:
 			out.State, out.Detail = "failed", firstError(string(b))
 		}
@@ -137,11 +124,16 @@ func (o Options) run(bin, cfg string, dirs []string) ([]byte, error) {
 	if o.engine == "" || o.keys == "" || len(dirs) == 0 {
 		return exec.Command(bin, "--config", cfg, "--validate-only").CombinedOutput()
 	}
+	keys, cleanup, err := o.validationKeys(cfg)
+	if err != nil {
+		return []byte(err.Error()), err
+	}
+	defer cleanup()
 	argv := []string{"run", "--rm", "--network", "none",
 		"-v", compile.MustMount(bin, "/daemon:ro"),
 		"-v", compile.MustMount(cfg, "/config.toml:ro")}
 	for _, d := range dirs {
-		argv = append(argv, "-v", compile.MustMount(o.keys, d+":ro"))
+		argv = append(argv, "-v", compile.MustMount(keys, d+":ro"))
 	}
 	argv = append(argv, o.image(), "/daemon", "--config", "/config.toml", "--validate-only")
 	return exec.Command(o.engine, argv...).CombinedOutput()
