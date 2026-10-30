@@ -80,6 +80,13 @@ func EnsureImage(repo, osName string) (string, error) {
 }
 
 func EnsureImageVerbose(repo, osName string, out io.Writer, verbose bool) (string, error) {
+	return EnsureBuildImage(repo, osName, out, verbose, false)
+}
+
+func EnsureBuildImage(repo, osName string, out io.Writer, verbose, cross bool) (string, error) {
+	if cross && runtime.GOARCH != "amd64" {
+		return "", fmt.Errorf("cross build image requires an amd64 builder")
+	}
 	base, err := BaseImage(osName)
 	if err != nil {
 		return "", err
@@ -96,11 +103,17 @@ func EnsureImageVerbose(repo, osName string, out io.Writer, verbose bool) (strin
 		out = os.Stderr
 	}
 	image := ImageFor(osName, goVersion)
+	crossArg := ""
+	if cross {
+		image += "-cross"
+		crossArg = "1"
+	}
 	fmt.Fprintf(out, "kno build: preparing the %s build image (%s)\n", osName, image)
 	cmd := exec.Command(Podman(), "build", "-q", "-t", image,
 		"--build-arg", "BASE="+base,
 		"--build-arg", "GO_URL="+goURL,
 		"--build-arg", "GO_SHA256="+goSum,
+		"--build-arg", "CROSS="+crossArg,
 		"-f", filepath.Join(repo, "packaging", "Containerfile.build"),
 		filepath.Join(repo, "packaging"))
 
