@@ -65,7 +65,7 @@ func normalizeNamenlos(v any) any {
 	case []map[string]any:
 		out := make([]any, 0, len(x))
 		for _, e := range x {
-			if e["Identifier"] == "windfallgw" || e["Name"] == "windfallgw" {
+			if e["Identifier"] == "windfallgw" || e["Name"] == "windfallgw" || e["Identifier"] == "wauland2" {
 				continue
 			}
 			out = append(out, normalizeNamenlos(e))

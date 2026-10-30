@@ -180,4 +180,4 @@ mixes = ["windfall", "cryptonymity"]
 mixes = ["omelas", "mixy"]
 
 [[topology.layer]]
-mixes = ["oneeyedman", "reed", "wauland"]
+mixes = ["oneeyedman", "reed", "wauland", "wauland2"]
