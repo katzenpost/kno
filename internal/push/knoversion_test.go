@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/katzenpost/kno/internal/build"
 )
 
 func TestARollbackShipsTheKnoItsReleaseWasBuiltWith(t *testing.T) {
@@ -30,5 +32,18 @@ func TestARollbackShipsTheKnoItsReleaseWasBuiltWith(t *testing.T) {
 	}
 	if v := KnoVersionFor(repo, "v0.0.105"); v == "" {
 		t.Error("pushing the pinned release no longer requires the kno this repo builds")
+	}
+}
+
+func TestPushAndBuildRequireTheSameKnoVersion(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, "thirdparty"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "thirdparty", "pins.env"), []byte("KATZENPOST_REF=v0.0.107\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := KnoVersionFor(repo, "v0.0.107"), build.ToolVersion(repo, "n", "v0.0.107"); got != want {
+		t.Fatalf("push requires %s but build produces %s", got, want)
 	}
 }

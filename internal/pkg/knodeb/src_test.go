@@ -122,3 +122,14 @@ func TestInstalledBinaryCannotBecomeACrossCompiledPackage(t *testing.T) {
 		t.Fatalf("a foreign package binary was written: %v", err)
 	}
 }
+
+func TestToolVersionUsesInstalledIdentityOnlyWithoutSource(t *testing.T) {
+	const version = "0.0.107-1+20261030201353.g249498a"
+	if got := toolVersion(t.TempDir(), "v0.0.107", "1", version); got != version {
+		t.Fatalf("embedded data requires %q, want installed %q", got, version)
+	}
+	repo := testutil.RepoRoot(t)
+	if got := toolVersion(repo, "v0.0.107", "1", version); got != toolVersion(repo, "v0.0.107", "1", "0.0.104-1") {
+		t.Fatalf("source package version depended on installed executable: %s", got)
+	}
+}
