@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -128,6 +129,7 @@ func (r *run) pigeonhole() error {
 	budget := budgetOf("CPBENCH_TIMEOUT", 900)
 	r.log.Logf("pigeonhole round trip with cp-bench (up to %s in total)", budget)
 	logPath := filepath.Join(r.Work, "cpbench.log")
+	payload := envStr("CPBENCH_PAYLOAD", "256")
 	spend := newSpend(budget)
 	stalled := 0
 	for i := 1; i <= 3; i++ {
@@ -136,17 +138,23 @@ func (r *run) pigeonhole() error {
 			stalled++
 			break
 		}
-		out, err, timedOut := attempt(remaining, "exec", "-e", r.epochEnv(), r.kpc, "/simbin/cp-bench",
+		limit := remaining / time.Duration(4-i)
+		seconds := max(1, int((limit-10*time.Second)/time.Second))
+		out, err, timedOut := attempt(limit, "exec", "-e", r.epochEnv(), r.kpc,
+			"timeout", "--signal=TERM", "--kill-after=5s", strconv.Itoa(seconds)+"s", "/simbin/cp-bench",
 			"-config", "/sim/thinclient.toml",
-			"-payload", envStr("CPBENCH_PAYLOAD", "256"),
-			"-metrics", "", "-log-level", "ERROR")
+			"-payload", payload,
+			"-metrics", "", "-log-level", envStr("CPBENCH_LOG_LEVEL", "DEBUG"))
+		attemptLog := filepath.Join(r.Work, fmt.Sprintf("cpbench-%d.log", i))
+		_ = os.WriteFile(attemptLog, out, 0o644)
 		_ = os.WriteFile(logPath, out, 0o644)
 		if timedOut {
 			stalled++
 			r.log.Warnf("cp-bench attempt %d gave no result in time; retrying", i)
+			printLogTail(r.Out, attemptLog, 80)
 			continue
 		}
-		if err == nil {
+		if err == nil && cpbenchResult(string(out), payload) {
 			for _, l := range strings.Split(string(out), "\n") {
 				if strings.Contains(l, "duration=") || strings.Contains(l, "bytes_per_sec") {
 					fmt.Fprintln(r.Out, l)
@@ -155,15 +163,16 @@ func (r *run) pigeonhole() error {
 			r.log.Logf("cp-bench pigeonhole round trip passed (exit 0, attempt %d)", i)
 			return nil
 		}
-		r.log.Warnf("cp-bench attempt %d failed; retrying", i)
+		r.log.Warnf("cp-bench attempt %d produced no successful result (exit error: %v)", i, err)
+		printLogTail(r.Out, attemptLog, 80)
 	}
 	if lines, err := readLines(logPath); err == nil {
-		for _, l := range lines[max(0, len(lines)-5):] {
+		for _, l := range lines[max(0, len(lines)-80):] {
 			fmt.Fprintln(r.Out, l)
 		}
 	}
+	r.dumpPigeonholeLogs()
 	if stalled > 0 {
-		r.dumpPigeonholeLogs()
 		return fmt.Errorf("cp-bench pigeonhole round trip did not complete in %s"+
 			" (see %s, and the courier and replica containers, which are still up)", budget, logPath)
 	}
@@ -171,7 +180,7 @@ func (r *run) pigeonhole() error {
 }
 
 func (r *run) dumpPigeonholeLogs() {
-	logs, err := filepath.Glob(filepath.Join(r.data, "*", "out.log"))
+	logs, err := filepath.Glob(filepath.Join(r.data, "*", "*.log"))
 	if err != nil || len(logs) == 0 {
 		return
 	}
@@ -182,14 +191,41 @@ func (r *run) dumpPigeonholeLogs() {
 			!strings.Contains(name, "servicenode") {
 			continue
 		}
-		lines, err := readLines(p)
-		if err != nil {
+		printLogTail(r.Out, p, 80)
+	}
+}
+
+var cpbenchCompleted = regexp.MustCompile(`(?m)^cp-bench: payload=([0-9]+) chunks=([0-9]+) duration=([^ ]+) bytes_per_sec=([0-9.]+)$`)
+
+func cpbenchResult(output, payload string) bool {
+	if strings.Contains(output, "FAILED:") {
+		return false
+	}
+	for _, m := range cpbenchCompleted.FindAllStringSubmatch(output, -1) {
+		chunks, err := strconv.Atoi(m[2])
+		if err != nil || chunks <= 0 || m[1] != payload {
 			continue
 		}
-		fmt.Fprintf(r.Out, "--- %s (last 5 lines) ---\n", name)
-		for _, l := range lines[max(0, len(lines)-5):] {
-			fmt.Fprintln(r.Out, l)
+		duration, err := time.ParseDuration(m[3])
+		if err != nil || duration <= 0 {
+			continue
 		}
+		rate, err := strconv.ParseFloat(m[4], 64)
+		if err == nil && rate > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func printLogTail(w io.Writer, path string, count int) {
+	lines, err := readLines(path)
+	if err != nil {
+		return
+	}
+	fmt.Fprintf(w, "--- %s (last %d lines) ---\n", path, count)
+	for _, line := range lines[max(0, len(lines)-count):] {
+		fmt.Fprintln(w, line)
 	}
 }
 
