@@ -68,9 +68,12 @@ type CommittedDiff struct {
 	Named int
 }
 
-func DiffAgainstCommitted(repo, network, tag, dir, allowlist string) (CommittedDiff, error) {
+func DiffAgainstCommitted(repo, network, tag, dir, allowlist string, packages ...string) (CommittedDiff, error) {
+	return diffAgainstCommitted(repo, network, tag, dir, allowlist, buildKind(dir), packages)
+}
+
+func diffAgainstCommitted(repo, network, tag, dir, allowlist, kind string, selected []string) (CommittedDiff, error) {
 	var d CommittedDiff
-	kind := buildKind(dir)
 	sums := filepath.Join(kindDir(repo, network, tag, kind), SumsName)
 	if _, err := os.Stat(sums); err != nil {
 		return d, fmt.Errorf("%w: %s", ErrNoCommittedSums, sums)
@@ -92,12 +95,16 @@ func DiffAgainstCommitted(repo, network, tag, dir, allowlist string) (CommittedD
 		want[e.Name] = e.Sha256
 	}
 	var built []string
-	for _, pattern := range []string{"*.deb", "*.pkg", "katzenpost-*.tar.gz"} {
-		hits, err := filepath.Glob(filepath.Join(dir, pattern))
-		if err != nil {
-			return d, err
+	if selected != nil {
+		built = append(built, selected...)
+	} else {
+		for _, pattern := range []string{"*.deb", "*.pkg", "katzenpost-*.tar.gz"} {
+			hits, err := filepath.Glob(filepath.Join(dir, pattern))
+			if err != nil {
+				return d, err
+			}
+			built = append(built, hits...)
 		}
-		built = append(built, hits...)
 	}
 	sort.Strings(built)
 	for _, p := range built {
@@ -129,6 +136,15 @@ func DiffAgainstCommitted(repo, network, tag, dir, allowlist string) (CommittedD
 
 func VerifyAgainstCommitted(repo, network, tag, dir, allowlist string) error {
 	d, err := DiffAgainstCommitted(repo, network, tag, dir, allowlist)
+	return verifyCommittedDiff(tag, d, err)
+}
+
+func VerifyBuildPackages(repo, network, tag, dir, allowlist, kind string, packages []string) error {
+	d, err := diffAgainstCommitted(repo, network, tag, dir, allowlist, kind, packages)
+	return verifyCommittedDiff(tag, d, err)
+}
+
+func verifyCommittedDiff(tag string, d CommittedDiff, err error) error {
 	if err != nil {
 		return err
 	}

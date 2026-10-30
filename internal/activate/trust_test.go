@@ -54,3 +54,36 @@ func TestRootCopiesNoSymlink(t *testing.T) {
 		t.Error("the copy followed a symlink into the release")
 	}
 }
+
+func TestRootVerifiesOnlyPackagesSelectedForInstallation(t *testing.T) {
+	repo := t.TempDir()
+	dir := t.TempDir()
+	name := "katzenpost_0.0.107+debian13_amd64.deb"
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte("current"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "katzenpost-0.0.107-debian13-amd64.tar.gz"), []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rec := build.CommittedDir(repo, "namenlos", "v0.0.107")
+	if err := os.MkdirAll(rec, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte("current"))
+	if err := os.WriteFile(filepath.Join(rec, build.SumsName), []byte(hex.EncodeToString(sum[:])+"  "+name+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	l := track.Logger{Tool: "activate", W: &out}
+	o := Options{Repo: repo, Network: "namenlos", Tag: "v0.0.107"}
+	if rc := checkRecord(l, o, dir, true, "", path); rc != 0 {
+		t.Fatalf("obsolete unselected cache blocked activation: %s", out.String())
+	}
+	if err := os.WriteFile(path, []byte("corrupted"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if rc := checkRecord(l, o, dir, true, "", path); rc == 0 {
+		t.Fatal("corrupted selected package passed root verification")
+	}
+}

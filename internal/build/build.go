@@ -70,6 +70,8 @@ type Options struct {
 	Qemu bool
 }
 
+func (o Options) Kind() string { return o.kind() }
+
 func (o Options) kind() string {
 	if o.Native || o.Qemu || runtime.GOARCH != "amd64" {
 		return NativeBuild
@@ -312,7 +314,8 @@ func MarkBuiltFor(o Options, kno string) error {
 	if key == "" {
 		return fmt.Errorf("no build key for %s with %s", o.Tag, kno)
 	}
-	return writeStampNote(rel, key, stampNote(o.stampIn(kno), o.Hosts))
+	pkgs := built(rel, o.cacheKey(rel, ""), o.stampIn(""), o.Hosts)
+	return writeStampNote(rel, key, stampNote(o.stampIn(kno), o.Hosts), pkgs...)
 }
 
 var ErrNotBuilt = errors.New("not built")
@@ -361,7 +364,7 @@ func Ready(o Options) ([]string, error) {
 		return nil, ErrNotBuilt
 	}
 	note("%s is built for these hosts. The %d packages on disk match the digests in the release directory.", o.Tag, len(pkgs))
-	return pkgs, verifyAgainstRecord(o, rel)
+	return pkgs, verifyAgainstRecord(o, rel, pkgs)
 }
 
 func checkServices(repo, network string, svcs []string) error {
@@ -418,7 +421,7 @@ func Build(o Options) ([]string, error) {
 		if pkgs := built(rel, key, in, o.Hosts); pkgs != nil {
 			note("%s is already built from the same inputs. The %d packages on disk match the digests"+
 				" in the release directory. kno build did not build again. To build again, add --force.", o.Tag, len(pkgs))
-			if err := verifyAgainstRecord(o, rel); err != nil {
+			if err := verifyAgainstRecord(o, rel, pkgs); err != nil {
 				return nil, err
 			}
 			return pkgs, nil
@@ -680,11 +683,11 @@ func finish(o Options, rel, key string, scope []byte, pkgs []string, ids *conten
 	if err := recordAndVerify(o, pkgs); err != nil {
 		return nil, err
 	}
-	if err := verifyAgainstRecord(o, rel); err != nil {
+	if err := verifyAgainstRecord(o, rel, pkgs); err != nil {
 		return nil, err
 	}
 
-	if err := writeStampNote(rel, key, scope); err != nil {
+	if err := writeStampNote(rel, key, scope, pkgs...); err != nil {
 		return nil, err
 	}
 	return pkgs, nil
@@ -727,12 +730,12 @@ func needEngine() error {
 	return nil
 }
 
-func verifyAgainstRecord(o Options, rel string) error {
+func verifyAgainstRecord(o Options, rel string, pkgs []string) error {
 	if o.Warped || o.BinaryOnly || o.SkipCompile {
 		return nil
 	}
-	d, err := DiffAgainstCommitted(o.Repo, o.Network, o.Tag,
-		filepath.Join(rel, "pkgs"), "")
+	d, err := diffAgainstCommitted(o.Repo, o.Network, o.Tag,
+		filepath.Join(rel, "pkgs"), "", o.kind(), pkgs)
 	if errors.Is(err, ErrNoCommittedSums) {
 		fmt.Fprintf(os.Stderr, "kno build: The repository has no record"+
 			" of %s. kno compared this build only with itself.\n", o.Tag)
@@ -754,7 +757,7 @@ func verifyAgainstRecord(o Options, rel string) error {
 			"    kno build record\n"+
 			"  If no input changed, this host did not reproduce the build.\n"+
 			"  To test if this host can reproduce a build, run: kno check repro",
-			o.Tag, CommittedDir(o.Repo, o.Network, o.Tag), strings.Join(d.Mismatched, "\n  "))
+			o.Tag, kindDir(o.Repo, o.Network, o.Tag, o.kind()), strings.Join(d.Mismatched, "\n  "))
 	}
 	if len(d.Unnamed) > 0 {
 		step("the record of katzenpost %s has no entry for %s. To add them,"+
