@@ -272,3 +272,45 @@ func TestTheFreeBSDDriversCannotPassOnTheirOwnEcho(t *testing.T) {
 		t.Fatal("found no pass marker in any driver; the patterns are wrong")
 	}
 }
+
+func TestGatesKeepFixtureFailuresOutOfTheRealSummary(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join(testutil.ModuleRoot(t), "scripts", "gates.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	start := strings.Index(script, "if limit \"go test\" env ")
+	if start < 0 {
+		t.Fatal("Go test gate not found")
+	}
+	end := strings.Index(script[start:], "go test ./...")
+	if end < 0 {
+		t.Fatal("Go test invocation not found")
+	}
+	invocation := strings.TrimPrefix(script[start:start+end+len("go test ./...")], "if ")
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stub := "#!/bin/sh\n[ \"$1\" = test ] || exit 1\nprintf visited >\"$TEST_VISITED\"\nif [ -n \"${GITHUB_STEP_SUMMARY:-}\" ]; then printf 'FAIL fixture\\n' >>\"$GITHUB_STEP_SUMMARY\"; fi\n"
+	if err := os.WriteFile(filepath.Join(bin, "go"), []byte(stub), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	summary, visited := filepath.Join(dir, "summary"), filepath.Join(dir, "visited")
+	if err := os.WriteFile(summary, []byte("real check\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("sh", "-c", "limit() { shift; \"$@\"; }\ntmp=$TEST_GATES_TMP\n"+invocation)
+	cmd.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "GITHUB_STEP_SUMMARY="+summary, "TEST_GATES_TMP="+dir, "TEST_VISITED="+visited)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("Go test gate: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(visited); err != nil {
+		t.Fatal("test gate was not executed")
+	}
+	b, err = os.ReadFile(summary)
+	if err != nil || string(b) != "real check\n" {
+		t.Fatalf("fixture polluted real summary: %s (%v)", b, err)
+	}
+}
