@@ -643,6 +643,10 @@ func Run(stderr io.Writer, args []string) int {
 		fmt.Fprintf(stderr, "kno: %v\n", err)
 		return 1
 	}
+	if err := ensureActivationRepo(l, &e, args[1]); err != nil {
+		l.Errorf("%v. kno installs nothing", err)
+		return 1
+	}
 	required := signaturesRequired()
 	signed := ""
 	if required {
@@ -726,7 +730,7 @@ func checkRelease(l track.Logger, o Options) int {
 	}
 	if !sign.Available() {
 		l.Warnf("%s names signers, but this host has no ssh-keygen to check them", allow)
-		l.Logf("  kno installs the release because its digests match the record.")
+		l.Logf("  kno will check the package digests before installation.")
 		return 0
 	}
 	who, errs := validSigners(sums, allow)
@@ -740,7 +744,7 @@ func checkRelease(l track.Logger, o Options) int {
 	}
 	k := o.threshold()
 	if len(who) < k {
-		l.Warnf("%s has %d of %d signatures. kno installs it because its digests match the record.", o.Tag, len(who), k)
+		l.Warnf("%s has %d of %d signatures. kno will check the package digests before installation.", o.Tag, len(who), k)
 		return 0
 	}
 	l.Logf("release %s signed by %s (%d of %d)",

@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -21,8 +22,8 @@ func TestRootChecksEachPackageAgainstTheRecord(t *testing.T) {
 	o := Options{Repo: repo, Network: "namenlos", Tag: "v0.0.107"}
 	var out strings.Builder
 	l := track.Logger{Tool: "t", W: &out}
-	if rc := checkRecord(l, o, pkgs, false, ""); rc != 0 {
-		t.Errorf("no record and no require_signatures: rc %d\n%s", rc, out.String())
+	if rc := checkRecord(l, o, pkgs, false, ""); rc == 0 {
+		t.Errorf("missing release record was accepted: rc %d\n%s", rc, out.String())
 	}
 	if rc := checkRecord(l, o, pkgs, true, ""); rc == 0 {
 		t.Error("no record, and require_signatures is on: the install went ahead")
@@ -35,8 +36,8 @@ func TestRootChecksEachPackageAgainstTheRecord(t *testing.T) {
 		t.Error("a package that does not match the record was installed")
 	}
 	os.WriteFile(filepath.Join(rel, build.SumsName), []byte(""), 0o644)
-	if rc := checkRecord(l, o, pkgs, false, ""); rc != 0 {
-		t.Errorf("an unnamed package without require_signatures: rc %d", rc)
+	if rc := checkRecord(l, o, pkgs, false, ""); rc == 0 {
+		t.Errorf("an unnamed package was accepted without signatures: rc %d", rc)
 	}
 	if rc := checkRecord(l, o, pkgs, true, ""); rc == 0 {
 		t.Error("an unnamed package with require_signatures was installed")
@@ -85,5 +86,40 @@ func TestRootVerifiesOnlyPackagesSelectedForInstallation(t *testing.T) {
 	}
 	if rc := checkRecord(l, o, dir, true, "", path); rc == 0 {
 		t.Fatal("corrupted selected package passed root verification")
+	}
+}
+
+func TestActivationObtainsItsOwnReleaseRecord(t *testing.T) {
+	origin := t.TempDir()
+	rec := build.CommittedDir(filepath.Join(origin, "data"), "namenlos", "v0.0.107")
+	if err := os.MkdirAll(rec, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(rec, build.SumsName), []byte("00  package.deb\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"init", "-q", "-b", "main"}, {"add", "-A"}, {"-c", "user.name=t", "-c", "user.email=t@example", "-c", "core.hooksPath=/dev/null", "commit", "-qm", "record"}} {
+		c := exec.Command("git", append([]string{"-C", origin}, args...)...)
+		if b, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git: %v: %s", err, b)
+		}
+	}
+	home := t.TempDir()
+	initial := filepath.Join(t.TempDir(), "data")
+	if err := os.MkdirAll(filepath.Join(initial, "networks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KNO_REPO", "")
+	t.Setenv("KNO_CLONE", "1")
+	e := track.Env{Home: home, Repo: initial, Network: "namenlos", KnoURL: origin}
+	var out strings.Builder
+	if err := ensureActivationRepo(track.Logger{Tool: "activate", W: &out}, &e, "v0.0.107"); err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(track.CloneDir(home), "data"); e.Repo != want {
+		t.Fatalf("uses %s, want own clone %s", e.Repo, want)
+	}
+	if err := ensureActivationRepo(track.Logger{Tool: "activate", W: &out}, &e, "v0.0.108"); err == nil {
+		t.Fatal("missing release record was accepted")
 	}
 }
