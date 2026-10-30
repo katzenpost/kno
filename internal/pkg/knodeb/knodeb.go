@@ -8,10 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
+	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/compile"
+	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/knover"
 	"github.com/katzenpost/kno/internal/pkg/deb"
@@ -21,7 +24,8 @@ import (
 type Options struct {
 	Repo string
 
-	Src string
+	Src    string
+	Binary string
 
 	Version string
 
@@ -90,6 +94,14 @@ func GoArch(arch string) string {
 }
 
 func DefaultOptions(repo string) (Options, error) {
+	binary, err := os.Executable()
+	if err != nil {
+		return Options{}, err
+	}
+	return defaultOptions(repo, cli.Version(), binary)
+}
+
+func defaultOptions(repo, runningVersion, binary string) (Options, error) {
 	pins, err := source.ParsePins(filepath.Join(repo, "thirdparty", "pins.env"))
 	if err != nil {
 		return Options{}, err
@@ -99,16 +111,23 @@ func DefaultOptions(repo string) (Options, error) {
 		return Options{}, err
 	}
 
-	src, err := sourceRoot(repo)
-	if err != nil {
-		return Options{}, err
+	src, sourceErr := sourceRoot(repo)
+	version := knover.Version(repo, pins["KATZENPOST_REF"])
+	if sourceErr != nil {
+		version, err = installedPackageVersion(runningVersion)
+		if err != nil {
+			return Options{}, fmt.Errorf("%w; %v", sourceErr, err)
+		}
+	} else {
+		binary = ""
 	}
 	gomod, gocache, _ := knopath.EnsureCaches()
 	return Options{
-		Repo: repo,
-		Src:  src,
+		Repo:   repo,
+		Src:    src,
+		Binary: binary,
 
-		Version:      knover.Version(repo, pins["KATZENPOST_REF"]),
+		Version:      version,
 		Arch:         compile.HostDebArch(),
 		OutDir:       filepath.Join(repo, "dist", "kno"),
 		Maintainer:   deb.Maintainer(),
@@ -168,6 +187,9 @@ func Compile(ctx context.Context, o Options, bindir string) error {
 }
 
 func CompileLocal(ctx context.Context, o Options, goVersion, out string) error {
+	if o.Binary != "" {
+		return o.copyInstalled(out)
+	}
 	src, err := sourceRoot(o.source())
 	if err != nil {
 		return err
@@ -184,6 +206,9 @@ func CompileLocal(ctx context.Context, o Options, goVersion, out string) error {
 }
 
 func compileKno(ctx context.Context, o Options, bindir string) error {
+	if o.Binary != "" {
+		return o.copyInstalled(filepath.Join(bindir, "kno"))
+	}
 	src, err := sourceRoot(o.source())
 	if err != nil {
 		return err
@@ -295,4 +320,36 @@ func sourceRoot(repo string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no go.mod in %s or its parent: building kno needs a checkout of its source", repo)
+}
+
+var packageVersionPattern = regexp.MustCompile(`^[0-9][0-9A-Za-z.+:~-]*$`)
+
+func installedPackageVersion(version string) (string, error) {
+	version = strings.TrimPrefix(version, "v")
+	if !packageVersionPattern.MatchString(version) {
+		return "", fmt.Errorf("running kno version %q cannot identify an installable package", version)
+	}
+	return version, nil
+}
+
+func ToolVersion(repo, tag, revision string) string {
+	if _, err := sourceRoot(repo); err != nil {
+		if version, err := installedPackageVersion(cli.Version()); err == nil {
+			return version
+		}
+	}
+	return deb.ToolVersionRev(repo, tag, revision)
+}
+
+func (o Options) copyInstalled(out string) error {
+	if o.goos() != runtime.GOOS || GoArch(o.Arch) != runtime.GOARCH {
+		return fmt.Errorf("running kno is %s/%s, requested package is %s/%s; building kno for another platform requires a source checkout; run kno build from that checkout or set KNO_REPO to it", runtime.GOOS, runtime.GOARCH, o.goos(), o.Arch)
+	}
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return err
+	}
+	if err := fsutil.CopyFile(o.Binary, out); err != nil {
+		return err
+	}
+	return os.Chmod(out, 0o755)
 }
