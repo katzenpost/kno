@@ -1,8 +1,9 @@
 package preflight
 
 import (
+	"os"
 	"os/exec"
-	"strconv"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -28,21 +29,22 @@ func TestAnUpstreamKatzenpostStaysAtTheBuildForItsOS(t *testing.T) {
 }
 
 func TestTheDiskCheckReadsTheStateFilesystem(t *testing.T) {
-	if _, err := exec.LookPath("df"); err != nil {
-		t.Skip("no df")
+	dir := filepath.Join(t.TempDir(), "state filesystem")
+	bin := t.TempDir()
+	t.Setenv("KNO_TEST_STATE_DIR", dir)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	script := `#!/bin/sh
+[ "$#" = 2 ] && [ "$1" = -Pk ] && [ "$2" = "$KNO_TEST_STATE_DIR" ] || exit 1
+printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\nstate 10000 5758 4242 58%% /state\n'
+`
+	if err := os.WriteFile(filepath.Join(bin, "df"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	dir := t.TempDir()
 	out, err := exec.Command("sh", "-c", Probe(map[string]string{"x": dir}, nil)).Output()
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, err := exec.Command("sh", "-c", "df -Pk "+dir+" | awk 'NR==2{print $4}'").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err1 := strconv.ParseInt(Parse(string(out))["disk"], 10, 64)
-	free, err2 := strconv.ParseInt(strings.TrimSpace(string(want)), 10, 64)
-	if err1 != nil || err2 != nil || got <= 0 || got-free > 102400 || free-got > 102400 {
-		t.Errorf("disk = %d KB, want about the free space of %s (%d KB)", got, dir, free)
+	if got := Parse(string(out))["disk"]; got != "4242" {
+		t.Errorf("disk = %q, want the state filesystem's 4242 KB", got)
 	}
 }
