@@ -633,7 +633,7 @@ func Build(o Options) ([]string, error) {
 		if err := freebsd.CrossCompile(o.Repo, work, bindir, sysroot, o.Tag, pins, caches); err != nil {
 			return nil, fmt.Errorf("freebsd cross build: %w", err)
 		}
-		fp, err := freebsd.PackageStamped(bindir, rel, o.Tag, o.Revision, o.Repo, pins["FREEBSD_ABI"], deb.ConfigStamp(o.Repo, o.Network, "client"))
+		fp, err := freebsdPackage(o, bindir, rel, pins["FREEBSD_ABI"])
 		if err != nil {
 			return nil, fmt.Errorf("freebsd pkg: %w", err)
 		}
@@ -643,7 +643,7 @@ func Build(o Options) ([]string, error) {
 			return nil, err
 		}
 		pkgs = append(pkgs, kp)
-		cfgs, err := freebsdConfigPkgs(o, rel, pins["FREEBSD_ABI"], ids)
+		cfgs, err := freebsdConfigPkgs(o, rel, pins["FREEBSD_ABI"], ids, fp)
 		if err != nil {
 			return nil, err
 		}
@@ -788,7 +788,7 @@ func buildNative(o Options, rel, work string, pins map[string]string, ids *conte
 	if err := parallel.Run(jobs, tasks); err != nil {
 		return nil, err
 	}
-	pkg, err := freebsd.PackageStamped(bindir, rel, o.Tag, o.Revision, o.Repo, pins["FREEBSD_ABI"], deb.ConfigStamp(o.Repo, o.Network, "client"))
+	pkg, err := freebsdPackage(o, bindir, rel, pins["FREEBSD_ABI"])
 	if err != nil {
 		return nil, fmt.Errorf("freebsd pkg: %w", err)
 	}
@@ -796,7 +796,7 @@ func buildNative(o Options, rel, work string, pins map[string]string, ids *conte
 	if o.BinaryOnly {
 		return out, nil
 	}
-	cfgs, err := freebsdConfigPkgs(o, rel, pins["FREEBSD_ABI"], ids)
+	cfgs, err := freebsdConfigPkgs(o, rel, pins["FREEBSD_ABI"], ids, pkg)
 	if err != nil {
 		return nil, err
 	}
@@ -854,7 +854,7 @@ func knoPkgOf(o Options, bin, rel, toolVer, abi string) (string, error) {
 	return p, nil
 }
 
-func freebsdConfigPkgs(o Options, rel, abi string, ids *contentIDs) ([]string, error) {
+func freebsdConfigPkgs(o Options, rel, abi string, ids *contentIDs, binary string) ([]string, error) {
 	stable := NewStablePreferring(
 		Recorded(CommittedDir(o.Repo, o.Network, o.Tag)),
 		Existing(filepath.Join(rel, "pkgs")))
@@ -882,7 +882,7 @@ func freebsdConfigPkgs(o Options, rel, abi string, ids *contentIDs) ([]string, e
 			continue
 		}
 		s := freebsd.SvcOf(rs, deb.ConfigStamp(o.Repo, o.Network, svc, "client"))
-		s.BinaryStamp = deb.ConfigStamp(o.Repo, o.Network, "client")
+		s.BinaryStamp = freebsdBinaryStamp(o, binary)
 		cp, err := freebsd.PackageConfig(rel, o.Tag, o.Revision, svc, s, o.Repo, abi, version(svc))
 		if err != nil {
 			return nil, fmt.Errorf("freebsd config pkg: %w", err)
