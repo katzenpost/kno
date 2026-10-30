@@ -10,7 +10,7 @@ import (
 	"github.com/katzenpost/kno/internal/testutil"
 )
 
-func TestPreflightSelectsTheCompleteNativeSimPackage(t *testing.T) {
+func TestValidationSelectsTheCompleteNativeSimPackage(t *testing.T) {
 	repo := testutil.RepoRoot(t)
 	t.Setenv("KNO_ARTIFACTS", t.TempDir())
 	rel := filepath.Join(os.Getenv("KNO_ARTIFACTS"), "releases", "v1", "pkgs")
@@ -26,13 +26,13 @@ func TestPreflightSelectsTheCompleteNativeSimPackage(t *testing.T) {
 		}
 	}
 	if got, err := releaseDeb(repo, "namenlos", "v1"); err != nil || got != want {
-		t.Fatalf("preflight selected %s, want %s: %v", got, want, err)
+		t.Fatalf("validation selected %s, want %s: %v", got, want, err)
 	}
 	if err := os.Remove(want); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := releaseDeb(repo, "namenlos", "v1"); err == nil {
-		t.Fatal("partial runtime package was accepted without a native preflight package")
+		t.Fatal("partial runtime package was accepted without a native validation package")
 	}
 }
 

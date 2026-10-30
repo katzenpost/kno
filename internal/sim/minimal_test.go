@@ -32,7 +32,7 @@ func TestSimBuildSelectsOnlyTheRuntimePlatformsAndRoles(t *testing.T) {
 		t.Fatalf("annares runtime binaries: %v", plan[ppc])
 	}
 	if len(plan[r.clientPlatform()]) != len(simCommands) {
-		t.Fatal("native preflight validation and client tools were omitted")
+		t.Fatal("native validation validation and client tools were omitted")
 	}
 	for p, roles := range plan {
 		for _, role := range roles {

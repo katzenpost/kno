@@ -71,7 +71,7 @@ func releaseDeb(repo, network, tag string) (string, error) {
 	}
 	for _, hit := range hits {
 		if strings.Contains(filepath.Base(hit), "+sim") {
-			return "", fmt.Errorf("no native preflight package for %s in %s", p, rel)
+			return "", fmt.Errorf("no native validation package for %s in %s", p, rel)
 		}
 	}
 	return newestDeb(hits), nil
