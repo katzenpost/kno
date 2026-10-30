@@ -1,0 +1,63 @@
+#!/bin/sh
+set -eu
+
+release=${1:?release directory required}
+tag=${release##*/}
+saved=$(mktemp -d /root/pietje-upgrade.XXXXXX)
+roots=/var/db/kno/roots
+state=/var/db/kno/state
+
+for j in kpauthority kpserver; do
+	service jail stop "$j"
+	if jls -d -j "$j" >/dev/null 2>&1; then
+		echo "$j did not stop"
+		exit 1
+	fi
+	mount -p 2>/dev/null |
+		awk -v root="/var/jail/$j" '$2 == root || index($2, root "/") == 1 {print $2}' |
+		sort -r |
+		while IFS= read -r target; do umount "$target" || exit 1; done
+done
+
+for pair in kpauthority:respectmy-pq-authority kpserver:allmixedup-pq-gatewaynode; do
+	j=${pair%%:*}
+	svc=${pair#*:}
+	current=$(readlink "$roots/$j/running")
+	printf '%s\n' "$current" >"$saved/$j.expected"
+	legacy="namenlos-config-$svc-0.0.107.20261023174021.gcd67d61_katzenpost-0.0.107"
+	test ! -e "$roots/$j/$legacy"
+	mv "$roots/$j/$current" "$roots/$j/$legacy"
+	ln -sfh "$legacy" "$roots/$j/current"
+	ln -sfh "$legacy" "$roots/$j/running"
+	printf '%s\n' "operator state for $j" >"$state/$j/operator-state.test"
+done
+
+db="$state/kpauthority/persistence.db"
+test -f "$db"
+inode=$(stat -f %i "$db")
+find "$state" -type f -name '*.pem' -exec sha256 -r {} + | sort >"$saved/keys.before"
+sed -i '' 's@exec.start = "@exec.start = "rm -f /var/lib/pq-katzenpost-authority/persistence.db; @' /etc/jail.conf.d/kpauthority.conf
+service jail start kpserver
+mount_nullfs -o ro /var/jail/.skel/kpauthority /var/jail/kpauthority
+mount -p 2>/dev/null | awk '$2 == "/var/jail/kpauthority" { found = 1 } END { exit !found }'
+
+kno activate "$release" "$tag"
+
+for j in kpauthority kpserver kpclientd; do
+	jls -j "$j" name
+	current=$(readlink "$roots/$j/current")
+	test "$(readlink "$roots/$j/running")" = "$current"
+	pkg -r "$roots/$j/running" query '%n %v'
+	if [ "$j" != kpclientd ]; then
+		test "$current" = "$(cat "$saved/$j.expected")"
+		test "$(cat "$state/$j/operator-state.test")" = "operator state for $j"
+	fi
+done
+test "$(stat -f %i "$db")" = "$inode"
+find "$state" -type f -name '*.pem' -exec sha256 -r {} + | sort >"$saved/keys.after"
+cmp "$saved/keys.before" "$saved/keys.after"
+jls -n jid name >"$saved/jails.before"
+kno activate "$release" "$tag"
+jls -n jid name >"$saved/jails.after"
+cmp "$saved/jails.before" "$saved/jails.after"
+echo 'pietje partial upgrade: PASS'

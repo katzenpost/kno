@@ -102,9 +102,9 @@ func (j Jail) Conf() string {
 	start := "/usr/sbin/daemon -r -P /var/run/" + j.Unit + ".pid -p " + j.ChildPidfile() +
 		" -o /var/log/" + j.Unit + ".log " + strings.Join(j.Command, " ")
 	if j.KeysDir != "" && j.StateDir != "" {
-		start = "/bin/cp -f " + j.KeysDir + "/* " + j.StateDir + "/ 2>/dev/null; " + start
+		start = "/bin/cp -n " + j.KeysDir + "/* " + j.StateDir + "/ 2>/dev/null; " + start
 	}
-	if j.Prestart != "" {
+	if j.Prestart != "" && j.Prestart != "rm -f "+j.StateDir+"/persistence.db" {
 		start = j.Prestart + "; " + start
 	}
 	if len(j.RunDirs) > 0 {

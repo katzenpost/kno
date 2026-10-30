@@ -42,13 +42,13 @@ func TestAJailIsReadOnlyExceptItsStateRunTmpAndLog(t *testing.T) {
 		"/var/db/kno/roots/kpauthority/current/usr/local /var/jail/kpauthority/usr/local nullfs ro",
 		"ip4 = \"inherit\";\n\tip6 = \"inherit\";",
 		"devfs_ruleset = 4;",
-		`exec.start = "rm -f /var/lib/pq-katzenpost-authority/persistence.db; /bin/cp -f /usr/local/share/namenlos/respectmy-pq-authority/keys/* /var/lib/pq-katzenpost-authority/ 2>/dev/null; /usr/sbin/daemon -r`,
+		`exec.start = "/bin/cp -n /usr/local/share/namenlos/respectmy-pq-authority/keys/* /var/lib/pq-katzenpost-authority/ 2>/dev/null; /usr/sbin/daemon -r`,
 	} {
 		if !strings.Contains(c, w) {
 			t.Errorf("the jail lacks %s:\n%s", w, c)
 		}
 	}
-	if strings.Contains(c, "ip4.addr") || strings.Contains(c, "exec.prestart") {
+	if strings.Contains(c, "ip4.addr") || strings.Contains(c, "exec.prestart") || strings.Contains(c, "rm -f") || strings.Contains(c, "cp -f") {
 		t.Errorf("the jail sets its own addresses or a hook outside the jail:\n%s", c)
 	}
 }
