@@ -118,3 +118,38 @@ func TestANodeRecordCannotOverrideTheTopRecord(t *testing.T) {
 		t.Error("a node record overrode the digest the top-level record names")
 	}
 }
+
+func TestCurrentBuildDoesNotCompareAnUnrelatedCachedNativePackageToCrossRecord(t *testing.T) {
+	repo := gitRepo(t)
+	native := kindBuild(t, "native arm64", NativeBuild)
+	cross := kindBuild(t, "cross arm64", CrossBuild)
+	recordAll(t, repo, native, cross)
+	name := "katzenpost_0.0.107+ubuntu26.04_ppc64el.deb"
+	dir := filepath.Join(t.TempDir(), "pkgs")
+	sum := writePkg(t, dir, name, "current cross package")
+	writePkg(t, dir, kindDeb, "native arm64")
+	recorded := filepath.Join(CommittedDir(repo, "namenlos", kindTag), CrossBuild, SumsName)
+	f, err := os.OpenFile(recorded, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(sum + "  " + name + "\n"); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	selected := []string{filepath.Join(dir, name)}
+	diff, err := diffAgainstCommitted(repo, "namenlos", kindTag, dir, "", CrossBuild, selected)
+	if err != nil || len(diff.Mismatched) != 0 || diff.Named != 1 {
+		t.Fatalf("current build: %+v, %v", diff, err)
+	}
+	writePkg(t, dir, name, "corrupted current package")
+	diff, err = diffAgainstCommitted(repo, "namenlos", kindTag, dir, "", CrossBuild, selected)
+	if err != nil || len(diff.Mismatched) != 1 {
+		t.Fatalf("current package corruption passed: %+v, %v", diff, err)
+	}
+	selected = append(selected, filepath.Join(dir, kindDeb))
+	diff, err = diffAgainstCommitted(repo, "namenlos", kindTag, dir, "", CrossBuild, selected)
+	if err != nil || len(diff.Mismatched) != 2 {
+		t.Fatalf("reused native bytes passed as a cross package: %+v, %v", diff, err)
+	}
+}

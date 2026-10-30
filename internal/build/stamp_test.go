@@ -544,3 +544,39 @@ func TestReadyNeverBuilds(t *testing.T) {
 		t.Errorf("Ready wrote into the release directory: %v", ents)
 	}
 }
+
+func TestCachedBuildReturnsOnlyItsOwnPackages(t *testing.T) {
+	rel := t.TempDir()
+	dir := filepath.Join(rel, "pkgs")
+	current := "katzenpost_0.0.107+debian13_amd64.deb"
+	old := "namenlos-config-gnunet-pq-gatewaynode_0.0.107-1+old_amd64.deb"
+	currentSum := writePkg(t, dir, current, "current")
+	oldSum := writePkg(t, dir, old, "old")
+	if err := os.WriteFile(filepath.Join(dir, SumsName), []byte(currentSum+"  "+current+"\n"+oldSum+"  "+old+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeStampNote(rel, "current-build", nil, filepath.Join(dir, current)); err != nil {
+		t.Fatal(err)
+	}
+	check := func() {
+		t.Helper()
+		got := cached(rel, "current-build")
+		if len(got) != 1 || got[0] != filepath.Join(dir, current) {
+			t.Fatalf("cached build included unrelated packages: %v", got)
+		}
+	}
+	check()
+	writePkg(t, dir, old, "unrelated changes")
+	check()
+	writePkg(t, dir, current, "corrupted current")
+	if got := cached(rel, "current-build"); got != nil {
+		t.Fatalf("corrupted current package reused: %v", got)
+	}
+	writePkg(t, dir, current, "current")
+	if err := os.WriteFile(filepath.Join(dir, SumsName), []byte(oldSum+"  "+old+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := cached(rel, "current-build"); got != nil {
+		t.Fatalf("package missing from the manifest reused: %v", got)
+	}
+}

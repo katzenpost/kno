@@ -162,7 +162,8 @@ func cached(rel, key string) []string {
 	if key == "" {
 		return nil
 	}
-	if _, err := os.Stat(filepath.Join(rel, stampDir, key)); err != nil {
+	note, err := os.ReadFile(filepath.Join(rel, stampDir, key))
+	if err != nil {
 		return nil
 	}
 	dir := filepath.Join(rel, "pkgs")
@@ -171,8 +172,20 @@ func cached(rel, key string) []string {
 	if len(recorded) == 0 {
 		return nil
 	}
+	selected := map[string]bool{}
+	for _, line := range strings.Split(string(note), "\n") {
+		if name, ok := strings.CutPrefix(line, "package="); ok {
+			if name == "" || filepath.Base(name) != name {
+				return nil
+			}
+			selected[name] = true
+		}
+	}
 	var out []string
 	for _, s := range recorded {
+		if len(selected) > 0 && !selected[s.Name] {
+			continue
+		}
 		p := filepath.Join(dir, s.Name)
 		sum, _, err := fsutil.SHA256File(p)
 		if err != nil || sum != s.Sha256 {
@@ -180,17 +193,24 @@ func cached(rel, key string) []string {
 		}
 		out = append(out, p)
 	}
+	if len(selected) > 0 && len(out) != len(selected) {
+		return nil
+	}
 	sort.Strings(out)
 	return out
 }
 
-func writeStampNote(rel, key string, note []byte) error {
+func writeStampNote(rel, key string, note []byte, packages ...string) error {
 	if key == "" {
 		return nil
 	}
 	dir := filepath.Join(rel, stampDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
+	}
+	note = append([]byte(nil), note...)
+	for _, p := range packages {
+		note = fmt.Appendf(note, "package=%s\n", filepath.Base(p))
 	}
 	return os.WriteFile(filepath.Join(dir, key), note, 0o644)
 }
