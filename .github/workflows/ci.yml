@@ -116,10 +116,10 @@ jobs:
       - name: build
         id: build
         run: |
-          go run ./cmd/kno build --arches amd64,arm64,ppc64el
+          go run ./cmd/kno build --arches amd64,arm64,ppc64el --skip-freebsd
           {
             echo 'sums<<EOF'
-            cd "$PKGS"
+            cd "$PKGS" || exit
             for f in *; do
               case $f in kno[-_]*|packages.json|SHA256SUMS) ;; *) sha256sum "$f" ;; esac
             done
@@ -147,6 +147,8 @@ jobs:
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: test
+        env:
+          GATES_SIM_IN_JOB: "1"
         run: make test
 
       - name: install
@@ -154,6 +156,8 @@ jobs:
 
   freebsd:
     name: freebsd
+    outputs:
+      sums: ${{ steps.pkgs.outputs.sums }}
     runs-on: ubuntu-26.04
     timeout-minutes: 150
     env:
@@ -175,6 +179,7 @@ jobs:
           {
             echo "KNO_REPO=$PWD"
             echo "KNO_ARTIFACTS=$RUNNER_TEMP/artifacts"
+            echo "PKGS=$RUNNER_TEMP/artifacts/releases/$t/pkgs"
             echo "PATH=$RUNNER_TEMP/bin:$PATH"
           } >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/bin"
@@ -200,7 +205,26 @@ jobs:
           key: freebsd-${{ hashFiles('data/thirdparty/pins.env') }}
 
       - name: pkgs
-        run: kno build --node respectmy
+        id: pkgs
+        run: |
+          services=
+          for cfg in data/networks/namenlos/.generated/services/*.conf; do
+            if grep -qx 'BACKEND="freebsd-ezjail"' "$cfg"; then
+              svc=${cfg##*/}
+              services="$services${svc%.conf},"
+            fi
+          done
+          services=${services%,}
+          test -n "$services"
+          kno build --services "$services"
+          {
+            echo 'sums<<EOF'
+            cd "$PKGS" || exit
+            for f in *; do
+              case $f in kno[-_]*|packages.json|SHA256SUMS) ;; *) sha256sum "$f" ;; esac
+            done
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
 
       - name: vm install
         if: ${{ !env.ACT }}
@@ -241,11 +265,12 @@ jobs:
       - name: hashes
         env:
           BUILD: ${{ needs.build.outputs.sums }}
+          FREEBSD: ${{ needs.freebsd.outputs.sums }}
         run: |
           export LC_ALL=C
           t=$(sed -n 's/^KATZENPOST_REF=//p' data/thirdparty/pins.env)
           r=data/networks/namenlos/.generated/releases/$t
-          printf '%s\n' "$BUILD" | grep . | sort -u > "$RUNNER_TEMP/built"
+          printf '%s\n%s\n' "$BUILD" "$FREEBSD" | grep . | sort -u > "$RUNNER_TEMP/built"
           cat "$r"/SHA256SUMS "$r"/*/SHA256SUMS "$r"/nodes/*/SHA256SUMS \
             | sort -u > "$RUNNER_TEMP/rec"
           awk 'NR==FNR { r[$0]; n[$2]; next }

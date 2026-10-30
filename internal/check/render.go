@@ -48,19 +48,22 @@ func Render(o RenderOptions) (Result, error) {
 			return r, err
 		}
 		report(&r, "render", "render-drift "+name, c)
+		if name == "namenlos" {
+			r.merge(auditOriginalNamenlos(o.Repo))
+		}
 	}
 
+	if o.Reference == "" {
+		return r, nil
+	}
 	refNet := o.ReferenceNetwork
 	if refNet == "" {
 		refNet = "namenlos"
 	}
 	ref := o.Reference
-	if ref == "" {
-		ref = filepath.Join(o.Repo, "reference", refNet, "configs")
-	}
 	subject := "parity " + refNet + " vs reference"
 	if _, err := os.Stat(ref); err != nil {
-		r.add("render", subject, Skip, "no reference configs at %s. Parity against the upstream reference not checked", ref)
+		r.add("render", subject, Fail, "cannot read reference configs at %s: %v", ref, err)
 		return r, nil
 	}
 	c, err := compareDirs(knopath.ConfigsDir(o.Repo, refNet), ref)

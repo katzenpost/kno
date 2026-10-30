@@ -284,6 +284,20 @@ func lintLayers(repo, network string, nodes []lintNode) []Finding {
 		add(network, "cannot read the topology layers: %v", err)
 		return out
 	}
+	owners, err := mixOperators(repo, network)
+	if err != nil {
+		add(network, "cannot audit mix operators: %v", err)
+	} else if len(layers) > 1 {
+		operators := map[string]bool{}
+		for _, owner := range owners {
+			operators[owner] = true
+		}
+		for owner := range operators {
+			if len(operatorLayers(owners, layers, owner)) == len(layers) {
+				add("operator "+owner, "has visibility in every mix layer")
+			}
+		}
+	}
 	mixes := map[string]bool{}
 	for _, n := range nodes {
 		if n.Role == "mix" {
