@@ -21,6 +21,13 @@ case "$arch" in
 	i386)    goarch=386 ;;
 	*)       goarch="$arch" ;;
 esac
+buildarch="${KNO_BUILD_ARCH:-$(uname -m)}"
+case "$buildarch" in
+	x86_64|amd64) buildarch=amd64 ;;
+	aarch64|arm64) buildarch=arm64 ;;
+	ppc64le|ppc64el) buildarch=ppc64le ;;
+	*) echo "kno-deb-build: unsupported build architecture: $buildarch" >&2; exit 1 ;;
+esac
 DEB_BUILD="${DEB_BUILD:-$SELF/deb-build.sh}"
 PODMAN="${PODMAN:-podman}"
 maint="${DEB_MAINTAINER:-Katzenpost <packages@katzenpost.network>}"
@@ -39,7 +46,7 @@ log=$(mktemp)
 trap 'rm -f "$log"' EXIT INT TERM
 set +e
 # shellcheck disable=SC2016
-"$PODMAN" run --rm -v "$REPO:/repo:ro" -v "$root/usr/bin:/out:rw" \
+"$PODMAN" run --rm --platform "linux/$buildarch" -v "$REPO:/repo:ro" -v "$root/usr/bin:/out:rw" \
 	-v "$cache/gomodcache:/gomod:rw" -v "$cache/gobuild:/gocache:rw" \
 	-e GOMODCACHE=/gomod -e GOCACHE=/gocache \
 	-e CGO_ENABLED=0 -e GOOS=linux -e GOARCH="$goarch" \

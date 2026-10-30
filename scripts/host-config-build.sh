@@ -15,7 +15,7 @@ KNO_BIN="${KNO_BIN:-}"
 if [ -z "$KNO_BIN" ]; then
 	KNO_BIN="$outdir/.kno"
 	mkdir -p "$outdir"
-	( cd "$REPO" && go build -o "$KNO_BIN" ./cmd/kno )
+	( cd "$REPO" && GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) go build -o "$KNO_BIN" ./cmd/kno )
 fi
 nodes=$(KNO_REPO="$REPO" "$KNO_BIN" config --list-nodes --network "$net")
 choices=$(printf '%s\n' "$nodes" | paste -sd, - | sed 's/,/, /g')

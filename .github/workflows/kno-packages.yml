@@ -1,0 +1,52 @@
+name: kno-packages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kno-packages-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: ${{ matrix.builder.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        builder:
+          - {runner: ubuntu-26.04, arch: amd64}
+          - {runner: ubuntu-24.04-arm, arch: arm64}
+          - {runner: ubuntu-26.04, arch: ppc64le}
+        target: [amd64, arm64, ppc64el]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: sudo apt-get update && sudo apt-get install -y podman
+      - if: matrix.builder.arch == 'ppc64le'
+        run: |
+          docker run --rm --privileged docker.io/polyarch/qemu-user-static@sha256:1f1c20bb35e5fbe18a9e0de7883b3fa2267af0427dba4bdab9b7fd77a0594b4a --reset -p yes
+      - run: make kno-deb ARCH="$TARGET" DEBVER=0.0.107-1 EPOCH=1792480357
+        env:
+          TARGET: ${{ matrix.target }}
+          KNO_BUILD_ARCH: ${{ matrix.builder.arch }}
+      - run: |
+          test "$(dpkg-deb -f dist/kno/kno_0.0.107-1_${TARGET}.deb Architecture)" = "$TARGET"
+          test "$(dpkg-deb -f dist/host-config/kno-host-config_0.0.107-1_all.deb Architecture)" = all
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          binary = Path('dist/kno/.root/usr/bin/kno').read_bytes()
+          assert binary[:4] == b'\x7fELF'
+          assert int.from_bytes(binary[18:20], 'little') == {'amd64': 62, 'arm64': 183, 'ppc64el': 21}[os.environ['TARGET']]
+          PY
+        env:
+          TARGET: ${{ matrix.target }}
