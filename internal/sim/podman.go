@@ -19,7 +19,7 @@ import (
 	"github.com/katzenpost/kno/internal/parallel"
 )
 
-const runnerPackages = "iproute2 iptables iputils-ping netcat-openbsd ca-certificates procps systemd"
+const runnerPackages = "coreutils iproute2 iptables iputils-ping netcat-openbsd ca-certificates procps systemd"
 
 func runnerContainerfile(base string) string {
 	return "FROM " + base + "\n" +
