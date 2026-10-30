@@ -73,7 +73,7 @@ func debPattern(p platform) string {
 }
 
 func debPatterns(p platform) []string {
-	return []string{debPattern(p), "katzenpost_[0-9]*-*_" + p.debArch() + ".deb"}
+	return []string{debPattern(p), "katzenpost_*+sim" + compile.OSToken(p.OS) + "_" + p.debArch() + ".deb", "katzenpost_[0-9]*-*_" + p.debArch() + ".deb"}
 }
 
 func pickDeb(candidates []string, p platform) string {
@@ -141,6 +141,9 @@ func (r *run) provisionPackages() error {
 }
 
 func (r *run) buildRelease(tag string, ds []daemon, plats []platform) ([]string, error) {
+	if r.MinimalBuild {
+		return r.buildSimPackages(tag, ds)
+	}
 	arches := map[string]bool{}
 	for _, p := range plats {
 		arches[p.debArch()] = true

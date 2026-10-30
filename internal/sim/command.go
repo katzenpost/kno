@@ -30,6 +30,7 @@ func Command() *cobra.Command {
 }
 
 var stageHelp = map[string]string{
+	"build":   "prepare only the packages needed by this test network",
 	"keys":    "build the packages and tools, and make a fresh keyset",
 	"configs": "render the configs from the network data with the fresh keys",
 	"up":      "start the containers, install katzenpost, wait for consensus",
@@ -76,6 +77,7 @@ func stageCommand(stage string) *cobra.Command {
 	f.BoolVar(&o.Emulate, "emulate", false, "run each node on its own architecture through binfmt")
 	f.BoolVar(&o.Keep, "keep", false, "keep the network after a run that passes")
 	f.BoolVar(&o.NoCourier, "no-courier", false, "disable the couriers and skip cp-bench; give it to every stage")
+	f.BoolVar(&o.MinimalBuild, "minimal-build", false, "build only the binaries this sim needs in temporary sim packages")
 	f.StringVar(&o.LogLevel, "log-level", "DEBUG", "daemon log level")
 	return cmd
 }

@@ -19,8 +19,6 @@ jobs:
     name: sim
     runs-on: ubuntu-26.04
     timeout-minutes: 150
-    outputs:
-      sums: ${{ steps.debs.outputs.sums }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -33,32 +31,22 @@ jobs:
 
       - name: env
         run: |
-          t=$(sed -n 's/^KATZENPOST_REF=//p' data/thirdparty/pins.env)
           {
             echo "KNO_REPO=$PWD"
             echo "KNO_ARTIFACTS=$RUNNER_TEMP/artifacts"
-            echo "PKGS=$RUNNER_TEMP/artifacts/releases/$t/pkgs"
-            echo "SIM=--emulate --epoch 5m"
+            echo "PKGS=/var/tmp/kno-sim-$(id -u)-cisim/pkgs"
+            echo "SIM_ARTIFACTS=/var/tmp/kno-sim-$(id -u)-cisim/artifacts"
+            echo "SIM=--emulate --epoch 5m --minimal-build"
           } >> "$GITHUB_ENV"
 
       - name: build kno
         run: go build -o "$RUNNER_TEMP/kno" ./cmd/kno
 
-      - name: debs
-        id: debs
-        run: |
-          "$RUNNER_TEMP/kno" build --arches amd64,arm64,ppc64el --skip-freebsd
-          {
-            echo 'sums<<EOF'
-            cd "$PKGS"
-            for f in *; do
-              case $f in kno[-_]*|packages.json|SHA256SUMS) ;; *) sha256sum "$f" ;; esac
-            done
-            echo EOF
-          } >> "$GITHUB_OUTPUT"
+      - name: sim binaries
+        run: '"$RUNNER_TEMP/kno" sim build --net cisim $SIM'
 
       - name: validate
-        run: '"$RUNNER_TEMP/kno" sim validate'
+        run: 'KNO_ARTIFACTS="$SIM_ARTIFACTS" "$RUNNER_TEMP/kno" sim validate'
 
       - name: register qemu
         if: ${{ !env.ACT }}
@@ -128,7 +116,7 @@ jobs:
       - name: build
         id: build
         run: |
-          go run ./cmd/kno build --arches arm64,ppc64el
+          go run ./cmd/kno build --arches amd64,arm64,ppc64el
           {
             echo 'sums<<EOF'
             cd "$PKGS"
@@ -252,13 +240,12 @@ jobs:
 
       - name: hashes
         env:
-          SIM: ${{ needs.sim.outputs.sums }}
           BUILD: ${{ needs.build.outputs.sums }}
         run: |
           export LC_ALL=C
           t=$(sed -n 's/^KATZENPOST_REF=//p' data/thirdparty/pins.env)
           r=data/networks/namenlos/.generated/releases/$t
-          printf '%s\n%s\n' "$SIM" "$BUILD" | grep . | sort -u > "$RUNNER_TEMP/built"
+          printf '%s\n' "$BUILD" | grep . | sort -u > "$RUNNER_TEMP/built"
           cat "$r"/SHA256SUMS "$r"/*/SHA256SUMS "$r"/nodes/*/SHA256SUMS \
             | sort -u > "$RUNNER_TEMP/rec"
           awk 'NR==FNR { r[$0]; n[$2]; next }
