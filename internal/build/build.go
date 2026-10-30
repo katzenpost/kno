@@ -276,7 +276,7 @@ func (o Options) stampIn(kno string) stampInputs {
 	}
 	return stampInputs{
 		Tag: o.Tag, Revision: o.Revision, ToolRevision: o.toolRevision(),
-		KnoVersion: deb.ToolVersionRev(o.Repo, o.Tag, o.toolRevision()),
+		KnoVersion: knodeb.ToolVersion(o.Repo, o.Tag, o.toolRevision()),
 		Network:    o.Network,
 		Arches:     pfKeys, Services: o.Services, Repo: o.Repo,
 		BinaryOnly: o.BinaryOnly, Warped: o.Warped, Kno: kno,
@@ -592,7 +592,7 @@ func Build(o Options) ([]string, error) {
 	}
 	pkgs = append(pkgs, cfg...)
 
-	toolVer := deb.ToolVersionRev(o.Repo, o.Tag, o.toolRevision())
+	toolVer := knodeb.ToolVersion(o.Repo, o.Tag, o.toolRevision())
 
 	if !o.SkipCompile && !o.SkipDeb {
 		arches := o.Arches
@@ -801,7 +801,7 @@ func buildNative(o Options, rel, work string, pins map[string]string, ids *conte
 		return nil, err
 	}
 	out = append(out, cfgs...)
-	toolVer := deb.ToolVersionRev(o.Repo, o.Tag, o.toolRevision())
+	toolVer := knodeb.ToolVersion(o.Repo, o.Tag, o.toolRevision())
 	kp, err := knoPkg(o, rel, toolVer, pins, true)
 	if err != nil {
 		return nil, err
