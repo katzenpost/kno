@@ -333,8 +333,12 @@ func installedPackageVersion(version string) (string, error) {
 }
 
 func ToolVersion(repo, tag, revision string) string {
+	return toolVersion(repo, tag, revision, cli.Version())
+}
+
+func toolVersion(repo, tag, revision, runningVersion string) string {
 	if _, err := sourceRoot(repo); err != nil {
-		if version, err := installedPackageVersion(cli.Version()); err == nil {
+		if version, err := installedPackageVersion(runningVersion); err == nil {
 			return version
 		}
 	}

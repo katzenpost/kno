@@ -17,6 +17,7 @@ import (
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/knover"
 	"github.com/katzenpost/kno/internal/pkg/deb"
+	"github.com/katzenpost/kno/internal/pkg/knodeb"
 	"github.com/katzenpost/kno/internal/source"
 	"github.com/katzenpost/kno/internal/track"
 )
@@ -205,5 +206,5 @@ func KnoVersionFor(repo, tag string) string {
 	if want, _ := deb.SplitRevision(tag); want != pins["KATZENPOST_REF"] {
 		return ""
 	}
-	return knover.Version(repo, tag)
+	return knodeb.ToolVersion(repo, tag, knover.Revision(repo, tag))
 }
