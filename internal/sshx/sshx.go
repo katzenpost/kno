@@ -68,6 +68,25 @@ func Quote(s string) string {
 
 func AsRoot(cmd string) string { return asRoot + cmd }
 
+func AsRootWith(mode, cmd string) string {
+	switch mode {
+	case "su":
+		return `if [ "$(id -u)" = 0 ]; then env LC_ALL=C ` + cmd +
+			`; else su root -c ` + Quote("exec /bin/sh -c "+Quote("export LC_ALL=C; "+cmd)) + `; fi`
+	case "doas":
+		return `if [ "$(id -u)" = 0 ]; then env LC_ALL=C ` + cmd + `; else doas env LC_ALL=C ` + cmd + `; fi`
+	}
+	return AsRoot(cmd)
+}
+
+func SSHForRoot(ssh, node, mode, remote string) []string {
+	if mode != "su" {
+		return SSH(ssh, node, remote)
+	}
+	argv := append(words(ssh), Args()...)
+	return append(argv, "-tt", node, CLocale(remote))
+}
+
 const HostIdent = `a=$(dpkg --print-architecture 2>/dev/null) || a=;` +
 	` [ -n "$a" ] || case $(uname -m 2>/dev/null) in x86_64|amd64) a=amd64;; aarch64|arm64) a=arm64;;` +
 	` ppc64le|powerpc64le) a=ppc64el;; *) a=$(uname -m 2>/dev/null);; esac;` +

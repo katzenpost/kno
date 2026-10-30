@@ -32,6 +32,7 @@ func RunStep(ctx context.Context, s Step, stdout, stderr io.Writer, dry bool) er
 		cmd.Env = append(os.Environ(), s.Env...)
 	}
 	cmd.Stdout, cmd.Stderr = stdout, stderr
+	cmd.Stdin = os.Stdin
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("%s: %w", strings.Join(s.Argv, " "), err)
 	}
@@ -186,6 +187,7 @@ func options(e track.Env, label, tag, mode string, dry bool) (Options, error) {
 	if h.SSH != "" {
 		o.Node = h.SSH
 	}
+	o.Privilege = e.Config.Privilege(label)
 	o.Services = config.HostServices(e.Repo, e.Config, h)
 	if len(o.Services) > 0 {
 		node := NodeOf(o.Services[0])

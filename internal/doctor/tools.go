@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/katzenpost/kno/internal/cli"
+	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/knopath"
 )
 
@@ -52,7 +54,21 @@ type Tool struct {
 	GOOS string
 }
 
-func (t Tool) wanted() bool { return t.wantedOn(runtime.GOOS) }
+func (t Tool) wanted() bool {
+	if t.Name == "sudo" || t.Name == "su" || t.Name == "doas" {
+		mode := ""
+		if c, err := config.Load(config.ResolvePath("")); err == nil {
+			if label, _, ok := config.LocalHost(c); ok {
+				mode = c.Privilege(label)
+			}
+		}
+		words := strings.Fields(cli.RootHelper(mode))
+		if len(words) == 0 || filepath.Base(words[0]) != t.Name {
+			return false
+		}
+	}
+	return t.wantedOn(runtime.GOOS)
+}
 
 func (t Tool) wantedOn(goos string) bool {
 	if t.GOOS == "" {
@@ -206,6 +222,14 @@ var Tools = []Tool{
 		Name: "sudo", GOOS: "linux darwin", Scope: ScopeNode, For: "kno setup, kno schedule, kno bootstrap",
 		Why:     "the few steps that need root ask for it explicitly rather than requiring kno to run as root",
 		Version: []string{"--version"},
+	},
+	{
+		Name: "su", Scope: ScopeNode, For: "kno setup, kno schedule, kno update",
+		Why: "asks for the root password when this host selects interactive su",
+	},
+	{
+		Name: "doas", Scope: ScopeNode, For: "kno setup, kno schedule, kno update",
+		Why: "runs root commands when this host selects doas",
 	},
 	{
 		Name: "apt-cache", GOOS: "linux", Package: "apt", Scope: ScopeNode, For: "kno doctor",

@@ -38,6 +38,7 @@ func RunStep(ctx context.Context, s Step, w io.Writer, dry bool) error {
 	}
 	cmd := exec.CommandContext(ctx, s.Argv[0], s.Argv[1:]...)
 	cmd.Stdout, cmd.Stderr = w, w
+	cmd.Stdin = os.Stdin
 	if s.Stdin != "" {
 		cmd.Stdin = strings.NewReader(s.Stdin)
 
@@ -151,6 +152,14 @@ func options(e track.Env, args []string, hostFlag string, dry bool) (Options, er
 	}
 	if o.Host == "" && localGOOS == "freebsd" {
 		o.FreeBSD = true
+	}
+	label := hostArg
+	if label == "" {
+		label, _, _ = config.LocalHost(e.Config)
+	}
+	if label != "" {
+		o.Privilege = e.Config.Privilege(label)
+		o.Sudo = cli.RootHelper(o.Privilege)
 	}
 	return o, nil
 }
