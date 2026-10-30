@@ -661,7 +661,7 @@ func Build(o Options) ([]string, error) {
 		tb, err := tarballs(tarballOpts{
 			Repo: o.Repo, Network: o.Network, Tag: o.Tag,
 			Work: o.work(), Rel: rel, Platforms: o.platforms(),
-			FreeBSDABI: abi, Source: true, Pins: pins, ToolVer: toolVer,
+			FreeBSDABI: abi, Source: true, Pins: pins, ToolVer: toolVer, Kind: o.kind(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("tarballs: %w", err)
