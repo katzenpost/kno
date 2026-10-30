@@ -69,3 +69,40 @@ func TestTheRecordGatesWhatTheHostInstalls(t *testing.T) {
 		t.Errorf("a build the record names: err=%v log=%q", err, log.String())
 	}
 }
+
+func TestUpdateVerifiesCurrentPackagesWithoutObsoleteFireflyCache(t *testing.T) {
+	repo := t.TempDir()
+	dir := t.TempDir()
+	name := "katzenpost_0.0.107+debian13_amd64.deb"
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte("current"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, old := range []string{
+		"katzenpost-0.0.107-debian13-amd64.tar.gz",
+		"namenlos-config-gnunet-pq-gatewaynode_0.0.107-1+20260908113702.g3d6b2ff_amd64.deb",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, old), []byte("old"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rec := build.CommittedDir(repo, "namenlos", "v0.0.107")
+	if err := os.MkdirAll(rec, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte("current"))
+	if err := os.WriteFile(filepath.Join(rec, build.SumsName), []byte(hex.EncodeToString(sum[:])+"  "+name+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	r := ToolRunner{Env: track.Env{Repo: repo, Network: "namenlos"}, Log: track.Logger{Tool: "update", W: &out}}
+	if err := r.checkSelectedRecord("v0.0.107", dir, build.NativeBuild, []string{path}); err != nil {
+		t.Fatalf("obsolete cache blocked update: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("corrupted"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.checkSelectedRecord("v0.0.107", dir, build.NativeBuild, []string{path}); err == nil {
+		t.Fatal("corrupted current package passed updater verification")
+	}
+}

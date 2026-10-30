@@ -54,8 +54,9 @@ var dynamicPrograms = map[string][]string{
 
 	"internal/sshsig/sshsig.go: name": {"ssh-keygen"},
 
-	"internal/build/build.go: compile.Podman()":    {"podman"},
-	"internal/build/upstream.go: compile.Podman()": {"podman"},
+	"internal/build/archive_compressor.go: compile.Podman()": {"podman"},
+	"internal/build/build.go: compile.Podman()":              {"podman"},
+	"internal/build/upstream.go: compile.Podman()":           {"podman"},
 
 	"internal/doctor/remote.go: argv[0]": {"ssh"},
 	"internal/verify/remote.go: argv[0]": {"ssh"},

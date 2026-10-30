@@ -689,7 +689,7 @@ func Run(stderr io.Writer, args []string) int {
 			return rc
 		}
 	}
-	if rc := checkRecord(l, o, filepath.Join(rel, "pkgs"), required, signed); rc != 0 {
+	if rc := checkRecord(l, o, filepath.Join(rel, "pkgs"), required, signed, p.Packages...); rc != 0 {
 		return rc
 	}
 	for _, d := range p.Packages {
