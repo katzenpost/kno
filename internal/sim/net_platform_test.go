@@ -10,15 +10,7 @@ import (
 	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/probe"
-	"github.com/katzenpost/kno/internal/testutil"
 )
-
-func TestKnownOrphansComeFromTheFindings(t *testing.T) {
-	r := newRun(NetOptions{Repo: testutil.RepoRoot(t), Network: "namenlos", Work: t.TempDir()})
-	if got := strings.Join(r.knownOrphans(), ","); got != "wauland2" {
-		t.Errorf("known orphans %q, want wauland2", got)
-	}
-}
 
 func TestEveryKnownOrphanReachesTheProbe(t *testing.T) {
 	repo := t.TempDir()

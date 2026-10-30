@@ -2,7 +2,6 @@ package topology
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -22,30 +21,30 @@ func Command() *cobra.Command {
 			if repo == "" {
 				return fmt.Errorf("cannot locate the network repo (set KNO_REPO)")
 			}
-			p, err := Propose(Options{Repo: repo, Network: network, Ask: ask})
+			p, err := Propose(Options{Repo: repo, Network: network, Ask: ask, In: cmd.InOrStdin(), Log: cmd.ErrOrStderr()})
 			if err != nil {
 				return err
 			}
 			if len(p.Placements) == 0 {
-				fmt.Fprintln(os.Stderr, "kno topology-propose: every mix is in a layer. Nothing to propose")
+				fmt.Fprintln(cmd.ErrOrStderr(), "kno topology-propose: every mix is in a layer. Nothing to propose")
 				return nil
 			}
-			fmt.Print(p.Diff)
+			fmt.Fprint(cmd.OutOrStdout(), p.Diff)
 			switch {
 			case apply:
 				path := ManifestPath(repo, network)
 				if err := Write(p, path); err != nil {
 					return err
 				}
-				fmt.Fprintf(os.Stderr, "kno topology-propose: wrote %s\n", path)
-				fmt.Fprintln(os.Stderr, "  next: kno render, then review the generated configs and commit")
+				fmt.Fprintf(cmd.ErrOrStderr(), "kno topology-propose: wrote %s\n", path)
+				fmt.Fprintln(cmd.ErrOrStderr(), "  next: kno render, then review the generated configs and commit")
 			case out != "":
 				if err := Write(p, out); err != nil {
 					return err
 				}
-				fmt.Fprintf(os.Stderr, "kno topology-propose: wrote %s\n", out)
+				fmt.Fprintf(cmd.ErrOrStderr(), "kno topology-propose: wrote %s\n", out)
 			default:
-				fmt.Fprintln(os.Stderr, "kno topology-propose: nothing written"+
+				fmt.Fprintln(cmd.ErrOrStderr(), "kno topology-propose: nothing written"+
 					" (--out FILE to save it, --apply to edit the manifest here)")
 			}
 			return nil
@@ -54,7 +53,7 @@ func Command() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&network, "network", "namenlos", "network name")
 	f.StringVar(&out, "out", "", "write the proposed manifest to this file")
-	f.BoolVar(&ask, "ask", false, "prompt for each mix's layer instead of taking the thinnest")
+	f.BoolVar(&ask, "ask", false, "prompt instead of preferring a layer already used by the mix's operator")
 	f.BoolVar(&apply, "apply", false, "write the proposal back into the repo's manifest")
 	return cmd
 }

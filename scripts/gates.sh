@@ -108,7 +108,7 @@ else
 	mkdir "$tmp/real"
 	ln -s real "$tmp/l"
 	printf '[maintenance]\n\tauto = false\n' >"$tmp/gitconfig"
-	if limit "go test" env GIT_CONFIG_GLOBAL="$tmp/gitconfig" TMPDIR="$tmp/l" \
+	if limit "go test" env GITHUB_STEP_SUMMARY= GIT_CONFIG_GLOBAL="$tmp/gitconfig" TMPDIR="$tmp/l" \
 		go test ./... >/tmp/kno-gates-test.$$ 2>&1; then
 		pass "go test (TMPDIR behind a symlink, as /var on macOS)"
 	else
@@ -145,7 +145,9 @@ elif [ -n "$bin" ]; then
 	fi
 fi
 
-if [ "${GATES_SKIP_SIM:-0}" = 1 ]; then
+if [ "${GATES_SIM_IN_JOB:-0}" = 1 ]; then
+	echo "kno sim validate is covered by the required sim job"
+elif [ "${GATES_SKIP_SIM:-0}" = 1 ]; then
 	echo "skip  kno sim validate (GATES_SKIP_SIM=1)"
 elif [ -n "$bin" ]; then
 	art="KNO_ARTIFACTS=$work/artifacts"

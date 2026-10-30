@@ -60,12 +60,43 @@ func TestRenderMatchesCommittedConfigs(t *testing.T) {
 		}
 	}
 
-	parity, ok := found["parity namenlos vs reference"]
-	if !ok {
-		t.Fatal("no parity finding")
+	if r.Count(Skip) != 0 || r.Count(Warn) != 0 {
+		t.Fatalf("checkout audit must run without warnings or skips: %v", r.Findings)
 	}
-	if parity.Status != Pass && parity.Status != Skip {
-		t.Errorf("parity leg: %s", parity)
+	for _, subject := range []string{"original namenlos configs", "original namenlos public-keys"} {
+		if f, ok := found[subject]; !ok || f.Status != Pass {
+			t.Fatalf("original network audit did not pass: %s", subject)
+		}
+	}
+}
+
+func TestRenderRequiresAnExplicitReferenceToExistAndMatch(t *testing.T) {
+	repo := testutil.RepoRoot(t)
+	ref := filepath.Join(t.TempDir(), "configs")
+	for _, state := range []string{"missing", "matching", "changed"} {
+		t.Run(state, func(t *testing.T) {
+			if state == "matching" {
+				if err := fsutil.CopyTreeGuarded(knopath.ConfigsDir(repo, "namenlos"), ref); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if state == "changed" {
+				if err := os.WriteFile(filepath.Join(ref, "client.toml"), []byte("Changed = true\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			r, err := Render(RenderOptions{Repo: repo, Reference: ref})
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := Fail
+			if state == "matching" {
+				want = Pass
+			}
+			if f := bySubject(t, r)["parity namenlos vs reference"]; f.Status != want {
+				t.Fatalf("reference %s: %s", state, f)
+			}
+		})
 	}
 }
 
