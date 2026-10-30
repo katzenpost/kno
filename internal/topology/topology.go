@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -192,16 +193,28 @@ func Propose(o Options) (Proposal, error) {
 		return Proposal{}, fmt.Errorf("%s declares no topology layers", path)
 	}
 
+	owners, err := mixOperators(o.Repo, o.Network)
+	if err != nil {
+		return Proposal{}, err
+	}
 	text := string(raw)
 	p := Proposal{}
 	r := bufio.NewReader(o.in())
 	for _, mix := range orphans {
-		layer := emptiest(layers)
+		operator := owners[mix]
+		occupied := operatorLayers(owners, layers, operator)
+		layer := preferredLayer(layers, occupied)
+		if operator != "" {
+			fmt.Fprintf(o.log(), "  operator %s is currently in mix layers %v\n", operator, occupied)
+		}
 		if o.Ask {
 			layer, err = ask(r, o.log(), mix, layers, layer)
 			if err != nil {
 				return Proposal{}, err
 			}
+		}
+		if len(layers) > 1 && len(occupied) == len(layers)-1 && !slices.Contains(occupied, layer) {
+			return Proposal{}, fmt.Errorf("placing %s in layer %d would give operator %s visibility in every mix layer", mix, layer, operator)
 		}
 		text, err = insert(text, layer, mix)
 		if err != nil {

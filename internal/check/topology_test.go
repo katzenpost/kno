@@ -122,8 +122,9 @@ func TestTopologyReportsOnlyKnownGaps(t *testing.T) {
 }
 
 func TestTopologyFailsOnNewFinding(t *testing.T) {
-	repo := testutil.RepoRoot(t)
-	r, err := Topology(TopologyOptions{Repo: repo, Network: "namenlos", Known: []string{}})
+	repo := t.TempDir()
+	lintNetwork(t, repo, "n", []string{"placed"}, []string{"unplaced"})
+	r, err := Topology(TopologyOptions{Repo: repo, Network: "n", Known: []string{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +159,16 @@ func TestTopologyDoesNotBlameOneNetworkForAnothersAllowlist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := one.Count(Pass); got != 0 {
+	resolved := func(r Result) int {
+		n := 0
+		for _, f := range r.Findings {
+			if strings.HasPrefix(f.Subject, "resolved ") {
+				n++
+			}
+		}
+		return n
+	}
+	if got := resolved(one); got != 0 {
 		t.Errorf("linting one network claimed %d resolved entry(s) it cannot know about: %v", got, one.Findings)
 	}
 
@@ -166,7 +176,7 @@ func TestTopologyDoesNotBlameOneNetworkForAnothersAllowlist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := all.Count(Pass); got != 1 {
+	if got := resolved(all); got != 1 {
 		t.Errorf("want the one unreported entry called resolved, got %d: %v", got, all.Findings)
 	}
 }
