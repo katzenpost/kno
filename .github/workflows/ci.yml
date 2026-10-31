@@ -161,6 +161,7 @@ jobs:
         id: build
         run: |
           go run ./cmd/kno build --arches amd64,arm64,ppc64el --skip-freebsd
+          cat "$PKGS/packages.json"
           {
             echo 'sums<<EOF'
             cd "$PKGS" || exit

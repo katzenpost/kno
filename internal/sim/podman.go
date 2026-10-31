@@ -530,7 +530,7 @@ func (r *run) checkAlive(svcs []daemon) error {
 		}
 		why := ""
 		if lines, err := readLines(filepath.Join(r.data, s.Base, "out.log")); err == nil {
-			for _, l := range lines[max(0, len(lines)-3):] {
+			for _, l := range lines[max(0, len(lines)-80):] {
 				why += "\n    " + l
 			}
 		}

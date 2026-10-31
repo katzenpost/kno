@@ -224,7 +224,7 @@ func (r *run) dumpPigeonholeLogs() {
 			!strings.Contains(name, "servicenode") {
 			continue
 		}
-		printLogTail(r.Out, p, 80)
+		printLogTail(r.Out, p, 2000)
 	}
 }
 

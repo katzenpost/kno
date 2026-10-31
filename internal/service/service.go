@@ -335,6 +335,11 @@ func applyConf(s *Service, path string) error {
 			s.PrestartHook = v
 		case "SERVICE_USER":
 			s.ServiceUser = v
+		case "AUX_FILES":
+			s.AuxFiles = nil
+			if v != "" {
+				s.AuxFiles = strings.Fields(v)
+			}
 		case "DOCKER_DIR":
 			s.DockerDir = v
 		case "DOCKER_IMAGE":
