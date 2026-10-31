@@ -131,6 +131,10 @@ func (r *run) pigeonhole() error {
 	logPath := filepath.Join(r.Work, "cpbench.log")
 	payload := envStr("CPBENCH_PAYLOAD", "256")
 	spend := newSpend(budget)
+	if err := r.waitForReplicas(spend); err != nil {
+		r.dumpPigeonholeLogs()
+		return err
+	}
 	stalled := 0
 	for i := 1; i <= 3; i++ {
 		remaining, have := spend.left()
