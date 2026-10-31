@@ -28,19 +28,19 @@ var dynamicPrograms = map[string][]string{
 	"internal/hostsetup/hostsetup.go: s.Argv[0]": {"apt", "env", "pkg", "useradd", "install", "git", "chown", "sudo", "systemctl", "rm", "rmdir"},
 
 	"internal/push/run.go: s.Argv[0]":     {"ssh", "scp", "rsync", "kno"},
-	"internal/schedule/run.go: s.Argv[0]": {"sudo", "install", "systemctl", "rm", "tee", "ssh", "scp"},
+	"internal/schedule/run.go: s.Argv[0]": {"sudo", "su", "doas", "install", "systemctl", "rm", "tee", "ssh", "scp"},
 
 	"internal/compile/containers.go: Podman()": {"podman", "docker"},
 	"internal/compile/compile.go: e":           {"podman", "docker"},
 	"internal/check/repro.go: argv[0]":         {"go"},
 
-	"internal/update/update.go: argv[0]": {"kno"},
+	"internal/update/update.go: argv[0]": {"kno", "sudo", "su", "doas"},
 
-	"internal/update/update.go: r.Sudo": {"sudo"},
+	"internal/update/update.go: r.Sudo": {"sudo", "doas"},
 
 	"internal/nodekeys/nodekeys.go: cli.Sudo()": {"sudo"},
 
-	"internal/update/self.go: argv[0]": {"env", "sudo"},
+	"internal/update/self.go: argv[0]": {"env", "sudo", "su", "doas"},
 	"internal/update/self.go: bin":     {"kno"},
 
 	"internal/update/remote.go: argv[0]": {"ssh"},
@@ -67,8 +67,6 @@ var dynamicPrograms = map[string][]string{
 	"internal/doctor/why.go: argv[0]": {"runuser"},
 
 	"internal/doctor/conffiles.go: args[0]": {"dpkg", "dpkg-query"},
-
-	"internal/update/self.go: s.Sudo": {"sudo"},
 
 	"internal/compile/platform.go: Podman()":          {"podman"},
 	"internal/check/repro.go: compile.Podman()":       {"podman"},

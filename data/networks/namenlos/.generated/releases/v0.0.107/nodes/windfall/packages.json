@@ -30,12 +30,12 @@
       ]
     },
     {
-      "name": "namenlos-config-windfall-pq-servicenode_0.0.107-1+20261029214512.gbd368cf_amd64.deb",
+      "name": "namenlos-config-windfall-pq-servicenode_0.0.107-1+20261031014851.g31af743_amd64.deb",
       "arch": "amd64",
-      "version": "0.0.107-1+20261029214512.gbd368cf",
-      "sha256": "c549eb6abf56a3ce75b162fcb4be9f40a9560cd46fb3eceb976898339cd4d7e7",
-      "bytes": 15520,
-      "content": "b8bc7c3035dfe9d5b98b87ad13f9d750",
+      "version": "0.0.107-1+20261031014851.g31af743",
+      "sha256": "982c2211550d1b1b3e65a1be82c6403ba4d084e6aadf6fae9a6c24f4060c997d",
+      "bytes": 15668,
+      "content": "12620f3caaf54178015cf755f28fb0d0",
       "scripts": [
         "postinst",
         "preinst",

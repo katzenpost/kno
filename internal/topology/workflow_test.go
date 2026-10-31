@@ -10,6 +10,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/katzenpost/kno/internal/check"
+	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/nodefile"
@@ -27,7 +28,11 @@ func operatorCoverage(t *testing.T, repo string, layers [][]string) map[string]m
 	out := map[string]map[int]bool{}
 	for i, layer := range layers {
 		for _, mix := range layer {
-			op := machines[mix].Operator
+			host, ok := config.ServiceNode(repo, "namenlos", mix+"-pq-mixserver")
+			if !ok {
+				t.Fatalf("%s has no host placement", mix)
+			}
+			op := machines[host].Operator
 			if op == "" {
 				t.Fatalf("%s has no operator", mix)
 			}

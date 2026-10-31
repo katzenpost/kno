@@ -1,0 +1,4 @@
+operator = "windfall"
+arch = "amd64"
+os = "debian-13"
+services = ["windfall-pq-authority", "windfall-pq-mixserver"]

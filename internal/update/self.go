@@ -54,6 +54,7 @@ func newSelfUpgrade(e track.Env, l track.Logger, sudo string) selfUpgrade {
 		run: func(argv []string) error {
 			cmd := exec.Command(argv[0], argv[1:]...)
 			cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
+			cmd.Stdin = os.Stdin
 			return cmd.Run()
 		},
 		version: func(bin string) string {
@@ -66,7 +67,7 @@ func newSelfUpgrade(e track.Env, l track.Logger, sudo string) selfUpgrade {
 func (s selfUpgrade) installArgv(pkg string) []string {
 	switch {
 	case s.Sudo != "":
-		return []string{s.Sudo, s.installed, "activate", "--kno", pkg}
+		return cli.Elevate(s.Sudo, s.installed, "activate", "--kno", pkg)
 	case strings.HasSuffix(pkg, ".pkg"):
 		return freebsd.PkgAdd("", pkg)
 	}

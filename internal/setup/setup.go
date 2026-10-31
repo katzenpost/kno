@@ -95,9 +95,9 @@ func overlay(base, over config.Config) config.Config {
 }
 
 func privilege(r *bufio.Reader, label, prior string) string {
-	q := "  privileges on " + label + " (none/sudo/kno/apt)"
+	q := "  privileges on " + label + " (none/sudo/su/doas/kno/apt)"
 	if label == "" {
-		q = "privileges (none/sudo/kno/apt)"
+		q = "privileges (none/sudo/su/doas/kno/apt)"
 	}
 	for {
 		v := strings.TrimSpace(ask(r, q, cmp.Or(prior, config.PrivNone)))
@@ -356,38 +356,35 @@ func priorLabel(hosts map[string]config.Host, svc string) string {
 	return ""
 }
 
-func knoSchedule(sched, ssh string) error {
+func knoSchedule(sched, ssh, helper string) error {
 	args := []string{"schedule", sched}
 	if ssh != "" {
 		args = append(args, ssh)
 	}
 	cmd := exec.Command(knopath.Self(), args...)
+	cmd.Env = append(os.Environ(), "SUDO="+helper)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return cmd.Run()
 }
 
 func sudoInstallConfig(src string) error {
-	sudo := strings.Fields(cli.Sudo())
-	if len(sudo) == 0 {
+	return installConfigAs(src, cli.Sudo())
+}
+
+func installConfigAs(src, helper string) error {
+	if helper == "" {
 		return installConfig(src, systemConfigPath)
 	}
 	for _, argv := range [][]string{
 		{"mkdir", "-p", filepath.Dir(systemConfigPath)},
 		{"install", "-m", "0644", src, systemConfigPath},
 	} {
-		st := schedule.Step{Argv: append(append([]string{}, sudo...), argv...)}
+		st := schedule.Step{Argv: cli.Elevate(helper, argv...)}
 		if err := schedule.RunStep(context.Background(), st, os.Stderr, false); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func sudoPrefix() string {
-	if s := cli.Sudo(); s != "" {
-		return s + " "
-	}
-	return ""
 }
 
 func defaultDest() (string, error) {
@@ -533,7 +530,12 @@ func run(out string) {
 		if client {
 			cu = clientUser(r, priorHosts[node].KpclientdUser)
 		}
-		c.Hosts[node] = thisHost(priorHosts[node], hn, sched, client, cu)
+		h := thisHost(priorHosts[node], hn, sched, client, cu)
+		if os.Geteuid() != 0 {
+			privilegeLegend(os.Stderr)
+			h.Privilege = privilege(r, node, cmp.Or(h.Privilege, config.PrivNone))
+		}
+		c.Hosts[node] = h
 	} else {
 		if len(onames) > 0 {
 
@@ -678,12 +680,12 @@ func run(out string) {
 		if h.SSH != "" {
 			tgt = h.SSH
 		}
-		if yes(ask(r, fmt.Sprintf("install the %s scheduler on %s now (needs sudo)?", h.Scheduler, tgt), "n")) {
-			if err := knoSchedule(h.Scheduler, h.SSH); err != nil {
+		if yes(ask(r, fmt.Sprintf("install the %s scheduler on %s now (needs root)?", h.Scheduler, tgt), "n")) {
+			if err := knoSchedule(h.Scheduler, h.SSH, cli.RootHelper(c.Privilege(n))); err != nil {
 				fmt.Fprintf(os.Stderr, "  scheduler install failed: %v\n", err)
 			}
 			if h.SSH == "" {
-				if err := sudoInstallConfig(dest); err != nil {
+				if err := installConfigAs(dest, cli.RootHelper(c.Privilege(n))); err != nil {
 					fmt.Fprintf(os.Stderr, "  could not install %s to %s: %v\n", dest, systemConfigPath, err)
 				} else {
 					fmt.Fprintf(os.Stderr, "  installed config to %s (the updater user reads it there)\n", systemConfigPath)
@@ -696,14 +698,19 @@ func run(out string) {
 			}
 			fmt.Fprintf(os.Stderr, "  later, on/for %s: %s\n", n, cmd)
 			if h.SSH == "" {
-				fmt.Fprintf(os.Stderr, "  and (so the updater user sees it): %smkdir -p %s && %sinstall -m 0644 %s %s\n",
-					sudoPrefix(), filepath.Dir(systemConfigPath), sudoPrefix(), dest, systemConfigPath)
+				fmt.Fprintf(os.Stderr, "  and (so the updater user sees it): %s && %s\n",
+					rootCommand(cli.RootHelper(c.Privilege(n)), "mkdir", "-p", filepath.Dir(systemConfigPath)),
+					rootCommand(cli.RootHelper(c.Privilege(n)), "install", "-m", "0644", dest, systemConfigPath))
 			}
 		}
 	}
 	fmt.Fprintln(os.Stderr, "done.")
 	fmt.Fprintln(os.Stderr, "  check health:  kno status")
 	fmt.Fprintln(os.Stderr, "  deploy:        kno push <host-label> <tag>")
+}
+
+func rootCommand(helper string, args ...string) string {
+	return cli.ShellCommand(cli.Elevate(helper, args...)...)
 }
 
 func boolDef(b bool) string {

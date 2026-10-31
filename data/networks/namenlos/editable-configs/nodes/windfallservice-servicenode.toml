@@ -49,3 +49,27 @@ MuT1elrwel5BgH9ZZTUN2w==
 disable = false
 file = ""
 level = "NOTICE"
+
+# [[ServiceNode.CBORPluginKaetzchen]]
+# Capability = "voucher_router"
+# Endpoint = "voucher_router"
+# Command = "/usr/local/bin/voucher-router"
+# MaxConcurrency = 1
+# Disable = false
+# [ServiceNode.CBORPluginKaetzchen.Config]
+# data_dir = "/var/lib/katzenpost-servicenode/voucher_router"
+# log_dir = "/var/log/katzenpost/voucher_router"
+# log_level = "INFO"
+# thin_config = "/etc/katzenpost-servicenode/pigeonservice-thinclient.toml"
+#
+# [[ServiceNode.CBORPluginKaetzchen]]
+# Capability = "service_directory"
+# Endpoint = "service_directory"
+# Command = "/usr/local/bin/service-directory"
+# MaxConcurrency = 1
+# Disable = false
+# [ServiceNode.CBORPluginKaetzchen.Config]
+# data_dir = "/var/lib/katzenpost-servicenode/service_discovery"
+# log_dir = "/var/log/katzenpost/service_discovery"
+# log_level = "INFO"
+# thin_config = "/etc/katzenpost-servicenode/pigeonservice-thinclient.toml"

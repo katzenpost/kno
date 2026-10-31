@@ -744,6 +744,7 @@ func (r ToolRunner) Activate(tag, rel string) error {
 
 	cmd.Env = withoutTargetArch(os.Environ())
 	cmd.Stdout, cmd.Stderr = r.Out, r.Out
+	cmd.Stdin = os.Stdin
 	return cmd.Run()
 }
 
@@ -757,7 +758,7 @@ func (r ToolRunner) escalation(argv []string) error {
 	if len(probe) > 0 && probe[0] == r.Sudo {
 		probe = probe[1:]
 	}
-	if exec.Command(r.Sudo, append([]string{"-n", "-l"}, probe...)...).Run() == nil {
+	if filepath.Base(r.Sudo) != "su" && exec.Command(r.Sudo, append([]string{"-n", "-l"}, probe...)...).Run() == nil {
 		return nil
 	}
 
@@ -768,7 +769,7 @@ func (r ToolRunner) escalation(argv []string) error {
 	r.Log.Logf("  %s cannot escalate here without a password, and there is no", r.Sudo)
 	r.Log.Logf("  terminal to ask on. Run this yourself:")
 	r.Log.Logf("")
-	r.Log.Logf("    %s", strings.Join(argv, " "))
+	r.Log.Logf("    %s", cli.ShellCommand(argv...))
 	r.Log.Logf("")
 	r.Log.Logf("  Nothing was installed and nothing was changed.")
 	return ErrNoEscalation
@@ -859,11 +860,11 @@ func (r ToolRunner) activateArgv(rel, tag string) []string {
 	if r.Sudo == "" {
 		return append(cmd, rel, tag)
 	}
-	cmd = append([]string{r.Sudo}, append(cmd, "--repo="+r.Env.Repo)...)
+	cmd = append(cmd, "--repo="+r.Env.Repo)
 	if r.Env.ConfigPath != "" {
 		cmd = append(cmd, "--config="+r.Env.ConfigPath)
 	}
-	return append(cmd, rel, tag)
+	return cli.Elevate(r.Sudo, append(cmd, rel, tag)...)
 }
 
 func policyOf(e track.Env, v Flags) string {
@@ -899,13 +900,17 @@ func Start(stderr io.Writer, v Flags) int {
 		return 1
 	}
 	self := knopath.Self()
+	helper := cli.Sudo()
+	if label, _, ok := config.LocalHost(e.Config); ok {
+		helper = cli.RootHelper(e.Config.Privilege(label))
+	}
 	runner := &ToolRunner{
 		Env: e,
 
 		Arch:        activate.HostArch(),
 		Fetch:       cmp.Or(os.Getenv("KNO_TRACK_FETCH"), "1") == "1",
 		Force:       force,
-		Sudo:        cli.Sudo(),
+		Sudo:        helper,
 		ActivateCmd: []string{self, "activate"},
 		VerifyCmd:   []string{self, "verify"},
 		Log:         track.Logger{Tool: "update", W: stderr},

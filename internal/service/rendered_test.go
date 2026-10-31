@@ -133,3 +133,16 @@ func TestAHostTakesTheRenderedManifestAsFinal(t *testing.T) {
 		t.Errorf("unit %q state %q; a host must not rewrite what render decided", s.Unit, s.StateDir)
 	}
 }
+
+func TestAuxiliaryPluginConfigSurvivesSourceAndRenderedResolution(t *testing.T) {
+	const svc = "windfall-pq-servicenode"
+	const aux = "thinclient.toml=/etc/katzenpost-servicenode/pigeonservice-thinclient.toml"
+	repo := renderNet(t, svc, "AUX_FILES="+aux+"\n")
+	s, err := ResolveService(repo, "n", svc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(s.AuxFiles, []string{aux}) {
+		t.Fatalf("plugin thin-client config was lost: %v", s.AuxFiles)
+	}
+}

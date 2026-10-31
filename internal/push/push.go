@@ -41,7 +41,8 @@ type Options struct {
 
 	Tag, Rel string
 
-	Mode string
+	Mode      string
+	Privilege string
 
 	Services []string
 
@@ -56,6 +57,12 @@ type Options struct {
 	DryRun bool
 
 	Progress bool
+}
+
+func (o Options) asRoot(cmd string) string { return sshx.AsRootWith(o.Privilege, cmd) }
+
+func (o Options) rootSSH(cmd string) []string {
+	return sshx.SSHForRoot(o.SSH, o.Node, o.Privilege, cmd)
 }
 
 type Step struct {
@@ -382,7 +389,7 @@ func planInstall(o Options, p Plan) (Plan, error) {
 	}
 	p.Steps = append(p.Steps,
 
-		Step{Argv: sshx.SSH(o.SSH, o.Node, bootstrapCmd(remote, bootstrapNames(p.Packages))),
+		Step{Argv: o.rootSSH(bootstrapCmdWith(remote, bootstrapNames(p.Packages), o.Privilege)),
 			Note: "installed kno on " + o.Node},
 	)
 	var units []string
@@ -404,7 +411,7 @@ func planInstall(o Options, p Plan) (Plan, error) {
 		activate += "--restart=" + strings.Join(units, ",") + " "
 	}
 	p.Steps = append(p.Steps,
-		Step{Argv: sshx.SSH(o.SSH, o.Node, sshx.AsRoot(activate+remote+" "+o.Tag))},
+		Step{Argv: o.rootSSH(o.asRoot(activate + remote + " " + o.Tag))},
 	)
 	if o.Mode != ModeFull || !layout.Legacy(o.Tag) {
 		return p, nil
@@ -412,16 +419,16 @@ func planInstall(o Options, p Plan) (Plan, error) {
 	for _, unit := range units {
 		p.Steps = append(p.Steps, Step{
 
-			Argv: sshx.SSH(o.SSH, o.Node,
-				sshx.AsRoot("systemctl reset-failed "+unit)+" || true; "+sshx.AsRoot("systemctl restart "+unit)),
+			Argv: o.rootSSH(
+				o.asRoot("systemctl reset-failed "+unit) + " || true; " + o.asRoot("systemctl restart "+unit)),
 			BestEffort: true,
 		})
 	}
 	if layout.Legacy(o.Tag) {
 		p.Steps = append(p.Steps, Step{
-			Argv: sshx.SSH(o.SSH, o.Node,
-				"if systemctl is-enabled --quiet kpclientd.service; then "+
-					sshx.AsRoot("systemctl restart kpclientd.service")+"; fi"),
+			Argv: o.rootSSH(
+				"if systemctl is-enabled --quiet kpclientd.service; then " +
+					o.asRoot("systemctl restart kpclientd.service") + "; fi"),
 			Note:       "kpclientd restarted: the kno of this release does not restart it",
 			BestEffort: true,
 		})
@@ -487,7 +494,7 @@ func planKno(o Options, p Plan) (Plan, error) {
 	p.Steps = append(p.Steps, transfer(o, pkgs, append(slices.Clone(p.Packages), sumsFiles(pkgs)...),
 		remote+"/pkgs", false)...)
 	p.Steps = append(p.Steps, Step{
-		Argv: sshx.SSH(o.SSH, o.Node, bootstrapCmd(remote, bootstrapNames(p.Packages))),
+		Argv: o.rootSSH(bootstrapCmdWith(remote, bootstrapNames(p.Packages), o.Privilege)),
 		Note: "installed kno on " + o.Node + ". katzenpost and its services did not change.",
 	})
 	return p, nil
@@ -538,6 +545,10 @@ func resolve(o Options, svc string) (service.Service, error) {
 }
 
 func bootstrapCmd(remote string, names []string) string {
+	return bootstrapCmdWith(remote, names, "")
+}
+
+func bootstrapCmdWith(remote string, names []string, privilege string) string {
 	pkgs := remote + "/pkgs"
 
 	if len(names) == 0 {
@@ -556,8 +567,8 @@ func bootstrapCmd(remote string, names []string) string {
 	debs := strings.Join(names, " ")
 	return "set -e; cd " + pkgs + "; " + verify + listed +
 		"if kno activate --help 2>&1 | grep -q -- --kno; then " +
-		sshx.AsRoot("kno activate --kno "+debs) + "; else " +
-		sshx.AsRoot("dpkg -i "+debs) + "; fi; " +
+		sshx.AsRootWith(privilege, "kno activate --kno "+debs) + "; else " +
+		sshx.AsRootWith(privilege, "dpkg -i "+debs) + "; fi; " +
 		"command -v kno >/dev/null || " +
 		`{ echo "kno: installed the package but kno is not on PATH" >&2; exit 1; }`
 }

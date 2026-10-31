@@ -59,17 +59,21 @@ const (
 	PrivNone = "none"
 
 	PrivSudo = "sudo"
+	PrivSu   = "su"
+	PrivDoas = "doas"
 
 	PrivKno = "kno"
 
 	PrivApt = "apt"
 )
 
-var Privileges = []string{PrivNone, PrivSudo, PrivKno, PrivApt}
+var Privileges = []string{PrivNone, PrivSudo, PrivSu, PrivDoas, PrivKno, PrivApt}
 
 var PrivilegeHelp = []string{
 	"none  kno prints the commands; you run them  (default)",
 	"sudo  kno runs them with YOUR sudo rights; no new policy",
+	"su    kno asks for the root password in your terminal",
+	"doas  kno runs them with YOUR doas rights; no new policy",
 	"kno   kno runs them unattended, with the sudo rights you give its account",
 	"apt   this host's apt policy installs; kno only publishes",
 }

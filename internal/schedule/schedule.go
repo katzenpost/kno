@@ -10,6 +10,7 @@ import (
 	"github.com/katzenpost/kno/internal/knopath"
 
 	"github.com/katzenpost/kno/internal/argcheck"
+	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/sshx"
 )
@@ -37,6 +38,7 @@ type Options struct {
 	Host string
 
 	SSH, Sudo string
+	Privilege string
 
 	User string
 
@@ -86,7 +88,7 @@ func PlanFor(o Options) (Plan, error) {
 		return Plan{}, unknownMode(o.Mode)
 	}
 	if o.Host == "" && len(sudo) > 0 {
-		p.Steps = []Step{{Argv: append(sudo, self(), "activate", "--schedule="+o.Mode)}}
+		p.Steps = []Step{{Argv: cli.Elevate(o.Sudo, self(), "activate", "--schedule="+o.Mode)}}
 		return p, nil
 	}
 	if o.Host == "" {
@@ -170,8 +172,15 @@ func remoteSteps(o Options) ([]Step, error) {
 		return nil, unknownMode(o.Mode)
 	}
 	ssh := strings.Fields(o.SSH)
+	mode := o.Privilege
+	if o.Sudo == "su" || o.Sudo == "doas" {
+		mode = o.Sudo
+	}
+	if mode == "su" {
+		ssh = append(ssh, "-tt")
+	}
 	return []Step{{Argv: append(append([]string{}, ssh...), o.Host,
-		sshx.AsRoot("kno activate --schedule="+o.Mode))}}, nil
+		sshx.AsRootWith(mode, "kno activate --schedule="+o.Mode))}}, nil
 }
 
 func self() string {

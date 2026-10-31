@@ -67,19 +67,32 @@ type manifestT struct {
 	}
 }
 
+type cborPluginT struct {
+	Capability     string
+	Endpoint       string
+	Command        string
+	MaxConcurrency int
+	Disable        bool
+	Config         map[string]string
+}
+
 type nodeT struct {
-	Name                 string
-	Role                 string
-	Addresses            []string
-	BindAddresses        []string
-	ServerBindAddresses  []string
-	DataDir              string
-	MetricsAddress       string
-	ReplicaID            int
-	IdentityKeyFile      string
-	ConfigName           string
-	IdentityPublicKey    string
-	LinkPublicKey        string
+	CommentedPlugins    string `toml:"-"`
+	Name                string
+	Role                string
+	Addresses           []string
+	BindAddresses       []string
+	ServerBindAddresses []string
+	DataDir             string
+	MetricsAddress      string
+	ReplicaID           int
+	IdentityKeyFile     string
+	ConfigName          string
+	IdentityPublicKey   string
+	LinkPublicKey       string
+	ServiceNode         struct {
+		CBORPluginKaetzchen []cborPluginT
+	}
 	Kaetzchen            []string
 	Courier              bool
 	CourierCommand       string
@@ -172,6 +185,11 @@ func Render(dir, out string) error {
 		if err := decode(filepath.Join(src, ref.Config), &n); err != nil {
 			return err
 		}
+		body, err := os.ReadFile(filepath.Join(src, ref.Config))
+		if err != nil {
+			return err
+		}
+		n.CommentedPlugins = commentedPlugins(string(body))
 		if !nodefile.KnownRole(n.Role) {
 			return fmt.Errorf("%s: role %q is not one of %s", ref.Config, n.Role,
 				strings.Join(nodefile.Roles, ", "))
@@ -466,7 +484,15 @@ var serviceTmpl = template.Must(template.New("svc").Funcs(template.FuncMap{"addr
         linkPublicKey = {{pem .Node.CourierLinkPublicKey}}
     [ServiceNode.CBORPluginKaetzchen.Config]
         c = "{{.Node.CourierConfig}}"
-{{end}}
+{{end}}{{range .Node.ServiceNode.CBORPluginKaetzchen}}  [[ServiceNode.CBORPluginKaetzchen]]
+    Capability = {{printf "%q" .Capability}}
+    Endpoint = {{printf "%q" .Endpoint}}
+    Command = {{printf "%q" .Command}}
+    MaxConcurrency = {{.MaxConcurrency}}
+    Disable = {{.Disable}}
+    [ServiceNode.CBORPluginKaetzchen.Config]
+{{range $key, $value := .Config}}      {{printf "%q" $key}} = {{printf "%q" $value}}
+{{end}}{{end}}{{.Node.CommentedPlugins}}
 [PKI]
   [PKI.Voting]
 {{range .Authorities}}    [[PKI.Voting.Authorities]]
