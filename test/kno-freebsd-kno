@@ -137,17 +137,29 @@ vmstep HANDOVER "service jail stop kno >/dev/null &&
 	jls -j kno -n children.max | grep -qx children.max=8 &&
 	jls -j kno -n ip4.addr | grep -q 10.42.0.13"
 
+jailcache="${KNO_CACHE:-$HOME/.cache/katzenpost/kno}/jail-go"
+mkdir -p "$jailcache"
+if [ -f "$jailcache/go.tar.gz" ]; then
+	"$V" scp "$jailcache/go.tar.gz" vm:/tmp/kno-go-cache.tar.gz
+	vm "mkdir -p $KJ/root/.cache/katzenpost/kno && tar -xzf /tmp/kno-go-cache.tar.gz -C $KJ/root/.cache/katzenpost/kno && rm /tmp/kno-go-cache.tar.gz"
+fi
+
 say "the jail kno builds the release, and the node keys go to its state"
 ship
 vmstep KNO "jexec kno git clone -q /root/kno.bundle /root/network-organizer && ls $KJ/root/network-organizer/cmd/kno >/dev/null"
 "$V" scp "$cfg" vm:$KJ/usr/local/etc/kno.toml
 pk=/root/.local/share/katzenpost/kno/releases/$tag/pkgs
-vmstep BUILD_IN_KNO "jexec kno sh -c 'cd /root/network-organizer && go run ./cmd/kno build -v' >/tmp/b.log 2>&1; rc=\$?; tail -2 /tmp/b.log; grep -A8 'does not match\|records no digest' /tmp/b.log | head -12; [ \$rc = 0 ] &&
+vmstep BUILD_IN_KNO "jexec kno env GOMODCACHE=/root/.cache/katzenpost/kno/gomodcache GOCACHE=/root/.cache/katzenpost/kno/gobuild sh -c 'cd /root/network-organizer && go run ./cmd/kno build -v' >/tmp/b.log 2>&1; rc=\$?; tail -2 /tmp/b.log; grep -A8 'does not match\|records no digest' /tmp/b.log | head -12; [ \$rc = 0 ] &&
 	grep -q 'the build matches the record of katzenpost ${tag#v}' /tmp/b.log &&
 	jexec kno sh -c 'pkg add $pk/kno-0*.pkg $pk/kno-host-config-*.pkg' \
 	>/dev/null &&
 	jexec kno kno --version && ! jexec kno kno --version | grep -q v0.0.0 &&
 	jexec kno service cron onestop >/dev/null"
+if vm "tar -czf - -C $KJ/root/.cache/katzenpost/kno gomodcache gobuild" >"$jailcache/go.tar.gz.tmp"; then
+	mv "$jailcache/go.tar.gz.tmp" "$jailcache/go.tar.gz"
+else
+	rm -f "$jailcache/go.tar.gz.tmp"
+fi
 vmstep STATE "for j in kpauthority kpserver; do \
 install -d -m 700 $ST/\$j && cp -p $NK/\$j/*.pem $ST/\$j/ || exit 1; done"
 

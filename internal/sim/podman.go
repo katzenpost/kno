@@ -437,15 +437,18 @@ func (r *run) pollConsensus(tries, want int) error {
 	r.log.Logf("polling for a consensus that all %d authorities sign (epoch %s; up to %ds)",
 		want, r.Epoch, tries*15)
 	best := 0
+	started := time.Now()
 	for i := 1; i <= tries; i++ {
-		time.Sleep(15 * time.Second)
+		if i > 1 {
+			time.Sleep(15 * time.Second)
+		}
 		out, err := podmanCmd(context.Background(), r.fetchArgs()...).CombinedOutput()
 		_ = os.WriteFile(filepath.Join(r.Work, "fetch.out"), out, 0o644)
 		if err == nil {
 			n := signers(string(out))
 			best = max(best, n)
 			if n >= want {
-				r.log.Logf("consensus signed by %d of %d authorities at poll %d", n, want, i)
+				r.log.Logf("consensus signed by %d of %d authorities at poll %d after %s", n, want, i, time.Since(started).Round(time.Millisecond))
 				for _, m := range reEpoch.FindAllString(string(out), 5) {
 					fmt.Fprintln(r.Out, m)
 				}

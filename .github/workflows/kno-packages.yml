@@ -39,6 +39,11 @@ jobs:
         run: python3 ci/reuse.py --workflow kno-packages.yml --job "package (${{ matrix.builder.runner }}, ${{ matrix.builder.arch }}, ${{ matrix.target }})"
 
       - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: ./.github/actions/build-cache
+        with:
+          scope: package-${{ matrix.builder.arch }}-${{ matrix.target }}
+
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -71,11 +76,16 @@ jobs:
           BUILDER: ${{ matrix.builder.arch }}
         run: |
           . data/thirdparty/pins.env
-          mkdir -p dist/freebsd "$RUNNER_TEMP/freebsd-cache"
+          mkdir -p dist/freebsd "$HOME/.cache/katzenpost/kno"
           podman run --rm --platform "linux/$BUILDER" \
             -v "$PWD:/repo:ro" -v "$PWD/dist/freebsd:/out:rw" \
-            -v "$RUNNER_TEMP/freebsd-cache:/cache:rw" \
+            -v "$HOME/.cache/katzenpost/kno:/cache:rw" \
             -e KNO_CACHE=/cache -e GOMODCACHE=/cache/gomodcache \
             -e GOCACHE=/cache/gobuild -w /repo \
             "${BUILD_IMAGE%%:*}@$BUILD_IMAGE_DIGEST" \
             go run ./ci/freebsd-packages --out /out --version 0.0.107-1
+
+      - name: save builder images
+        if: ${{ success() && steps.reuse.outputs.reused != 'true' }}
+        continue-on-error: true
+        run: python3 ci/images.py save

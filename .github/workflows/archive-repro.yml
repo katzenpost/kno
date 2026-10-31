@@ -36,6 +36,11 @@ jobs:
         run: python3 ci/reuse.py --workflow archive-repro.yml --job "source-archives (${{ matrix.runner }}, ${{ matrix.go }})"
 
       - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: ./.github/actions/build-cache
+        with:
+          scope: archives-${{ matrix.go }}
+
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
         uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
@@ -46,3 +51,8 @@ jobs:
         env:
           KNO_TEST_SOURCE_ARCHIVES: '1'
           GOTOOLCHAIN: go${{ matrix.go }}
+
+      - name: save builder images
+        if: ${{ success() && steps.reuse.outputs.reused != 'true' }}
+        continue-on-error: true
+        run: python3 ci/images.py save

@@ -33,6 +33,11 @@ jobs:
         run: python3 ci/reuse.py --workflow ci.yml --job "sim"
 
       - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: ./.github/actions/build-cache
+        with:
+          scope: sim
+
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -54,7 +59,7 @@ jobs:
 
       - if: ${{ steps.reuse.outputs.reused != 'true' }}
         name: sim binaries
-        run: '"$RUNNER_TEMP/kno" sim build --net cisim $SIM'
+        run: 'python3 ci/timed.py compilation "$RUNNER_TEMP/kno" sim build --net cisim $SIM'
 
       - if: ${{ steps.reuse.outputs.reused != 'true' }}
         name: validate
@@ -84,15 +89,15 @@ jobs:
 
       - if: ${{ steps.reuse.outputs.reused != 'true' }}
         name: up
-        run: '"$RUNNER_TEMP/kno" sim up --net cisim $SIM'
+        run: 'python3 ci/timed.py startup-and-consensus "$RUNNER_TEMP/kno" sim up --net cisim $SIM'
 
       - if: ${{ steps.reuse.outputs.reused != 'true' }}
         name: verify
-        run: '"$RUNNER_TEMP/kno" sim verify --net cisim $SIM'
+        run: 'python3 ci/timed.py verification "$RUNNER_TEMP/kno" sim verify --net cisim $SIM'
 
       - if: ${{ steps.reuse.outputs.reused != 'true' }}
         name: message
-        run: '"$RUNNER_TEMP/kno" sim message --net cisim $SIM'
+        run: 'python3 ci/timed.py message-transfer "$RUNNER_TEMP/kno" sim message --net cisim $SIM'
 
       - if: ${{ steps.reuse.outputs.reused != 'true' }}
         name: probe
@@ -107,6 +112,11 @@ jobs:
         run: |
           KNO="$RUNNER_TEMP/kno" SIM_PKGS="/var/tmp/kno-sim-$(id -u)-cisim/pkgs" \
             sh scripts/sim-mutation.sh
+
+      - name: save builder images
+        if: ${{ success() && steps.reuse.outputs.reused != 'true' }}
+        continue-on-error: true
+        run: python3 ci/images.py save
 
   build:
     name: build
@@ -125,6 +135,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 ci/reuse.py --workflow ci.yml --job "build" --sums
+
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: ./.github/actions/build-cache
+        with:
+          scope: build
 
       - if: ${{ steps.reuse.outputs.reused != 'true' }}
         uses: actions/setup-go@v7
@@ -155,6 +170,11 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
 
+      - name: save builder images
+        if: ${{ success() && steps.reuse.outputs.reused != 'true' }}
+        continue-on-error: true
+        run: python3 ci/images.py save
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -164,6 +184,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - uses: ./.github/actions/build-cache
+        with:
+          scope: test
 
       - uses: actions/setup-go@v7
         with:
@@ -186,6 +210,11 @@ jobs:
       - name: install
         run: make install-test
 
+      - name: save builder images
+        if: ${{ success() }}
+        continue-on-error: true
+        run: python3 ci/images.py save
+
   freebsd:
     name: freebsd
     outputs:
@@ -206,6 +235,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 ci/reuse.py --workflow ci.yml --job "freebsd" --sums
+
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: ./.github/actions/build-cache
+        with:
+          scope: freebsd
 
       - if: ${{ steps.reuse.outputs.reused != 'true' }}
         uses: actions/setup-go@v7
@@ -287,6 +321,11 @@ jobs:
           echo "act runs this job as a user that cannot open /dev/kvm."
           echo "On the host, run: make freebsd-vmtest freebsd-jailtest" \
             "freebsd-knotest"
+
+      - name: save builder images
+        if: ${{ success() && steps.reuse.outputs.reused != 'true' }}
+        continue-on-error: true
+        run: python3 ci/images.py save
 
   gate:
     name: gate

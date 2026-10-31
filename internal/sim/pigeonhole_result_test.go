@@ -42,15 +42,25 @@ func TestPigeonholeRejectsZeroExitFailureAndBoundsTheRemoteProcess(t *testing.T)
 			if success {
 				output = "cp-bench: payload=256 chunks=1 duration=42s bytes_per_sec=6.1"
 			}
-			script := "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$KNO_TEST_ARGS\"\nprintf '%s\\n' '" + output + "'\n"
+			script := "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$KNO_TEST_ARGS\"\n" +
+				`for arg; do
+if [ "$arg" = --min-replicas ]; then
+printf '{\n"Epoch":1,"StorageReplicas":["replica"]}\n'
+exit 0
+fi
+done
+` + "printf '%s\\n' '" + output + "'\n"
 			if err := os.WriteFile(tool, []byte(script), 0o755); err != nil {
 				t.Fatal(err)
 			}
 			t.Setenv("PODMAN", tool)
 			t.Setenv("KNO_TEST_ARGS", args)
 			t.Setenv("CPBENCH_PAYLOAD", "256")
+			if err := os.WriteFile(filepath.Join(dir, "test-pq-storagenode.toml"), []byte("Identifier = \"replica\"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
 			var out strings.Builder
-			r := &run{NetOptions: NetOptions{Work: dir, Out: &out}, log: track.Logger{Tool: "sim", W: &out}}
+			r := &run{cfg: dir, NetOptions: NetOptions{Work: dir, Out: &out}, log: track.Logger{Tool: "sim", W: &out}}
 			if err := r.pigeonhole(); (err == nil) != success {
 				t.Fatalf("pigeonhole returned %v; success=%t\n%s", err, success, out.String())
 			}
@@ -58,7 +68,7 @@ func TestPigeonholeRejectsZeroExitFailureAndBoundsTheRemoteProcess(t *testing.T)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(string(got), "timeout\n--signal=TERM\n--kill-after=5s\n") {
+			if !strings.Contains(string(got), "exec timeout --signal=TERM --kill-after=5s") {
 				t.Fatalf("remote command lacks a timeout: %s", got)
 			}
 			if !success && strings.Count(string(got), "/simbin/cp-bench") != 3 {

@@ -1,0 +1,26 @@
+name: Build caches
+description: Restore compiler inputs and pinned builder images.
+inputs:
+  scope:
+    required: true
+    description: Isolate concurrent platforms and jobs.
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v6
+      with:
+        path: |
+          ~/.cache/katzenpost/kno/gomodcache
+          ~/.cache/katzenpost/kno/gobuild
+          ~/.cache/katzenpost/kno/jail-go
+        key: compile-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.scope }}-${{ hashFiles('data/thirdparty/pins.env', 'go.mod', 'go.sum') }}-${{ github.sha }}
+        restore-keys: |
+          compile-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.scope }}-${{ hashFiles('data/thirdparty/pins.env', 'go.mod', 'go.sum') }}-
+    - uses: actions/cache@v6
+      id: images
+      with:
+        path: ~/.cache/katzenpost/ci-images
+        key: builders-v1-${{ runner.os }}-${{ runner.arch }}-${{ inputs.scope }}-${{ hashFiles('data/thirdparty/pins.env', 'data/packaging/**', 'internal/compile/platform.go', 'internal/build/upstream.go', 'ci/images.py') }}
+    - shell: bash
+      continue-on-error: true
+      run: python3 ci/images.py restore
