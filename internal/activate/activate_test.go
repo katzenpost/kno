@@ -455,7 +455,7 @@ func TestTheKnoJailPreparesOneRootForEachJail(t *testing.T) {
 		root := "/var/db/kno/roots/" + jc[0] + "/" + base
 		want = append(want, "rm -rf "+root+".new", "mkdir -p "+root+".new",
 			strings.Join(freebsd.PkgAddInRoot(root+".new", add...), " "), "mv "+root+".new "+root,
-			"ln -sfh "+base+" /var/db/kno/roots/"+jc[0]+"/current", "")
+			"", "ln -sfh "+base+" /var/db/kno/roots/"+jc[0]+"/current", "")
 	}
 	want = append(want, "")
 	kp104 := "_katzenpost-0.0.104"
@@ -498,9 +498,9 @@ func TestTheKnoJailPreparesOneRootForEachJail(t *testing.T) {
 	}
 	var restarts []string
 	for _, l := range lines(p) {
-		if r, ok := strings.CutPrefix(l, "service jail restart "); ok {
+		if r, ok := strings.CutPrefix(l, "service jail start "); ok {
 			restarts = append(restarts, r)
-		} else if l != "" && !strings.HasPrefix(l, "ln -sfh ") && !strings.HasPrefix(l, "jls -j ") {
+		} else if l != "" && l != "kpclientd" && l != "kpserver" && !strings.HasPrefix(l, "ln -sfh ") && !strings.HasPrefix(l, "jls -j ") {
 			t.Errorf("a root that exists is installed again: %s", l)
 		}
 	}

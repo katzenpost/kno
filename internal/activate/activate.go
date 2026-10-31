@@ -45,9 +45,12 @@ const (
 	StepScanSecretKeys
 
 	StepWrite
+
+	StepStopJail
 )
 
 type Step struct {
+	Jail string
 	Kind StepKind
 	Argv []string
 
@@ -343,6 +346,11 @@ func ezjailPlan(o Options, backend string) (Plan, error) {
 					Argv: freebsd.PkgAddInRoot(root+".new", add...)},
 				Step{Kind: StepRun, Argv: []string{"mv", root + ".new", root}})
 		}
+		restart := !slices.Contains(enabled, name) || linkTarget(freebsd.RunningRoot(name)) != base || !jailRuns(name)
+		if restart {
+			p.Steps = append(p.Steps, Step{Kind: StepStopJail, Jail: name,
+				Log: "stop the jail " + name + " and clean stale mounts before changing its root"})
+		}
 		p.Steps = append(p.Steps,
 			Step{Kind: StepRun, Argv: []string{"ln", "-sfh", base, freebsd.CurrentRoot(name)}},
 			Step{Kind: StepWrite, Path: sp.Jail.ConfPath(), Content: sp.Jail.Conf(), Mode: 0o644})
@@ -355,9 +363,9 @@ func ezjailPlan(o Options, backend string) (Plan, error) {
 				Step{Kind: StepRun, Argv: []string{"jls", "-j", name, "name"}},
 				Step{Kind: StepRun,
 					Argv: []string{"ln", "-sfh", base, freebsd.RunningRoot(name)}})
-		case linkTarget(freebsd.RunningRoot(name)) != base || !jailRuns(name):
+		case restart:
 			p.Steps = append(p.Steps,
-				Step{Kind: StepRun, Log: "restart the jail " + name + " with " + base, Argv: []string{"service", "jail", "restart", name}},
+				Step{Kind: StepRun, Log: "start the jail " + name + " with " + base, Argv: []string{"service", "jail", "start", name}},
 				Step{Kind: StepRun, Argv: []string{"jls", "-j", name, "name"}},
 				Step{Kind: StepRun, Argv: []string{"ln", "-sfh", base, freebsd.RunningRoot(name)}})
 		}
@@ -374,6 +382,7 @@ func ezjailPlan(o Options, backend string) (Plan, error) {
 var spoolDB = regexp.MustCompile(`(?m)^\s*SpoolDB\s*=\s*"([^"]+)"`)
 
 var enabledJails = freebsd.EnabledJails
+var stopJail = freebsd.StopJail
 
 var rootExists = func(dir string) bool {
 	fi, err := os.Stat(dir)
@@ -496,6 +505,14 @@ func Apply(ctx context.Context, p Plan, o Options, w io.Writer) error {
 			l.Logf("%s", s.Log)
 		}
 		switch s.Kind {
+		case StepStopJail:
+			if o.DryRun {
+				fmt.Fprintf(w, "DRYRUN: stop jail %s and unmount its stale filesystems\n", s.Jail)
+				continue
+			}
+			if err := stopJail(ctx, s.Jail, w); err != nil {
+				return err
+			}
 		case StepRun, StepRunIgnore:
 			if o.DryRun {
 				fmt.Fprintf(w, "DRYRUN: %s\n", strings.Join(s.Argv, " "))

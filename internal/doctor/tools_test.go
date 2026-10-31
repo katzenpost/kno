@@ -20,7 +20,8 @@ var dynamicPrograms = map[string][]string{
 
 	"internal/activate/activate.go: s.Argv[0]": {"dpkg", "dpkg-deb", "systemctl", "podman", "cp", "env", "mkdir", "rm", "service"},
 
-	"internal/pkg/freebsd/cross.go: argv[0]": {"go"},
+	"internal/pkg/freebsd/cross.go: argv[0]":     {"go"},
+	"internal/pkg/freebsd/lifecycle.go: args[0]": {"jls", "service", "mount", "umount"},
 
 	"internal/activate/activate.go: engine": {"podman"},
 

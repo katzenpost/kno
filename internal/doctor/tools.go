@@ -116,6 +116,14 @@ var Tools = []Tool{
 		Why: "restarts each service jail in the jail kno with service jail, and asks an old ezjail jail's rc.d service with service -j",
 	},
 	{
+		Name: "mount", Scope: ScopeNode, GOOS: "freebsd", For: "kno activate",
+		Why: "lists stale mounts of a stopped service jail before changing its root",
+	},
+	{
+		Name: "umount", Scope: ScopeNode, GOOS: "freebsd", For: "kno activate",
+		Why: "unmounts stopped service jail filesystems from children to root without forcing them",
+	},
+	{
 		Name: "genkeypair", Scope: ScopeVendored, For: "kno sim",
 		Why: "generates the simulated network's keys; kno builds it from the pinned katzenpost source and runs it by path",
 	},

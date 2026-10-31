@@ -198,12 +198,15 @@ else
 	mark BOOT_CONSOLE 1
 fi
 keys KEYS_REBOOT
+say "the pietje partial upgrade keeps keys and state and cleans stale mounts"
+"$V" scp "$SELF/kno-freebsd-upgrade" vm:$KJ/root/kno-freebsd-upgrade
+vmstep PIETJE_UPGRADE "jexec kno sh /root/kno-freebsd-upgrade '${pk%/pkgs}' >/tmp/pietje-upgrade.log 2>&1; rc=\$?; tail -25 /tmp/pietje-upgrade.log; [ \$rc = 0 ]"
 "$V" stop
 
 rc=0
 for m in BUILD RECORD_KEYS CHECK SETUP HANDOVER KNO BUILD_IN_KNO STATE \
 	FIRST JAILS LISTEN READONLY ISOLATED CLIENT KEYS_FIRST PROMOTE REPRO \
-	REBOOT BOOT_CONSOLE KEYS_REBOOT; do
+	REBOOT BOOT_CONSOLE KEYS_REBOOT PIETJE_UPGRADE; do
 	if grep -q "^${m}_RC=0\$" "$log"; then echo "  $m: pass"; else echo "  $m: FAIL"; rc=1; fi
 done
 echo "transcript: $log"
