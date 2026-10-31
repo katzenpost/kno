@@ -17,7 +17,8 @@ default_os = "debian-13"
   tortuna = "amd64"
   wauland = "amd64"
   wauland2 = "amd64"
-  windfall = "amd64"
+  windfall1 = "amd64"
+  windfall2 = "amd64"
   windfallservice = "amd64"
 
 [os]
@@ -33,7 +34,8 @@ default_os = "debian-13"
   reed = "ubuntu-24.04"
   respectmy = "freebsd-14.5"
   tortuna = "debian-13"
-  windfall = "debian-13"
+  windfall1 = "debian-13"
+  windfall2 = "debian-13"
   windfallservice = "debian-13"
 
 [operators]
@@ -50,7 +52,7 @@ default_os = "debian-13"
   [operators.omelas]
     nodes = ["omelas"]
   [operators.windfall]
-    nodes = ["windfall"]
+    nodes = ["windfall1", "windfall2"]
 
 [lan]
 
@@ -63,6 +65,10 @@ default_os = "debian-13"
 [placement]
   gnunet-pq-authority = "tortuna"
   gnunet-pq-gatewaynode = "firefly"
+  windfall-pq-authority = "windfall1"
+  windfall-pq-mixserver = "windfall1"
+  windfall-pq-servicenode = "windfall2"
+  windfall-pq-storagenode-2 = "windfall2"
 
 [identity]
   allmixedup-pq-gatewaynode = "-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----\nNS5KsQ1YX1MRoRv+kBJnGT0O625ijNSp36vw/4u7tvgb/JAGrv1AWvELKJh4gGnW\nPv8kwhxSbAB+BWQHQCyJ6IW56axDQQGIS168ddtNELje0BYkXbA4Hy0phi6UfCqK\n-----END ED25519 SPHINCS+ PUBLIC KEY-----\n"
