@@ -66,6 +66,14 @@ func ApplyLabelled(ctx context.Context, p Plan, l track.Logger, dry bool, label 
 }
 
 func Run(stderr io.Writer, label, tag, mode string, dry bool) int {
+	return run(stderr, label, tag, mode, dry, false)
+}
+
+func RunKatzenpost(stderr io.Writer, label, tag, mode string, dry bool) int {
+	return run(stderr, label, tag, mode, dry, true)
+}
+
+func run(stderr io.Writer, label, tag, mode string, dry, skipKno bool) int {
 	l := track.Logger{Tool: "push", W: stderr}
 	e, err := track.LoadEnv()
 	if err != nil {
@@ -78,6 +86,7 @@ func Run(stderr io.Writer, label, tag, mode string, dry bool) int {
 		l.Errorf("%v", err)
 		return 1
 	}
+	o.SkipKno = skipKno
 	if f, ok := stderr.(*os.File); ok {
 		o.Progress = cli.IsTerminal(f)
 	}
@@ -136,10 +145,19 @@ func Run(stderr io.Writer, label, tag, mode string, dry bool) int {
 }
 
 func Preflight(e track.Env, label, tag, mode string) error {
+	return preflight(e, label, tag, mode, false)
+}
+
+func PreflightKatzenpost(e track.Env, label, tag, mode string) error {
+	return preflight(e, label, tag, mode, true)
+}
+
+func preflight(e track.Env, label, tag, mode string, skipKno bool) error {
 	o, err := options(e, label, tag, mode, false)
 	if err != nil {
 		return err
 	}
+	o.SkipKno = skipKno
 	_, err = PlanFor(o)
 	return err
 }

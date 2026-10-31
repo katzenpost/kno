@@ -68,10 +68,24 @@ func KnoPackage(bin, debVersion, outdir, abi string, epoch int64) (string, error
 func HostConfigName(label string) string { return "kno-host-config-" + label }
 
 func HostConfigPackage(c config.Config, label, debVersion, outdir, abi, repo, network string, epoch int64) (string, error) {
+	return hostConfigPackage(c, label, debVersion, outdir, abi, repo, network, epoch, false)
+}
+
+func SelectedHostConfigPackage(c config.Config, label, debVersion, outdir, abi, repo, network string, epoch int64) (string, error) {
+	return hostConfigPackage(c, label, debVersion, outdir, abi, repo, network, epoch, true)
+}
+
+func hostConfigPackage(c config.Config, label, debVersion, outdir, abi, repo, network string, epoch int64, selected bool) (string, error) {
 	root := filepath.Join(outdir, ".pkgbuild-"+HostConfigName(label))
 	hc, svcs, _, err := hostconfig.StageHost(c, label, root, repo, network, "freebsd")
 	if err != nil {
 		return "", err
+	}
+	if selected {
+		hc = hostconfig.EffectiveHost(c, label, repo)
+		if err := config.Write(hc, filepath.Join(root, strings.TrimPrefix(KnoConfig, "/"))); err != nil {
+			return "", err
+		}
 	}
 	h := hc.Hosts[label]
 	if h.Scheduler == "cron" {

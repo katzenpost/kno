@@ -109,6 +109,12 @@ func prepareImage(ctx context.Context, st Settings) error {
 	if err != nil {
 		return err
 	}
+	if st.Offline {
+		if err := exec.CommandContext(ctx, compile.Podman(), "image", "exists", image).Run(); err != nil {
+			return fmt.Errorf("offline packaging image %s is missing. Run build --refresh", image)
+		}
+		return nil
+	}
 	cmd := exec.CommandContext(ctx, compile.Podman(), "pull", "-q", image)
 	if b, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("pull %s: %w\n%s", image, err, b)
@@ -146,12 +152,17 @@ func BuildWith(ctx context.Context, st Settings, root, out string) error {
 	if err != nil {
 		return err
 	}
-	args, done := compile.Contained([]string{"run", "--rm",
-		"-e", "SOURCE_DATE_EPOCH=" + sde,
+	args := []string{"run", "--rm"}
+	if st.Offline {
+		args = append(args, "--pull=never", "--network=none")
+	}
+	args = append(args,
+		"-e", "SOURCE_DATE_EPOCH="+sde,
 		"-v", compile.MustMount(rootAbs, "/pkgroot:ro"),
 		"-v", compile.MustMount(filepath.Dir(outAbs), "/out:rw"),
 		image, "dpkg-deb", "--root-owner-group", "--build", "/pkgroot",
-		"/out/" + filepath.Base(outAbs)})
+		"/out/"+filepath.Base(outAbs))
+	args, done := compile.Contained(args)
 	defer done()
 	cmd := exec.CommandContext(ctx, compile.Podman(), args...)
 	cmd.Stderr = os.Stderr
@@ -181,6 +192,12 @@ func PackageConfigsFlavoured(ctx context.Context, rel, tag, rev, binRev string,
 	target func(svc string) (arch, osName string), stable stableVersion,
 	stamp func(svc string) string,
 	want func(svc string) bool) ([]string, error) {
+	return PackageConfigsWithSettings(ctx, EnvSettings(), rel, tag, rev, binRev, target, stable, stamp, want)
+}
+
+func PackageConfigsWithSettings(ctx context.Context, settings Settings, rel, tag, rev, binRev string,
+	target func(svc string) (arch, osName string), stable stableVersion,
+	stamp func(svc string) string, want func(svc string) bool) ([]string, error) {
 	all, err := filepath.Glob(filepath.Join(rel, "manifest", "*.conf"))
 	if err != nil {
 		return nil, err
@@ -239,7 +256,7 @@ func PackageConfigsFlavoured(ctx context.Context, rel, tag, rev, binRev string,
 				}
 			}
 			deb := filepath.Join(pkgs, configDebName(name, tag, use, st, arch))
-			if err := Build(ctx, root, deb); err != nil {
+			if err := BuildWith(ctx, settings, root, deb); err != nil {
 				return err
 			}
 			os.RemoveAll(parent)
@@ -247,7 +264,7 @@ func PackageConfigsFlavoured(ctx context.Context, rel, tag, rev, binRev string,
 			return nil
 		}
 	}
-	if err := prepareImage(ctx, EnvSettings()); err != nil {
+	if err := prepareImage(ctx, settings); err != nil {
 		return nil, err
 	}
 	if err := parallel.Run(parallel.Jobs(), tasks); err != nil {

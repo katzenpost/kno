@@ -592,7 +592,9 @@ func readKV(path string) (map[string]string, error) {
 }
 
 type ToolRunner struct {
-	Env track.Env
+	Env            track.Env
+	Source         *build.SourceSelection
+	KatzenpostOnly bool
 
 	Arch string
 
@@ -622,6 +624,14 @@ func (r *ToolRunner) Track() (string, int) {
 		}
 	}
 	target, why := r.Env.Target()
+	if r.Source != nil {
+		target, why = r.Source.Tag, ""
+		if r.Env.Quarantined(target) && !r.Force {
+			r.selectionFailed = true
+			r.Log.Errorf("selected source %s is quarantined after a failed verification. Run kno unquarantine %s before another attempt", target, target)
+			return "", 1
+		}
+	}
 	if target == "" {
 		r.selectionFailed = true
 		r.reportExistingBuild()
@@ -669,6 +679,10 @@ func (r ToolRunner) Build(tag string) error {
 		SkipFreeBSD: !compile.NativeBuild(),
 		Native:      compile.NativeBuild(),
 		SkipDocker:  true,
+		SkipKno:     r.KatzenpostOnly,
+	}
+	if r.Source != nil && r.Source.Tag == tag {
+		o.Source, o.SkipTarball = r.Source, true
 	}
 	packages, err := build.Build(o)
 	if err != nil {
@@ -684,6 +698,10 @@ func (r ToolRunner) checkRecord(tag, pkgs string) error {
 }
 
 func (r ToolRunner) checkSelectedRecord(tag, dir, kind string, packages []string) error {
+	if r.Source != nil && r.Source.Tag == tag && r.Source.Tip {
+		r.Log.Logf("built selected main commit %s. Verified local package digests without a tagged release comparison", r.Source.Source.Commit)
+		return nil
+	}
 	err := build.VerifyBuildPackages(r.Env.Repo, r.Env.Network, tag, dir, sign.NodePath, kind, packages)
 	return r.recordResult(tag, err)
 }
@@ -883,11 +901,34 @@ func Start(stderr io.Writer, v Flags) int {
 	}
 
 	l := track.Logger{Tool: "update", W: stderr}
+	if v.Target == "katzenpost" && policyOf(e, v) == "off" {
+		l.Logf("update policy is 'off'. kno applies no update")
+		return 0
+	}
+	if v.Target == "katzenpost" {
+		if drySelectedUpdate(stderr, v) {
+			return 0
+		}
+		if err := selectUpdateSource(stderr, e, &v); err != nil {
+			l.Errorf("%v", err)
+			return 1
+		}
+	}
 	before := localSample(e, "before this deployment", "")
 	if before != nil && len(before.Packages) > 0 {
 		l.Logf("%s: installed packages: %s", localLabel(e), packageList(before.Packages))
 	} else {
 		l.Logf("installed package versions are unavailable")
+	}
+	if v.Target == "katzenpost" {
+		have := e.CurrentVersion()
+		if before != nil && before.Packages["katzenpost"] != "" {
+			have = before.Packages["katzenpost"]
+		}
+		if err := selectedDowngrade(v.Selected, have, v.AllowDowngrade); err != nil {
+			l.Errorf("%v", err)
+			return 1
+		}
 	}
 	if v.Dry || os.Getenv("DRY_RUN") == "1" {
 
@@ -900,15 +941,14 @@ func Start(stderr io.Writer, v Flags) int {
 		return 1
 	}
 	self := knopath.Self()
-	helper := cli.Sudo()
-	if label, _, ok := config.LocalHost(e.Config); ok {
-		helper = cli.RootHelper(e.Config.Privilege(label))
-	}
+	helper := updateHelper(e)
 	runner := &ToolRunner{
-		Env: e,
+		Env:            e,
+		Source:         v.Selected,
+		KatzenpostOnly: v.Target == "katzenpost",
 
 		Arch:        activate.HostArch(),
-		Fetch:       cmp.Or(os.Getenv("KNO_TRACK_FETCH"), "1") == "1",
+		Fetch:       cmp.Or(os.Getenv("KNO_TRACK_FETCH"), "1") == "1" && !(v.Target != "" && v.Dry) && v.Selected == nil,
 		Force:       force,
 		Sudo:        helper,
 		ActivateCmd: []string{self, "activate"},
@@ -917,17 +957,28 @@ func Start(stderr io.Writer, v Flags) int {
 		Out:         stderr,
 	}
 	dry := v.Dry || os.Getenv("DRY_RUN") == "1"
+	var after func() error
+	if v.Target == "" {
+		after = newSelfUpgrade(e, track.Logger{Tool: "update", W: stderr}, runner.Sudo).Run
+	}
+	var target func() string
+	selectedTarget := e.TargetVersion()
+	if v.Selected != nil {
+		target = func() string { return v.Selected.Tag }
+		selectedTarget = v.Selected.Tag
+	}
 	rc := Run(Options{
 		Env:          e,
 		Policy:       policyOf(e, v),
 		DryRun:       dry,
 		Force:        force,
 		StallForward: v.StallForward,
-		Promote:      v.Promote || sameRelease(e, e.TargetVersion()),
+		Promote:      v.Promote || sameRelease(e, selectedTarget),
 		Window:       window(),
 		Out:          stderr,
 		Runner:       runner,
-		After:        newSelfUpgrade(e, track.Logger{Tool: "update", W: stderr}, runner.Sudo).Run,
+		After:        after,
+		Target:       target,
 	})
 	if !dry && !runner.selectionFailed {
 		recordLocal(track.Logger{Tool: "update", W: stderr}, e, runner, before, v.Push)

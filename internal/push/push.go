@@ -53,6 +53,7 @@ type Options struct {
 	RemoteRsync bool
 
 	KnoVersion string
+	SkipKno    bool
 
 	DryRun bool
 
@@ -227,6 +228,9 @@ func configArch(o Options) string {
 }
 
 func PlanFor(o Options) (Plan, error) {
+	if o.SkipKno && o.Mode != ModeFull && o.Mode != ModeInstall {
+		return Plan{}, fmt.Errorf("Katzenpost-only installation needs push mode full or install")
+	}
 	if len(o.Services) == 0 {
 		return Plan{}, fmt.Errorf("host %q has no services placed on it. Nothing to push", o.Label)
 	}
@@ -370,11 +374,13 @@ func planInstall(o Options, p Plan) (Plan, error) {
 		return Plan{}, fmt.Errorf("the build has no packages for %s", o.Label)
 	}
 
-	kno, err := knoPackages(o, pkgs)
-	if err != nil {
-		return Plan{}, err
+	if !o.SkipKno {
+		kno, err := knoPackages(o, pkgs)
+		if err != nil {
+			return Plan{}, err
+		}
+		p.Packages = append(p.Packages, kno...)
 	}
-	p.Packages = append(p.Packages, kno...)
 
 	remote := RemoteRelease(o.Tag)
 	p.Steps = append(p.Steps,
@@ -387,11 +393,12 @@ func planInstall(o Options, p Plan) (Plan, error) {
 	if o.Mode == ModeCopy {
 		return p, nil
 	}
-	p.Steps = append(p.Steps,
-
-		Step{Argv: o.rootSSH(bootstrapCmdWith(remote, bootstrapNames(p.Packages), o.Privilege)),
-			Note: "installed kno on " + o.Node},
-	)
+	if !o.SkipKno {
+		p.Steps = append(p.Steps,
+			Step{Argv: o.rootSSH(bootstrapCmdWith(remote, bootstrapNames(p.Packages), o.Privilege)),
+				Note: "installed kno on " + o.Node},
+		)
+	}
 	var units []string
 	if o.Mode == ModeFull {
 		for _, svc := range o.Services {

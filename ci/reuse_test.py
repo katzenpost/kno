@@ -34,6 +34,13 @@ class ReuseTests(unittest.TestCase):
                 return reuse.input_key("HEAD")
         self.assertNotEqual(key(base), key(base.replace(b"blob a", b"blob b")))
 
+    def test_selected_source_build_smoke_changes_invalidate_heavy_evidence(self):
+        base = b"100644 blob a\tinternal/build/selection_smoke_test.go\0"
+        def key(tree):
+            with patch.object(reuse, "command", side_effect=lambda *a: tree if a[1] == "ls-tree" else b""):
+                return reuse.input_key("HEAD")
+        self.assertNotEqual(key(base), key(base.replace(b"blob a", b"blob b")))
+
     def test_only_same_repo_main_or_current_pr_provides_evidence(self):
         run = {"id": 1, "head_repository": {"full_name": "katzenpost/kno"}, "event": "pull_request", "head_branch": "fix"}
         self.assertTrue(reuse.trusted(run, "katzenpost/kno", "fix", "2"))

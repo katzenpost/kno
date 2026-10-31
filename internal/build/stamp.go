@@ -36,7 +36,9 @@ type stampInputs struct {
 
 	HostConfigs map[string]string
 
-	Kind string
+	Kind    string
+	Source  *SourceSelection
+	SkipKno bool
 }
 
 func stamp(in stampInputs) string {
@@ -51,6 +53,12 @@ func stamp(in stampInputs) string {
 		fmt.Fprintf(h, "%s\n", strings.Join(s, ","))
 	}
 	fmt.Fprintf(h, "epoch=%s\n", in.Epoch)
+	if in.Source != nil {
+		fmt.Fprintf(h, "selected=%s\n", selectionKey(in.Source))
+	}
+	if in.SkipKno {
+		fmt.Fprintln(h, "skip-kno=true")
+	}
 	if in.Kind == CrossBuild {
 		fmt.Fprintf(h, "kind=%s\n", in.Kind)
 	}

@@ -234,3 +234,49 @@ func TestThePostInstallOnlyNamesTheServices(t *testing.T) {
 		t.Errorf("post-install: %v\n%s", err, out)
 	}
 }
+
+func TestSelectedHostConfigRetainsEffectiveOperatorSettings(t *testing.T) {
+	for _, explicit := range []bool{false, true} {
+		c := freebsdHostConfig()
+		c.Update.Policy = "off"
+		c.Defaults.Privilege, c.Defaults.Scheduler, c.Defaults.Install = "doas", "cron", "pkg"
+		c.Defaults.Kpclientd = config.Bool(true)
+		h := c.Hosts["jailhost"]
+		h.Scheduler = ""
+		wantPrivilege, wantScheduler, wantInstall, wantClient := "doas", "cron", "pkg", true
+		if explicit {
+			h.Privilege, h.Scheduler, h.Install, h.Kpclientd = "su", "none", "pkg", config.Bool(false)
+			c.Defaults.Install = "docker"
+			wantPrivilege, wantScheduler, wantClient = "su", "none", false
+		}
+		c.Hosts["jailhost"] = h
+		pkg, err := SelectedHostConfigPackage(c, "jailhost", "0.0.107", t.TempDir(), DefaultABI, "", "namenlos", 1600000000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Validate(pkg); err != nil {
+			t.Fatal(err)
+		}
+		files := pkgBodies(t, pkg)
+		body := files[strings.TrimPrefix(KnoConfig, "/")]
+		path := filepath.Join(t.TempDir(), "kno.toml")
+		if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+			t.Fatal(err)
+		}
+		got, err := config.Load(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Privilege("jailhost") != wantPrivilege || got.Scheduler("jailhost") != wantScheduler || got.InstallMethod("jailhost") != wantInstall || got.RunsKpclientd("jailhost") != wantClient || got.Update.Policy != "off" {
+			t.Fatalf("explicit=%v: selected host changed operator settings: %s", explicit, body)
+		}
+		_, cron := files[strings.TrimPrefix(CronFile, "/")]
+		_, rotation := files[strings.TrimPrefix(NewsyslogDir, "/")+"/kno.conf"]
+		if cron != (wantScheduler == "cron") || rotation != cron {
+			t.Fatalf("explicit=%v: scheduler=%s cron=%v rotation=%v", explicit, wantScheduler, cron, rotation)
+		}
+		if c.Hosts["jailhost"].Privilege != h.Privilege || c.Hosts["jailhost"].Scheduler != h.Scheduler || c.Hosts["jailhost"].Install != h.Install {
+			t.Fatal("selected packaging changed the operator's source configuration")
+		}
+	}
+}

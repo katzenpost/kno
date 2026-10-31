@@ -3,6 +3,7 @@ package deb
 import "os"
 
 type Settings struct {
+	Offline         bool
 	SourceDateEpoch string
 
 	BuildHook string

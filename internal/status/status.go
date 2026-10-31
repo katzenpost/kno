@@ -44,7 +44,7 @@ var bindLine = regexp.MustCompile(`(?i)^[[:space:]]*BindAddresses[[:space:]]*=`)
 var tcpAddr = regexp.MustCompile(`tcp://(\[[0-9A-Fa-f:.]+\]|[0-9.]+):([0-9]+)`)
 
 func Run(stdout, stderr io.Writer, args []string) int {
-	verbose, live := false, false
+	verbose, live, sources := false, false, false
 	only, group := "", ""
 
 	for _, a := range args {
@@ -54,9 +54,12 @@ func Run(stdout, stderr io.Writer, args []string) int {
 			fmt.Fprintln(stderr, "usage: kno status [-v] [-l] [--host LABEL[,LABEL]] [--group NAME]")
 			fmt.Fprintln(stderr, "  -v  list every built package (--verbose)")
 			fmt.Fprintln(stderr, "  -l  ask each host over ssh (--live)")
+			fmt.Fprintln(stderr, "  --sources show managed checkout paths, exact commits and cache freshness")
 			fmt.Fprintln(stderr, "  --host   report only these hosts")
 			fmt.Fprintln(stderr, "  --group  report only the hosts of an operator group")
 			return 0
+		case "sources":
+			sources = true
 		case "v", "verbose":
 			verbose = true
 		case "l", "live":
@@ -87,6 +90,10 @@ func Run(stdout, stderr io.Writer, args []string) int {
 		return 1
 	}
 
+	if sources {
+		writeSourceCaches(stdout, e)
+		return 0
+	}
 	if group != "" {
 		labels, err := hostsel.GroupLabels(e, group)
 		if err != nil {
@@ -1143,4 +1150,16 @@ func selfAccount() string {
 		out = fmt.Sprintf("%s (uid=%d gid=%d, via sudo from %s)", name, uid, gid, s)
 	}
 	return out
+}
+
+func writeSourceCaches(w io.Writer, e track.Env) {
+	for _, entry := range []struct{ name, dir string }{{"kno", e.KnoSourceDir()}, {"katzenpost", filepath.Join(e.StateDir, "katzenpost-source")}, {"hpqc", filepath.Join(e.StateDir, "hpqc-source")}} {
+		fmt.Fprintf(w, "%s checkout: %s\n", entry.name, entry.dir)
+		selected, ok := track.CachedSource(entry.dir)
+		if !ok {
+			fmt.Fprintln(w, "  no cached selection. Use kno build <target> --refresh")
+			continue
+		}
+		fmt.Fprintf(w, "  remote: %s\n  ref: %s\n  commit: %s\n  %s\n", selected.URL, selected.Ref, selected.Commit, track.SourceFreshness(selected))
+	}
 }

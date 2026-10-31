@@ -60,19 +60,29 @@ func MaterializeSource(work string, pins map[string]string, patchesDir string) (
 		{"katzenpost", "KATZENPOST_URL", "KATZENPOST_REF", "KATZENPOST_SHA", "KATZENPOST_SRC"},
 		{"hpqc", "HPQC_URL", "HPQC_REF", "HPQC_SHA", "HPQC_SRC"},
 	}
+	if pins["KNO_MODULE_SOURCE"] == "1" {
+		comps = comps[:1]
+	}
 	for _, c := range comps {
+		if pins["KNO_SOURCE_OFFLINE"] == "1" && !isGitDir(pins[c.srcK]) {
+			return "", fmt.Errorf("offline source cache is missing %s at %s. Run build --refresh", c.name, pins[c.srcK])
+		}
 		if err := fetchComponent(work, c.name, pins[c.urlK], pins[c.refK],
 			pins[c.shaK], pins[c.srcK]); err != nil {
 			return "", fmt.Errorf("fetch %s: %w", c.name, err)
 		}
 	}
-	for _, name := range []string{"hpqc", "katzenpost"} {
+	for i := len(comps) - 1; i >= 0; i-- {
+		name := comps[i].name
 		if err := applyPatches(filepath.Join(work, name), filepath.Join(patchesDir, name)); err != nil {
 			return "", fmt.Errorf("patch %s: %w", name, err)
 		}
 	}
 	gowork := "go " + pins["GO_VERSION"] + "\n\nuse ./katzenpost\n\n" +
 		"replace github.com/katzenpost/hpqc => ./hpqc\n"
+	if pins["KNO_MODULE_SOURCE"] == "1" {
+		gowork = "go " + pins["GO_VERSION"] + "\n\nuse ./katzenpost\n"
+	}
 	if err := os.WriteFile(filepath.Join(work, "go.work"), []byte(gowork), 0o644); err != nil {
 		return "", err
 	}
