@@ -28,6 +28,27 @@ class BuildCacheTests(unittest.TestCase):
             self.assertEqual(len(module.images()), 2)
             self.assertTrue(all("go1.26.10" in name for name in module.images()))
 
+    def test_restore_releases_archive_only_after_successful_load(self):
+        module = load("images")
+        for fail in (False, True):
+            with self.subTest(fail=fail), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory) / ".cache/katzenpost/ci-images"
+                root.mkdir(parents=True)
+                archive = root / "builders.tar"
+                archive.write_bytes(b"cached builders")
+                error = subprocess.CalledProcessError(1, "podman") if fail else None
+                with patch.object(module.Path, "home", return_value=Path(directory)), \
+                        patch.object(sys, "argv", ["images.py", "restore"]), \
+                        patch.object(module.subprocess, "run", side_effect=error) as run, \
+                        contextlib.redirect_stdout(io.StringIO()):
+                    if fail:
+                        with self.assertRaises(subprocess.CalledProcessError):
+                            module.main()
+                    else:
+                        module.main()
+                    run.assert_called_once_with(["podman", "load", "--input", str(archive)], check=True)
+                self.assertEqual(archive.exists(), fail)
+
     def test_failed_export_does_not_replace_the_previous_cache(self):
         module = load("images")
         with tempfile.TemporaryDirectory() as directory:

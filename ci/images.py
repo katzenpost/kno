@@ -20,6 +20,7 @@ def main():
     if sys.argv[1] == "restore":
         if archive.exists():
             subprocess.run(["podman", "load", "--input", str(archive)], check=True)
+            archive.unlink()
     else:
         names = images()
         if names:

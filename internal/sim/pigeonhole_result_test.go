@@ -107,3 +107,49 @@ func TestPigeonholeFailureIncludesTheClientDaemonError(t *testing.T) {
 		t.Fatal("client daemon failure was omitted: " + out.String())
 	}
 }
+
+func TestPigeonholeFailureReadsCourierLogsInsideEachServiceContainer(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "configs")
+	if err := os.Mkdir(cfg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, ip := range map[string]string{"a": "10.0.0.1", "b": "10.0.0.1", "c": "10.0.0.2"} {
+		body := "Addresses = [\"tcp://" + ip + ":1234\"]\n[[ServiceNode.CBORPluginKaetzchen]]\n"
+		if err := os.WriteFile(filepath.Join(cfg, name+"-pq-servicenode.toml"), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tool := filepath.Join(dir, "podman")
+	args := filepath.Join(dir, "args")
+	script := `#!/bin/sh
+printf '%s\n' "$*" >> "$KNO_TEST_ARGS"
+if [ "$2" = test_c_10_0_0_1 ]; then
+printf 'courier file unavailable\n' >&2
+exit 1
+fi
+printf 'Copy request reached courier\n'
+`
+	if err := os.WriteFile(tool, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PODMAN", tool)
+	t.Setenv("KNO_TEST_ARGS", args)
+	var out strings.Builder
+	r := &run{NetOptions: NetOptions{Net: "test", Out: &out}, cfg: cfg, data: dir}
+	r.dumpPigeonholeLogs()
+	got, err := os.ReadFile(args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ctr := range []string{"test_c_10_0_0_1", "test_c_10_0_0_2"} {
+		command := "exec " + ctr + " timeout --signal=TERM --kill-after=1s 5s tail -n 2000 /courierdata/courier.log"
+		if strings.Count(string(got), command) != 1 {
+			t.Fatalf("expected one bounded capture per service container; got %s", got)
+		}
+	}
+	if !strings.Contains(out.String(), "courier log collection failed for test_c_10_0_0_1") ||
+		!strings.Contains(out.String(), "Copy request reached courier") {
+		t.Fatalf("missing failure or subsequent courier evidence: %s", out.String())
+	}
+}
