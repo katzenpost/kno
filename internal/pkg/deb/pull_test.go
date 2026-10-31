@@ -40,3 +40,24 @@ func TestTheImageIsPulledOnceBeforeAnyPackageIsBuilt(t *testing.T) {
 		t.Error("a DEB_BUILD hook runs no container, but the image was pulled")
 	}
 }
+
+func TestOfflinePackagingChecksCacheAndNeverPulls(t *testing.T) {
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	fake := filepath.Join(dir, "podman")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '" + log + "'\n[ \"$1 $2\" = 'image exists' ]\n"
+	if err := os.WriteFile(fake, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PODMAN", fake)
+	if err := prepareImage(context.Background(), Settings{Offline: true, Image: "cached@sha256:fixture"}); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(b)) != "image exists cached@sha256:fixture" {
+		t.Fatalf("offline packaging attempted network: %s", b)
+	}
+}
