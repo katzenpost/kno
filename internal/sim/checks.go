@@ -226,6 +226,47 @@ func (r *run) dumpPigeonholeLogs() {
 		}
 		printLogTail(r.Out, p, 2000)
 	}
+	r.dumpCourierLogs()
+}
+
+func (r *run) dumpCourierLogs() {
+	if r.cfg == "" {
+		return
+	}
+	cfgs, err := filepath.Glob(filepath.Join(r.cfg, "*-pq-servicenode.toml"))
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	seen := map[string]bool{}
+	for _, cfg := range cfgs {
+		lines, err := readLines(cfg)
+		if err != nil || !containsAny(lines, "CBORPluginKaetzchen") {
+			continue
+		}
+		ip := cfgIP(lines)
+		if ip == "" {
+			continue
+		}
+		ctr := r.ctrForIP(ip)
+		if seen[ctr] {
+			continue
+		}
+		seen[ctr] = true
+		if ctx.Err() != nil {
+			fmt.Fprintln(r.Out, "courier log collection exhausted its 30s budget")
+			return
+		}
+		fmt.Fprintf(r.Out, "--- %s:/courierdata/courier.log (last 2000 lines) ---\n", ctr)
+		cmd := podmanCmd(ctx, "exec", ctr, "timeout", "--signal=TERM", "--kill-after=1s", "5s",
+			"tail", "-n", "2000", "/courierdata/courier.log")
+		cmd.WaitDelay = time.Second
+		cmd.Stdout, cmd.Stderr = r.Out, r.Out
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintf(r.Out, "courier log collection failed for %s: %v\n", ctr, err)
+		}
+	}
 }
 
 var cpbenchCompleted = regexp.MustCompile(`(?m)^cp-bench: payload=([0-9]+) chunks=([0-9]+) duration=([^ ]+) bytes_per_sec=([0-9.]+)$`)
