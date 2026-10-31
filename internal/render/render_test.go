@@ -141,3 +141,33 @@ func TestGenerateRefusesAmbiguousOrUnknownMachineServices(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderWritesTheBridgeSocketOfAStorageNodeThatHasOne(t *testing.T) {
+	net := fixture(t)
+	nodes := append(fixtureNodes,
+		fixtureNode{"sta", "storagenode", "sta-pq-storagenode-0"},
+		fixtureNode{"stb", "storagenode", "stb-pq-storagenode-1"})
+	put(t, filepath.Join(net, "editable-configs", "nodes", "sta-storagenode.toml"),
+		nodeBody(nodes[3])+"bridgeSocket = \"/var/lib/katzenpost/replica/sta-pq-storagenode-0/bridge.sock\"\n")
+	put(t, filepath.Join(net, "editable-configs", "nodes", "stb-storagenode.toml"), nodeBody(nodes[4]))
+	put(t, filepath.Join(net, "editable-configs", "manifest.toml"), manifest(nodes, twoLayers))
+	out := t.TempDir()
+	if err := Render(net, out); err != nil {
+		t.Fatal(err)
+	}
+	a, err := os.ReadFile(filepath.Join(out, "sta-pq-storagenode-0.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "\nBridgeSocket = \"/var/lib/katzenpost/replica/sta-pq-storagenode-0/bridge.sock\"\n"
+	if !strings.Contains(string(a), want) {
+		t.Errorf("the bridge node's config lacks %q:\n%s", want, a)
+	}
+	b, err := os.ReadFile(filepath.Join(out, "stb-pq-storagenode-1.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "BridgeSocket") {
+		t.Errorf("a node without a bridge socket got one:\n%s", b)
+	}
+}
