@@ -286,6 +286,10 @@ vkdQm1uuoKMh1qC6oRRsgQ==
   IdentityPublicKeyPem = "wauland_mix_id_pub.key.pem"
 
 [[Mixes]]
+  Identifier = "wauland2"
+  IdentityPublicKeyPem = "wauland2_mix_id_pub.key.pem"
+
+[[Mixes]]
   Identifier = "windfall"
   IdentityPublicKeyPem = "windfall_mix_id_pub_key.pem"
 
@@ -366,6 +370,9 @@ vkdQm1uuoKMh1qC6oRRsgQ==
     [[Topology.Layers.Nodes]]
       Identifier = "wauland"
       IdentityPublicKeyPem = "wauland_mix_id_pub.key.pem"
+    [[Topology.Layers.Nodes]]
+      Identifier = "wauland2"
+      IdentityPublicKeyPem = "wauland2_mix_id_pub.key.pem"
 
 [SphinxGeometry]
   PacketLength = 3082

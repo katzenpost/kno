@@ -4,12 +4,12 @@
   "written": "2026-10-20T07:12:37Z",
   "packages": [
     {
-      "name": "namenlos-config-gnunet-pq-authority_0.0.107-1+20261029214512.gbd368cf_amd64.deb",
+      "name": "namenlos-config-gnunet-pq-authority_0.0.107-1+20261030150755.gfd4e6b7_amd64.deb",
       "arch": "amd64",
-      "version": "0.0.107-1+20261029214512.gbd368cf",
-      "sha256": "15733abe6325882f7e91f5094fe9c45da5cfd0a4414f6800643298704f569cd5",
-      "bytes": 14360,
-      "content": "1d5625367eb3a0fa3004ecbbcf4ba0a7",
+      "version": "0.0.107-1+20261030150755.gfd4e6b7",
+      "sha256": "2ec250abab3e5277fbf1850d964f195bf8956d1acbcb72c166d49bd60c06029d",
+      "bytes": 14376,
+      "content": "a9c1d0c5317345d319d4389cded74de9",
       "scripts": [
         "postinst",
         "preinst",
