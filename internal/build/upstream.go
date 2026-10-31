@@ -3,6 +3,8 @@ package build
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -25,6 +27,7 @@ type upstreamDeb struct {
 	Out               io.Writer
 	Verbose, Offline  bool
 	Cross             bool
+	Selection         *SourceSelection
 }
 
 func (u upstreamDeb) imageArgs() ([]string, string, error) {
@@ -51,6 +54,14 @@ func (u upstreamDeb) imageArgs() ([]string, string, error) {
 	if u.Cross {
 		tag, cross = tag+"-cross", "1"
 	}
+	if u.Selection != nil {
+		body, err := os.ReadFile(containerfile)
+		if err != nil {
+			return nil, "", err
+		}
+		sum := sha256.Sum256(append(body, []byte(base+"\x00"+gover+"\x00"+gosum+"\x00"+cross)...))
+		tag += "-" + hex.EncodeToString(sum[:])
+	}
 	args := []string{"build", "-q", "--platform", "linux/" + goarch, "-t", tag,
 		"--build-arg", "BASE=" + base,
 		"--build-arg", "GO_URL=" + gourl,
@@ -68,6 +79,12 @@ func (u upstreamDeb) image(ctx context.Context) (string, error) {
 	args, image, err := u.imageArgs()
 	if err != nil {
 		return "", err
+	}
+	if u.Offline && u.Selection != nil {
+		if err := exec.CommandContext(ctx, compile.Podman(), "image", "exists", image).Run(); err != nil {
+			return "", fmt.Errorf("offline builder %s is missing. Run build katzenpost --refresh to prepare it", image)
+		}
+		return image, nil
 	}
 	quiet := u
 	quiet.Verbose = false
@@ -131,12 +148,35 @@ func (u upstreamDeb) Build(ctx context.Context) (string, error) {
 	if b, err := archive.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("export katzenpost %s: %w\n%s", u.Tag, err, b)
 	}
+	if u.Selection != nil && u.Selection.Tip {
+		if err := selectedChangelog(tree, u.Tag, u.Selection.Source.Epoch); err != nil {
+			return "", err
+		}
+	}
 	image, err := u.image(ctx)
 	if err != nil {
 		return "", err
 	}
+	if u.Selection != nil {
+		cmd := exec.CommandContext(ctx, compile.Podman(), "image", "inspect", image)
+		body, err := cmd.Output()
+		if err != nil {
+			return "", fmt.Errorf("identify selected source builder image: %w", err)
+		}
+		id, err := selectedBuilderImageID(body)
+		if err != nil {
+			return "", err
+		}
+		u.Selection.noteBuilderImage(u.Arch+"/"+u.OS, "sha256:"+id)
+		image = id
+	}
 	if err := u.run(ctx, u.runArgs(goarch, tree, image)...); err != nil {
 		return "", fmt.Errorf("katzenpost deb (%s %s): %w", u.OS, u.Arch, err)
+	}
+	if u.Selection != nil {
+		if err := verifySelectedLocks(tree, u.Selection.Inputs); err != nil {
+			return "", err
+		}
 	}
 	built, err := builtDeb(tree, u.Arch)
 	if err != nil {
@@ -219,6 +259,9 @@ func (u upstreamDeb) runArgs(goarch, tree, image string) []string {
 	}
 	args := []string{"run", "--rm", "--platform", "linux/" + platform,
 		"-v", compile.MustMount(tree, "/src"), "-w", "/src"}
+	if u.Selection != nil {
+		args = append(args, "-e", "GOWORK=off")
+	}
 	if u.Cross {
 		_, cc, _ := compile.ArchToGo(u.Arch)
 		args = append(args, "-e", "GOARCH="+goarch,
@@ -231,7 +274,7 @@ func (u upstreamDeb) runArgs(goarch, tree, image string) []string {
 		args = append(args, "-v", compile.MustMount(u.GoCache, "/gocache"), "-e", "GOCACHE=/gocache")
 	}
 	if u.Offline {
-		args = append(args, "--network", "none", "-e", "GOPROXY=off")
+		args = append(args, "--pull=never", "--network", "none", "-e", "GOPROXY=off", "-e", "GOSUMDB=off")
 	}
 	return append(args, image, "sh", "-c", script)
 }

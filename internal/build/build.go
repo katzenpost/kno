@@ -67,7 +67,9 @@ type Options struct {
 
 	Native bool
 
-	Qemu bool
+	Qemu    bool
+	Source  *SourceSelection
+	SkipKno bool
 }
 
 func (o Options) Kind() string { return o.kind() }
@@ -143,7 +145,7 @@ func (o Options) hostConfigPkgs(version, outdir, abi string) ([]string, error) {
 			out = append(out, p)
 			continue
 		}
-		p, err := hostconfig.PackageForHost(context.Background(), *o.Config, h, version,
+		p, err := hostconfig.PackageForHostWithSettings(context.Background(), o.debSettings(), *o.Config, h, version,
 			outdir, o.Repo, o.Network, o.hostArch(h))
 		if err != nil {
 			return nil, fmt.Errorf("host %s: %w", h, err)
@@ -282,7 +284,8 @@ func (o Options) stampIn(kno string) stampInputs {
 		BinaryOnly: o.BinaryOnly, Warped: o.Warped, Kno: kno,
 		Epoch: epochFor(o), RecordPins: release.Pins(o.Repo, o.Network, o.Tag),
 		Peers: o.Peers, HostConfigs: o.hostConfigDigests(),
-		Kind: o.kind(),
+		Kind:   o.kind(),
+		Source: o.Source, SkipKno: o.SkipKno,
 	}
 }
 
@@ -394,9 +397,17 @@ func Build(o Options) ([]string, error) {
 	}
 
 	epoch := epochFor(o)
+	previousEpoch, hadEpoch := os.LookupEnv("SOURCE_DATE_EPOCH")
 	if err := os.Setenv("SOURCE_DATE_EPOCH", epoch); err != nil {
 		return nil, err
 	}
+	defer func() {
+		if hadEpoch {
+			_ = os.Setenv("SOURCE_DATE_EPOCH", previousEpoch)
+		} else {
+			_ = os.Unsetenv("SOURCE_DATE_EPOCH")
+		}
+	}()
 
 	rel := filepath.Join(o.Dist, "releases", o.Tag)
 
@@ -441,7 +452,12 @@ func Build(o Options) ([]string, error) {
 		return nil, fmt.Errorf("pins: %w", err)
 	}
 
-	if ref := pins["KATZENPOST_REF"]; ref != "" && o.Tag != "" &&
+	if o.Source != nil {
+		for k, v := range o.Source.Pins {
+			pins[k] = v
+		}
+	}
+	if ref := pins["KATZENPOST_REF"]; o.Source == nil && ref != "" && o.Tag != "" &&
 		release.Pins(o.Repo, o.Network, o.Tag) == nil {
 		if want, _ := deb.SplitRevision(o.Tag); want != ref {
 			return nil, fmt.Errorf("the katzenpost source is %s (data/thirdparty/pins.env)."+
@@ -451,7 +467,7 @@ func Build(o Options) ([]string, error) {
 				ref, want, want, want, ref, ref)
 		}
 	}
-	if rec := release.Pins(o.Repo, o.Network, o.Tag); rec != nil {
+	if rec := release.Pins(o.Repo, o.Network, o.Tag); rec != nil && o.Source == nil {
 		for k, v := range rec {
 			if pins[k] != v {
 				fmt.Fprintf(os.Stderr, "kno build: The committed release %s sets %s=%s."+
@@ -514,6 +530,7 @@ func Build(o Options) ([]string, error) {
 					Arch: pf.Arch, OS: pf.OS, Pins: pins,
 					ModCache: modCache, GoCache: buildCache, Out: os.Stderr, Verbose: o.Verbose,
 					Offline: o.Offline, Cross: kind == CrossBuild && pf.Arch != "amd64",
+					Selection: o.Source,
 				}.Build(ctx)
 				if err != nil {
 					return err
@@ -571,7 +588,7 @@ func Build(o Options) ([]string, error) {
 
 	var cfg []string
 	if !o.SkipDeb {
-		cfg, err = deb.PackageConfigsFlavoured(context.Background(), rel, o.Tag, o.toolRevision(), o.Revision,
+		cfg, err = deb.PackageConfigsWithSettings(context.Background(), o.debSettings(), rel, o.Tag, o.toolRevision(), o.Revision,
 			o.serviceTarget, func(id deb.PkgID, content, want string) string {
 				ids.note(id, content)
 				v, why := stable.Version(id, content, want)
@@ -594,7 +611,7 @@ func Build(o Options) ([]string, error) {
 
 	toolVer := knodeb.ToolVersion(o.Repo, o.Tag, o.toolRevision())
 
-	if !o.SkipCompile && !o.SkipDeb {
+	if !o.SkipCompile && !o.SkipDeb && !o.SkipKno {
 		arches := o.Arches
 		if len(arches) == 0 {
 			arches = []string{compile.HostDebArch()}
@@ -608,7 +625,10 @@ func Build(o Options) ([]string, error) {
 		}
 	}
 
-	hcs, err := o.hostConfigPkgs(toolVer, filepath.Join(o.work(), "hostcfg"), pins["FREEBSD_ABI"])
+	var hcs []string
+	if !o.SkipKno {
+		hcs, err = o.hostConfigPkgs(toolVer, filepath.Join(o.work(), "hostcfg"), pins["FREEBSD_ABI"])
+	}
 	if err != nil {
 		return nil, fmt.Errorf("host-config deb: %w", err)
 	}
@@ -638,16 +658,23 @@ func Build(o Options) ([]string, error) {
 			return nil, fmt.Errorf("freebsd pkg: %w", err)
 		}
 		pkgs = append(pkgs, fp)
-		kp, err := knoPkg(o, rel, toolVer, pins, false)
-		if err != nil {
-			return nil, err
+		var kp string
+		if !o.SkipKno {
+			kp, err = knoPkg(o, rel, toolVer, pins, false)
+			if err != nil {
+				return nil, err
+			}
+			pkgs = append(pkgs, kp)
 		}
-		pkgs = append(pkgs, kp)
 		cfgs, err := freebsdConfigPkgs(o, rel, pins["FREEBSD_ABI"], ids, fp)
 		if err != nil {
 			return nil, err
 		}
-		if err := retireAll(append([]string{fp, kp}, cfgs...), o.Tag); err != nil {
+		fresh := []string{fp}
+		if kp != "" {
+			fresh = append(fresh, kp)
+		}
+		if err := retireAll(append(fresh, cfgs...), o.Tag); err != nil {
 			return nil, err
 		}
 		pkgs = append(pkgs, cfgs...)
@@ -697,6 +724,9 @@ func epochFor(o Options) string {
 	if v := deb.EnvSettings().SourceDateEpoch; v != "" {
 		return v
 	}
+	if o.Source != nil {
+		return o.Source.Source.Epoch
+	}
 	if e := CommittedEpoch(o.Repo, o.Network, o.Tag); e != "" {
 		return e
 	}
@@ -731,6 +761,10 @@ func needEngine() error {
 }
 
 func verifyAgainstRecord(o Options, rel string, pkgs []string) error {
+	if o.Source != nil && o.Source.Tip {
+		fmt.Fprintf(os.Stderr, "kno build: selected main commit %s. Package digests record this build. No tagged release comparison applies.\n", o.Source.Source.Commit)
+		return nil
+	}
 	if o.Warped || o.BinaryOnly || o.SkipCompile {
 		return nil
 	}
@@ -776,7 +810,7 @@ func buildNative(o Options, rel, work string, pins map[string]string, ids *conte
 	bindir := filepath.Join(o.work(), "bin-native")
 	jobs := parallel.Jobs()
 	gmp := 1
-	tasks, err := freebsd.NativeTasks(work, bindir, o.Tag, pins["GO_VERSION"], &gmp)
+	tasks, err := freebsd.NativeTasksMode(work, bindir, o.Tag, pins["GO_VERSION"], &gmp, o.Source != nil && o.Offline)
 	if err != nil {
 		return nil, err
 	}
@@ -787,6 +821,11 @@ func buildNative(o Options, rel, work string, pins map[string]string, ids *conte
 	note("compiling %d binaries natively, %d parallel, GOMAXPROCS=%d", len(tasks), min(jobs, len(tasks)), gmp)
 	if err := parallel.Run(jobs, tasks); err != nil {
 		return nil, err
+	}
+	if o.Source != nil {
+		if err := verifySelectedLocks(filepath.Join(work, "katzenpost"), o.Source.Inputs); err != nil {
+			return nil, err
+		}
 	}
 	pkg, err := freebsdPackage(o, bindir, rel, pins["FREEBSD_ABI"])
 	if err != nil {
@@ -802,12 +841,14 @@ func buildNative(o Options, rel, work string, pins map[string]string, ids *conte
 	}
 	out = append(out, cfgs...)
 	toolVer := knodeb.ToolVersion(o.Repo, o.Tag, o.toolRevision())
-	kp, err := knoPkg(o, rel, toolVer, pins, true)
-	if err != nil {
-		return nil, err
+	if !o.SkipKno {
+		kp, err := knoPkg(o, rel, toolVer, pins, true)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, kp)
 	}
-	out = append(out, kp)
-	if len(o.Hosts) > 0 && o.Config != nil {
+	if len(o.Hosts) > 0 && o.Config != nil && !o.SkipKno {
 		hcs, err := o.hostConfigPkgs(toolVer, filepath.Join(rel, "pkgs"), pins["FREEBSD_ABI"])
 		if err != nil {
 			return nil, fmt.Errorf("host-config pkg: %w", err)
@@ -822,6 +863,8 @@ func knoPkg(o Options, rel, toolVer string, pins map[string]string, local bool) 
 	if err != nil {
 		return "", fmt.Errorf("kno pkg: %w", err)
 	}
+	ko.Offline = o.Source != nil && o.Offline
+	ko.Deb.Offline = ko.Offline
 	ko.Version, ko.Verbose, ko.OS, ko.Arch = toolVer, o.Verbose, "freebsd", "amd64"
 	step("building kno %s for %s", toolVer, freebsdTarget(pins["FREEBSD_ABI"]))
 	bindir := filepath.Join(o.work(), "kno-freebsd")

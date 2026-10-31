@@ -133,7 +133,11 @@ func recordLocal(l track.Logger, e track.Env, r *ToolRunner, before *record.Samp
 		after.Verified = verdictOf(r.verified)
 	}
 	keepBadRecord(l, e, e, label)
-	rec := recordFor(e, e, h, e.TargetVersion(), before, after, label)
+	target := e.TargetVersion()
+	if r.Source != nil {
+		target = r.Source.Tag
+	}
+	rec := recordFor(e, e, h, target, before, after, label)
 	wrote, err := record.Write(e.Repo, e.Network, rec)
 	if err != nil {
 		if os.IsPermission(err) {

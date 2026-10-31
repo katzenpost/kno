@@ -41,11 +41,18 @@ type PackageSums struct {
 }
 
 type BuildInputs struct {
-	KatzenpostRef string `json:"katzenpost_ref,omitempty"`
-	KatzenpostSha string `json:"katzenpost_sha,omitempty"`
-	HpqcRef       string `json:"hpqc_ref,omitempty"`
-	HpqcSha       string `json:"hpqc_sha,omitempty"`
-	GoVersion     string `json:"go_version,omitempty"`
+	SourceURL     string            `json:"source_url,omitempty"`
+	SourceRef     string            `json:"source_ref,omitempty"`
+	GoModSHA256   string            `json:"go_mod_sha256,omitempty"`
+	GoSumSHA256   string            `json:"go_sum_sha256,omitempty"`
+	UpstreamBases map[string]string `json:"upstream_bases,omitempty"`
+	GoChecksums   map[string]string `json:"go_toolchain_checksums,omitempty"`
+	BuiltImages   map[string]string `json:"builder_images,omitempty"`
+	KatzenpostRef string            `json:"katzenpost_ref,omitempty"`
+	KatzenpostSha string            `json:"katzenpost_sha,omitempty"`
+	HpqcRef       string            `json:"hpqc_ref,omitempty"`
+	HpqcSha       string            `json:"hpqc_sha,omitempty"`
+	GoVersion     string            `json:"go_version,omitempty"`
 
 	BuildImage string `json:"build_image,omitempty"`
 	DebImage   string `json:"deb_image,omitempty"`
@@ -161,6 +168,9 @@ func recordAndVerify(o Options, pkgs []string) error {
 			return fmt.Errorf("hashing packages: %w", err)
 		}
 		sums.ToolRevision = o.toolRevision()
+		if o.Source != nil {
+			sums.Inputs = o.selectedInputs()
+		}
 		if k := o.kind(); k != NativeBuild {
 			sums.Build = k
 		}

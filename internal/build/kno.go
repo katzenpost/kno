@@ -10,6 +10,7 @@ import (
 	"github.com/katzenpost/kno/internal/compile"
 	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knover"
+	"github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/pkg/knodeb"
 	"github.com/katzenpost/kno/internal/source"
 )
@@ -18,12 +19,27 @@ func ToolVersion(repo, network, tag string) string {
 	return knodeb.ToolVersion(repo, tag, knover.Revision(repo, tag))
 }
 
+func ToolEpoch(repo, network, tag string) string {
+	return epochFor(Options{Repo: repo, Network: network, Tag: tag})
+}
+
 func KnoPackage(repo, network, tag, rel string) (string, error) {
+	return KnoPackageVersion(repo, network, tag, rel, ToolVersion(repo, network, tag))
+}
+
+func KnoPackageVersion(repo, network, tag, rel, toolVer string) (string, error) {
 	o := Options{Repo: repo, Network: network, Tag: tag}
+	previousEpoch, hadEpoch := os.LookupEnv("SOURCE_DATE_EPOCH")
 	if err := os.Setenv("SOURCE_DATE_EPOCH", epochFor(o)); err != nil {
 		return "", err
 	}
-	toolVer := ToolVersion(repo, network, tag)
+	defer func() {
+		if hadEpoch {
+			_ = os.Setenv("SOURCE_DATE_EPOCH", previousEpoch)
+		} else {
+			_ = os.Unsetenv("SOURCE_DATE_EPOCH")
+		}
+	}()
 	if compile.NativeBuild() {
 		pins, err := source.ParsePins(filepath.Join(repo, "thirdparty", "pins.env"))
 		if err != nil {
@@ -43,6 +59,8 @@ func knoDeb(o Options, rel, toolVer, arch string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("kno deb: %w", err)
 	}
+	ko.Offline = o.Offline
+	ko.Deb.Offline = o.Offline
 	ko.Version, ko.Verbose, ko.Arch, ko.OutDir = toolVer, o.Verbose, arch, filepath.Join(o.work(), "kno")
 	if ko.Binary != "" {
 		note("using the running kno binary from %s", ko.Binary)
@@ -71,4 +89,10 @@ func builtKno(o Options, rel, name string) string {
 		}
 	}
 	return ""
+}
+
+func (o Options) debSettings() deb.Settings {
+	settings := deb.EnvSettings()
+	settings.Offline = o.Source != nil && o.Offline
+	return settings
 }

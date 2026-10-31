@@ -19,7 +19,9 @@ func planInstallFreeBSD(o Options, p Plan) (Plan, error) {
 	for _, svc := range o.Services {
 		names = append(names, configPkgPrefix+svc)
 	}
-	names = append(names, "kno", freebsd.HostConfigName(o.Label))
+	if !o.SkipKno {
+		names = append(names, "kno", freebsd.HostConfigName(o.Label))
+	}
 	for _, n := range names {
 		f, err := freebsd.OnePkg(pkgs, n)
 		if err != nil {
@@ -27,10 +29,12 @@ func planInstallFreeBSD(o Options, p Plan) (Plan, error) {
 		}
 		p.Packages = append(p.Packages, f)
 	}
-	kno := p.Packages[len(p.Packages)-2]
-	if want := o.KnoVersion; want != "" && filepath.Base(kno) != "kno-"+freebsd.Version(want)+".pkg" {
-		return Plan{}, fmt.Errorf("this release needs kno %s and the release holds %s"+
-			" (build it: kno build --host %s)", freebsd.Version(want), filepath.Base(kno), o.Label)
+	if !o.SkipKno {
+		kno := p.Packages[len(p.Packages)-2]
+		if want := o.KnoVersion; want != "" && filepath.Base(kno) != "kno-"+freebsd.Version(want)+".pkg" {
+			return Plan{}, fmt.Errorf("this release needs kno %s and the release holds %s"+
+				" (build it: kno build --host %s)", freebsd.Version(want), filepath.Base(kno), o.Label)
+		}
 	}
 	var manifests []string
 	for _, svc := range o.Services {
@@ -49,12 +53,15 @@ func planInstallFreeBSD(o Options, p Plan) (Plan, error) {
 	if o.Mode == ModeCopy {
 		return p, nil
 	}
-	p.Steps = append(p.Steps,
-		Step{Argv: sshx.SSH(o.SSH, o.Node, freebsdBootstrap(remote, baseNames(p.Packages), filepath.Base(kno),
-			filepath.Base(p.Packages[len(p.Packages)-1]))),
-			Note: "installed kno on " + o.Node},
-		Step{Argv: sshx.SSH(o.SSH, o.Node, sshx.AsRoot(knopath.LocalBin+" activate "+remote+" "+o.Tag))},
-	)
+	if !o.SkipKno {
+		kno := p.Packages[len(p.Packages)-2]
+		p.Steps = append(p.Steps,
+			Step{Argv: sshx.SSH(o.SSH, o.Node, freebsdBootstrap(remote, baseNames(p.Packages), filepath.Base(kno),
+				filepath.Base(p.Packages[len(p.Packages)-1]))),
+				Note: "installed kno on " + o.Node})
+	}
+	p.Steps = append(p.Steps, Step{Argv: sshx.SSH(o.SSH, o.Node,
+		sshx.AsRoot(knopath.LocalBin+" activate "+remote+" "+o.Tag))})
 	return p, nil
 }
 

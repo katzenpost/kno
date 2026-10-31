@@ -100,14 +100,16 @@ func hostEnv(e track.Env, h remoteHost) track.Env {
 }
 
 type stage struct {
-	mu      sync.Mutex
-	env     track.Env
-	hosts   []remoteHost
-	log     track.Logger
-	verbose bool
-	done    bool
-	tag     string
-	err     error
+	mu       sync.Mutex
+	env      track.Env
+	hosts    []remoteHost
+	log      track.Logger
+	verbose  bool
+	done     bool
+	tag      string
+	err      error
+	selected *build.SourceSelection
+	skipKno  bool
 }
 
 func (s *stage) ensure(tag string) error {
@@ -125,6 +127,10 @@ func (s *stage) ensure(tag string) error {
 	s.log.Logf("checking that %s is built for %d host(s): %d service(s), %s",
 		tag, len(o.Hosts), len(o.Services), strings.Join(o.Arches, " "))
 	if _, err := build.Ready(o); errors.Is(err, build.ErrNotBuilt) {
+		if o.Source != nil {
+			_, s.err = build.Build(o)
+			return s.err
+		}
 		s.err = fmt.Errorf("no build of %s matches this kno and the hosts %s. A build is for one"+
 			" kno commit and one set of hosts. Run 'kno build', then run kno update again",
 			tag, strings.Join(o.Hosts, " "))
@@ -150,7 +156,7 @@ func (s *stage) options(tag string) build.Options {
 	sort.Strings(svcs)
 	cfg := s.env.Config
 	formats := build.BackendFormats(s.env.Repo, s.env.Network, svcs)
-	return build.Options{
+	o := build.Options{
 		Repo:    s.env.Repo,
 		Network: s.env.Network,
 		Tag:     tag,
@@ -163,8 +169,13 @@ func (s *stage) options(tag string) build.Options {
 		SkipFreeBSD: !formats["freebsd"],
 		SkipDeb:     !formats["deb"],
 		SkipDocker:  true,
+		SkipKno:     s.skipKno,
 		Verbose:     s.verbose,
 	}
+	if s.selected != nil && s.selected.Tag == tag {
+		o.Source, o.SkipTarball = s.selected, true
+	}
+	return o
 }
 
 type RemoteRunner struct {
@@ -177,7 +188,9 @@ type RemoteRunner struct {
 	Log   track.Logger
 	Out   io.Writer
 
-	Force bool
+	Force          bool
+	KatzenpostOnly bool
+	Source         *build.SourceSelection
 
 	Before *record.Sample
 
@@ -201,6 +214,13 @@ func (r *RemoteRunner) SetSince(v string) {
 
 func (r *RemoteRunner) Track() (string, int) {
 	target, why := r.Env.Target()
+	if r.Source != nil {
+		target, why = r.Source.Tag, ""
+		if r.Env.Quarantined(target) && !r.Force {
+			r.Log.Errorf("%s: selected source %s is quarantined. Run kno unquarantine --host %s %s before another attempt", r.Host.Label, target, r.Host.Label, target)
+			return "", 1
+		}
+	}
 	if target == "" {
 		r.Log.Errorf("%s: %s", r.Host.Label, noTarget(why))
 		return "", 1
@@ -225,7 +245,11 @@ func (r *RemoteRunner) Activate(tag, rel string) error {
 		r.Log.Logf("%s: target packages are already installed; keeping them and running verification", r.Host.Label)
 		return nil
 	}
-	if rc := push.Run(r.Out, r.Host.Label, tag, r.Mode, r.Dry); rc != 0 {
+	run := push.Run
+	if r.KatzenpostOnly {
+		run = push.RunKatzenpost
+	}
+	if rc := run(r.Out, r.Host.Label, tag, r.Mode, r.Dry); rc != 0 {
 		r.pushErr = fmt.Errorf("push %s to %s failed (%d)", tag, r.Host.Label, rc)
 		return r.pushErr
 	}
@@ -365,14 +389,24 @@ func runRemote(out io.Writer, e track.Env, v Flags) int {
 		return 0
 	}
 	dry, force := v.Dry, v.Force
+	if drySelectedUpdate(out, v) {
+		return 0
+	}
+	if err := selectUpdateSource(out, e, &v); err != nil {
+		l.Errorf("%v", err)
+		return 1
+	}
 
-	if cmp.Or(os.Getenv("KNO_TRACK_FETCH"), "1") == "1" {
+	if cmp.Or(os.Getenv("KNO_TRACK_FETCH"), "1") == "1" && !(v.Target != "" && dry) && v.Selected == nil {
 		if err := e.EnsureRepos(l, true); err != nil {
 			l.Errorf("%v", err)
 			return 1
 		}
 	}
 	target, why := e.Target()
+	if v.Selected != nil {
+		target, why = v.Selected.Tag, ""
+	}
 	if target == "" {
 		l.Errorf("%s", noTarget(why))
 		return 1
@@ -382,12 +416,16 @@ func runRemote(out io.Writer, e track.Env, v Flags) int {
 	if mode == "" {
 		mode = "full"
 	}
+	if v.Target == "katzenpost" && mode != push.ModeFull && mode != push.ModeInstall {
+		l.Errorf("kno update katzenpost needs push mode full or install, not %q", mode)
+		return 1
+	}
 	l.Logf("target %s for %d host(s), push mode %s", target, len(hosts), mode)
 	if force {
 		l.Logf("--force is set: kno installs again also on a host that has %s", target)
 	}
 
-	st := &stage{env: e, hosts: hosts, log: l, verbose: os.Getenv("V") == "1"}
+	st := &stage{env: e, hosts: hosts, log: l, verbose: os.Getenv("V") == "1", selected: v.Selected, skipKno: v.Target == "katzenpost"}
 
 	if !dry {
 		fresh := deploying(e, hosts)
@@ -399,6 +437,9 @@ func runRemote(out io.Writer, e track.Env, v Flags) int {
 			}
 		}
 		ok := preflight(l, fresh, target, func(label string) error {
+			if v.Target == "katzenpost" {
+				return push.PreflightKatzenpost(e, label, target, mode)
+			}
 			return push.Preflight(e, label, target, mode)
 		})
 		if !ok {
@@ -588,17 +629,19 @@ func (t *ticker) stateFile(name string) string { return filepath.Join(t.he.State
 func (t *ticker) tick(first bool) int {
 	kv, _ := readKV(t.stateFile("pending"))
 	runner := &RemoteRunner{
-		Env:   t.he,
-		Host:  t.h,
-		Mode:  t.mode,
-		SSH:   sshx.Program(),
-		Dry:   t.v.Dry,
-		Stage: t.st,
-		Force: t.v.Force && first,
-		Log:   track.Logger{Tool: "update", W: t.out},
-		Out:   t.out,
-		Quiet: !first && !t.v.Verbose,
-		Last:  kv["verdict"],
+		Env:            t.he,
+		Host:           t.h,
+		Mode:           t.mode,
+		SSH:            sshx.Program(),
+		Dry:            t.v.Dry,
+		Stage:          t.st,
+		Force:          t.v.Force && first,
+		KatzenpostOnly: t.v.Target == "katzenpost",
+		Source:         t.v.Selected,
+		Log:            track.Logger{Tool: "update", W: t.out},
+		Out:            t.out,
+		Quiet:          !first && !t.v.Verbose,
+		Last:           kv["verdict"],
 	}
 	if !t.v.Dry && first {
 		t.l.Logf("%s: connecting", t.h.Label)
@@ -615,10 +658,24 @@ func (t *ticker) tick(first bool) int {
 			t.last = t.before
 		}
 	}
+	if t.v.Target == "katzenpost" {
+		have := t.he.CurrentVersion()
+		if t.before != nil && t.before.Packages["katzenpost"] != "" {
+			have = t.before.Packages["katzenpost"]
+		}
+		if err := selectedDowngrade(t.v.Selected, have, t.v.AllowDowngrade); err != nil {
+			t.l.Errorf("%s: %v", t.h.Label, err)
+			return 1
+		}
+	}
 	runner.Before = t.before
 	wasSteady := readLine(t.stateFile("state")) != "pending"
 	if first && !wasSteady && kv["tag"] != "" {
 		t.l.Logf("%s: continuing with %s", t.h.Label, kv["tag"])
+	}
+	var target func() string
+	if t.v.Selected != nil {
+		target = func() string { return t.v.Selected.Tag }
 	}
 	code := Run(Options{
 		Env:            t.he,
@@ -633,8 +690,9 @@ func (t *ticker) tick(first bool) int {
 		Now:            t.now,
 		Out:            t.out,
 		Runner:         runner,
+		Target:         target,
 	})
-	if code == 0 && !t.v.Dry && wasSteady && knoDiffers(t.he, t.target, t.before) {
+	if code == 0 && t.v.Target == "" && !t.v.Dry && wasSteady && knoDiffers(t.he, t.target, t.before) {
 		t.l.Logf("%s: has %s and its config packages. Its kno %s is not %s, so kno installs only kno",
 			t.h.Label, t.target, t.before.Packages["kno"], push.KnoVersionFor(t.e.Repo, t.target))
 		if push.Run(t.out, t.h.Label, t.target, push.ModeKno, t.v.Dry) != 0 {

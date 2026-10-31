@@ -237,6 +237,10 @@ func AssembleHostRoot(c config.Config, label, version, rootParent, repo, network
 }
 
 func PackageForHost(ctx context.Context, c config.Config, label, version, outdir, repo, network, arch string) (string, error) {
+	return PackageForHostWithSettings(ctx, deb.EnvSettings(), c, label, version, outdir, repo, network, arch)
+}
+
+func PackageForHostWithSettings(ctx context.Context, settings deb.Settings, c config.Config, label, version, outdir, repo, network, arch string) (string, error) {
 	if arch == "" {
 		arch = deb.ArchAll
 	}
@@ -252,7 +256,7 @@ func PackageForHost(ctx context.Context, c config.Config, label, version, outdir
 		return "", err
 	}
 	out := filepath.Join(outdir, "kno-host-config-"+label+"_"+version+"_"+arch+".deb")
-	if err := deb.Build(ctx, root, out); err != nil {
+	if err := deb.BuildWith(ctx, settings, root, out); err != nil {
 		return "", err
 	}
 	os.RemoveAll(parent)

@@ -75,7 +75,11 @@ func (e Env) KPHasTag(tag string) bool {
 	if upstream, rev := knopath.SplitRevision(tag); rev != "" {
 		tag = upstream
 	}
-	return tagInRepo(e.KatzenpostRepo, tag)
+	if tagInRepo(e.KatzenpostRepo, tag) {
+		return true
+	}
+	_, ok := GitOutput(e.KatzenpostRepo, "rev-parse", "-q", "--verify", cachedSourceRef("refs/tags/"+tag))
+	return ok
 }
 
 func (e Env) Quarantined(tag string) bool {
@@ -102,14 +106,18 @@ func (e Env) TagVerified(dir, tag string) bool {
 		return false
 	}
 
-	if _, ok := GitOutput(dir, "verify-tag", tag); !ok {
+	tagRef := tag
+	if _, ok := GitOutput(dir, "rev-parse", "--verify", "refs/tags/"+tag); !ok {
+		tagRef = cachedSourceRef("refs/tags/" + tag)
+	}
+	if _, ok := GitOutput(dir, "verify-tag", tagRef); !ok {
 		return false
 	}
 	want, pinned := pinnedSha(e.Repo, tag)
 	if !pinned {
 		return true
 	}
-	got, ok := GitOutput(dir, "rev-parse", tag+"^{commit}")
+	got, ok := GitOutput(dir, "rev-parse", tagRef+"^{commit}")
 	return ok && want != "" && strings.TrimSpace(got) == want
 }
 

@@ -46,6 +46,7 @@ type Options struct {
 	GoModCache, GoBuildCache string
 
 	Verbose bool
+	Offline bool
 
 	Out io.Writer
 }
@@ -74,6 +75,7 @@ Description: katzenpost network organizer (the kno tool)
 const postinstScript = `#!/bin/sh
 set -e
 [ "$1" = configure ] || exit 0
+[ "${KNO_SKIP_BOOTSTRAP:-0}" != 1 ] || exit 0
 
 if ! /usr/bin/kno bootstrap --package >&2; then
 	echo "kno: host bootstrap did not complete; run 'sudo kno bootstrap --package' to retry" >&2
@@ -198,6 +200,9 @@ func CompileLocal(ctx context.Context, o Options, goVersion, out string) error {
 	cmd.Dir = src
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+o.goos(), "GOARCH="+GoArch(o.Arch),
 		"GOFLAGS=", "GOTOOLCHAIN="+compile.GoToolchain(goVersion), "KNO_VERSION="+o.Version)
+	if o.Offline {
+		cmd.Env = append(cmd.Env, "GOPROXY=off", "GOSUMDB=off")
+	}
 	cmd.Stdout, cmd.Stderr = o.out(), o.out()
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("kno build (%s/%s, local go): %w", o.goos(), o.Arch, err)
@@ -226,7 +231,10 @@ func compileKno(ctx context.Context, o Options, bindir string) error {
 	if o.GoBuildCache != "" {
 		args = append(args, "-v", compile.MustMount(o.GoBuildCache, "/gocache:rw"), "-e", "GOCACHE=/gocache")
 	}
-	args = append(args, "-e", "KNO_VERSION="+o.Version)
+	if o.Offline {
+		args = append(args, "--pull=never", "--network=none", "-e", "GOPROXY=off", "-e", "GOSUMDB=off")
+	}
+	args = append(args, "-e", "KNO_VERSION="+o.Version, "-e", "GOTOOLCHAIN=local")
 	args = append(args, o.Image, "sh", "-c", "cd /repo && "+goBuild("/out/kno"))
 	args, done := compile.Contained(args)
 	defer done()

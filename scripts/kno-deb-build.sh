@@ -50,7 +50,7 @@ set +e
 	-v "$cache/gomodcache:/gomod:rw" -v "$cache/gobuild:/gocache:rw" \
 	-e GOMODCACHE=/gomod -e GOCACHE=/gocache \
 	-e CGO_ENABLED=0 -e GOOS=linux -e GOARCH="$goarch" \
-	-e KNO_VERSION="$ver" \
+	-e KNO_VERSION="$ver" -e GOTOOLCHAIN=local \
 	"${BUILD_IMAGE%%:*}@$BUILD_IMAGE_DIGEST" sh -c 'cd /repo && go build -trimpath -buildvcs=false -ldflags "-X github.com/katzenpost/kno/internal/cli.stamped=$KNO_VERSION" -o /out/kno ./cmd/kno' \
 	>"$log" 2>&1
 rc=$?
@@ -82,6 +82,7 @@ cat > "$root/DEBIAN/postinst" <<'POST'
 #!/bin/sh
 set -e
 [ "$1" = configure ] || exit 0
+[ "${KNO_SKIP_BOOTSTRAP:-0}" != 1 ] || exit 0
 
 if ! /usr/bin/kno bootstrap --package >&2; then
 	echo "kno: host bootstrap did not complete; run 'sudo kno bootstrap --package' to retry" >&2

@@ -171,6 +171,12 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
 
+      - name: selected source package
+        if: ${{ steps.reuse.outputs.reused != 'true' }}
+        env:
+          KNO_SELECTED_BUILD_TEST: "1"
+        run: go test -v -count=1 -run '^TestSelectedMainPackageBuild$' ./internal/build
+
       - name: save builder images
         if: ${{ success() && steps.reuse.outputs.reused != 'true' }}
         continue-on-error: true

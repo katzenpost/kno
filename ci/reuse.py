@@ -11,6 +11,8 @@ import sys
 
 
 def relevant(path):
+    if path == "internal/build/selection_smoke_test.go":
+        return True
     if path in {"README.md", "CHANGELOG.md", "LICENSE", "LICENSE.md", "COPYING"}:
         return False
     if path.startswith("docs/") and path.endswith(".md"):

@@ -1,12 +1,14 @@
 package update
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/katzenpost/kno/internal/build"
 	"github.com/katzenpost/kno/internal/cli"
@@ -58,7 +60,11 @@ func newSelfUpgrade(e track.Env, l track.Logger, sudo string) selfUpgrade {
 			return cmd.Run()
 		},
 		version: func(bin string) string {
-			out, _ := exec.Command(bin, "--version").Output()
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, bin, "--version")
+			cmd.WaitDelay = time.Second
+			out, _ := cmd.Output()
 			return strings.TrimSpace(string(out))
 		},
 	}
@@ -106,7 +112,7 @@ func (s selfUpgrade) Run() error {
 	if err := s.run(s.installArgv(pkg)); err != nil {
 		return fmt.Errorf("install kno %s: %w", want, err)
 	}
-	if got := s.version(s.installed); !strings.Contains(got, want) {
+	if got := s.version(s.installed); !versionIs(got, want) {
 		if kept != "" {
 			s.Log.Errorf("the new kno says %q, not %s. kno installs again the kno that this host had", got, want)
 			if err := s.run(s.installArgv(kept)); err != nil {
@@ -123,3 +129,5 @@ func (s selfUpgrade) Run() error {
 	s.Log.Logf("kno is now %s", want)
 	return nil
 }
+
+func versionIs(output, want string) bool { return strings.TrimSpace(output) == "kno "+want }

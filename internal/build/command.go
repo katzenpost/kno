@@ -27,6 +27,8 @@ import (
 
 type flags struct {
 	tag, svcList, arches                    string
+	target, ref                             string
+	refresh                                 bool
 	host, group, node                       string
 	export, network, revision, toolRevision string
 	allHosts, allNodes                      bool
@@ -42,18 +44,24 @@ type flags struct {
 func Command() *cobra.Command {
 	var v flags
 	cmd := &cobra.Command{
-		Use:          "build",
+		Use:          "build [kno|katzenpost]",
 		Short:        "build binary and config packages",
-		Args:         cobra.NoArgs,
+		Args:         targetBuildArgs,
 		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			v.dry, v.verbose = cli.DryRun(), cli.Verbose()
+			if len(args) > 0 {
+				v.target = args[0]
+				return runTargetBuild(cmd, v)
+			}
 			runBuild(cmd, v)
 			return nil
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&v.tag, "tag", "", "katzenpost tag to build (default: KATZENPOST_REF in pins.env)")
+	f.StringVar(&v.tag, "tag", "", "target source tag (default Katzenpost: KATZENPOST_REF in pins.env)")
+	f.StringVar(&v.ref, "ref", "", "target main branch or exact commit SHA")
+	f.BoolVar(&v.refresh, "refresh", false, "fetch target sources and prepare the build cache. Do not install packages")
 	f.StringVar(&v.host, "host", "", "scope the build to these hosts (comma separated labels from kno.toml)")
 	f.StringVar(&v.group, "group", "", "scope the build to an operator's node group, comma separated for several")
 	f.BoolVar(&v.allHosts, "all-hosts", false, "scope the build to every host in the config")
@@ -785,4 +793,93 @@ func buildRepository(offline bool, out io.Writer) (string, error) {
 		}
 	}
 	return e.Repo, nil
+}
+
+func targetBuildArgs(cmd *cobra.Command, args []string) error {
+	if len(args) > 1 {
+		return fmt.Errorf("choose one build target: kno or katzenpost")
+	}
+	if len(args) == 0 {
+		if cmd.Flags().Changed("ref") || cmd.Flags().Changed("refresh") {
+			return fmt.Errorf("--ref and --refresh need a build target: kno or katzenpost")
+		}
+		return nil
+	}
+	if args[0] != "kno" && args[0] != "katzenpost" {
+		return fmt.Errorf("unknown build target %q: use kno or katzenpost", args[0])
+	}
+	tag, _ := cmd.Flags().GetString("tag")
+	ref, _ := cmd.Flags().GetString("ref")
+	if tag != "" || ref != "" {
+		if _, err := track.SourceRef(tag, ref); err != nil {
+			return err
+		}
+	}
+	refresh, _ := cmd.Flags().GetBool("refresh")
+	offline, _ := cmd.Flags().GetBool("offline")
+	if refresh && offline {
+		return fmt.Errorf("choose --refresh or --offline")
+	}
+	for _, flag := range []string{"group", "all-hosts", "node", "all-nodes", "services", "arches", "warped", "binary-only", "images", "revision", "tool-revision", "qemu", "native", "skip-freebsd", "skip-docker", "skip-tarball"} {
+		if cmd.Flags().Changed(flag) {
+			return fmt.Errorf("targeted builds produce matching packages for one host. Use --%s with bare kno build", flag)
+		}
+	}
+	label, _ := cmd.Flags().GetString("host")
+	if strings.ContainsAny(label, ", ") {
+		return fmt.Errorf("targeted builds need one --host LABEL")
+	}
+	return nil
+}
+
+func runTargetBuild(cmd *cobra.Command, v flags) error {
+	e, err := track.LoadEnv()
+	if err != nil {
+		return err
+	}
+	label, err := localBuildHost(e, v.host)
+	if err != nil {
+		return err
+	}
+	if v.dry {
+		fmt.Fprintf(cmd.ErrOrStderr(), "DRYRUN: build %s packages for %s (refresh=%t). No sources fetched, packages built or installed.\n", v.target, label, v.refresh)
+		return nil
+	}
+	var paths []string
+	if v.target == "kno" {
+		packages, err := BuildSelectedKnoForHost(e, v.tag, v.ref, v.refresh, label, cmd.ErrOrStderr())
+		if err != nil {
+			return err
+		}
+		paths = packages
+	} else {
+		tag := v.tag
+		if tag == "" && v.ref == "" {
+			pins, err := source.ParsePins(filepath.Join(e.Repo, "thirdparty", "pins.env"))
+			if err != nil {
+				return err
+			}
+			tag = pins["KATZENPOST_REF"]
+		}
+		selected, err := SelectKatzenpostMode(e, tag, v.ref, v.refresh, track.Logger{Tool: "build", W: cmd.ErrOrStderr()})
+		if err != nil {
+			return err
+		}
+		options, err := SelectedKatzenpostOptions(e, selected, label, !v.refresh)
+		if err != nil {
+			return err
+		}
+		options.Verbose, options.Force = v.verbose, v.force
+		paths, err = Build(options)
+		if err != nil {
+			return err
+		}
+	}
+	if err := listBuilt(cmd.OutOrStdout(), paths); err != nil {
+		return err
+	}
+	if v.export != "" {
+		_, err = export(paths, v.export)
+	}
+	return err
 }

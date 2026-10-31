@@ -144,6 +144,10 @@ func Tasks(work, bindir, sysroot, image, target, tag string, caches Caches, gmp 
 }
 
 func NativeTasks(work, bindir, tag, goVersion string, gmp *int) ([]parallel.Task, error) {
+	return NativeTasksMode(work, bindir, tag, goVersion, gmp, false)
+}
+
+func NativeTasksMode(work, bindir, tag, goVersion string, gmp *int, offline bool) ([]parallel.Task, error) {
 	work = fsutil.Resolve(work)
 	cmds, bindirAbs, err := freshBindir(work, bindir)
 	if err != nil {
@@ -162,6 +166,9 @@ func NativeTasks(work, bindir, tag, goVersion string, gmp *int) ([]parallel.Task
 				"GOWORK="+filepath.Join(work, "go.work"),
 				"GOTOOLCHAIN="+compile.GoToolchain(goVersion),
 				fmt.Sprintf("GOMAXPROCS=%d", *gmp))
+			if offline {
+				cmd.Env = append(cmd.Env, "GOPROXY=off", "GOSUMDB=off")
+			}
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
 				return fmt.Errorf("compile %s (native): %w", c, err)
