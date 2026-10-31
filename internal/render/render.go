@@ -86,6 +86,7 @@ type nodeT struct {
 	DataDir             string
 	MetricsAddress      string
 	ReplicaID           int
+	BridgeSocket        string
 	IdentityKeyFile     string
 	ConfigName          string
 	IdentityPublicKey   string
@@ -545,6 +546,7 @@ PKISignatureScheme = "{{.PKI}}"
 ReplicaNIKEScheme = "{{.ReplicaNIKE}}"
 Addresses = {{addrs .Node.Addresses}}
 {{if .Node.BindAddresses}}BindAddresses = {{addrs .Node.BindAddresses}}
+{{end}}{{if .Node.BridgeSocket}}BridgeSocket = "{{.Node.BridgeSocket}}"
 {{end}}MetricsAddress = "{{.Node.MetricsAddress}}"
 ConnectTimeout = 60000
 HandshakeTimeout = 300000
