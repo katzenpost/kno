@@ -5,6 +5,7 @@ WireKEMScheme = "KYBER768-X25519"
 PKISignatureScheme = "Ed25519 Sphincs+"
 ReplicaNIKEScheme = "CTIDH1024-X25519"
 Addresses = ["tcp://162.220.11.225:22002"]
+BridgeSocket = "/var/lib/katzenpost/replica/windfall-pq-storagenode-2/bridge.sock"
 MetricsAddress = "127.0.0.1:23004"
 ConnectTimeout = 60000
 HandshakeTimeout = 300000

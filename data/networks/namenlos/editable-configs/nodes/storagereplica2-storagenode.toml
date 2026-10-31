@@ -6,6 +6,7 @@ addresses = ["tcp://162.220.11.225:22002"]
 dataDir = "/var/lib/katzenpost/replica/windfall-pq-storagenode-2"
 replicaID = 2
 metricsAddress = "127.0.0.1:23004"
+bridgeSocket = "/var/lib/katzenpost/replica/windfall-pq-storagenode-2/bridge.sock"
 identityKeyFile = "windfall_storage_replica_2.public.pem"
 identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
 y30wWXluToNF2Onc7fntu0+P1ATF6aDlbEEIOc5yDFn1V2/eKhbe7iC3ERPCAfdN
