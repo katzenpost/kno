@@ -30,6 +30,7 @@ func ConfigDigest(path string) (string, error) {
 	}
 	drop("Server", "DataDir")
 	drop("DataDir")
+	drop("BridgeSocket")
 	drop("Gateway", "SpoolDB", "Bolt", "SpoolDB")
 	if name == "annares-pq-servicenode.toml" || name == "windfall-pq-servicenode.toml" {
 		serviceNode, _ := m["ServiceNode"].(map[string]any)
