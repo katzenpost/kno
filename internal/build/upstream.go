@@ -16,6 +16,7 @@ import (
 	"github.com/katzenpost/kno/internal/compile"
 	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/pkg/deb"
+	"github.com/katzenpost/kno/internal/source"
 )
 
 type upstreamDeb struct {
@@ -192,8 +193,6 @@ func (u upstreamDeb) Build(ctx context.Context) (string, error) {
 	return built, nil
 }
 
-const hpqcModule = "github.com/katzenpost/hpqc"
-
 func debSourceIsPinned(src, patches string, pins map[string]string) error {
 	for _, name := range []string{"hpqc", "katzenpost"} {
 		if found, _ := filepath.Glob(filepath.Join(patches, name, "*.patch")); len(found) > 0 {
@@ -208,7 +207,7 @@ func debSourceIsPinned(src, patches string, pins map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("katzenpost source: %w", err)
 	}
-	got, replaced := goModRequire(string(b), hpqcModule)
+	got, replaced := source.GoModRequire(string(b), source.HPQCModule)
 	if got == "" && !replaced {
 		return nil
 	}
@@ -222,26 +221,7 @@ func debSourceIsPinned(src, patches string, pins map[string]string) error {
 	return fmt.Errorf("the katzenpost go.mod in %s gives %s %s, but pins.env pins"+
 		" HPQC_REF=%s\n  (HPQC_SHA=%s). The deb build uses the go.mod version. The"+
 		" FreeBSD package\n  and the tarballs use the pin. Pin the hpqc version that"+
-		" go.mod requires", src, hpqcModule, got, ref, sha)
-}
-
-func goModRequire(gomod, module string) (version string, replaced bool) {
-	for _, line := range strings.Split(gomod, "\n") {
-		line, _, _ = strings.Cut(line, "//")
-		f := strings.Fields(line)
-		if len(f) > 0 && (f[0] == "require" || f[0] == "replace") {
-			f = f[1:]
-		}
-		if len(f) < 2 || f[0] != module {
-			continue
-		}
-		if f[1] == "=>" || (len(f) > 2 && f[2] == "=>") {
-			replaced = true
-			continue
-		}
-		version = f[1]
-	}
-	return version, replaced
+		" go.mod requires", src, source.HPQCModule, got, ref, sha)
 }
 
 func builtDeb(tree, arch string) (string, error) {

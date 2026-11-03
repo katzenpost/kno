@@ -162,3 +162,54 @@ func TestAnExplicitTagNeedsItsSignatureWhenSignaturesAreRequired(t *testing.T) {
 		t.Error("an unsigned --tag was adopted with require_signed_tag on")
 	}
 }
+
+func hpqcFixture(t *testing.T, e track.Env, root, gomod string) string {
+	t.Helper()
+	hp := t.TempDir()
+	gitT(t, hp, "init", "-q", "-b", "main")
+	commit(t, hp, "b", "1", "one")
+	gitT(t, hp, "tag", "v0.0.93")
+	commit(t, hp, "b", "2", "two")
+	gitT(t, hp, "tag", "-a", "-m", "v0.0.95", "v0.0.95")
+	commit(t, e.KatzenpostRepo, "go.mod", gomod, "go.mod")
+	gitT(t, e.KatzenpostRepo, "tag", "v0.0.110")
+	commit(t, root, "data/thirdparty/pins.env",
+		"KATZENPOST_URL=https://example.invalid/katzenpost\n"+
+			"KATZENPOST_REF=v0.0.107\nKATZENPOST_SHA=old\n"+
+			"KATZENPOST_PIN_MODE=tag\nHPQC_URL="+hp+"\nHPQC_REF=v0.0.93\n"+
+			"HPQC_SHA="+gitT(t, hp, "rev-parse", "v0.0.93")+"\n", "hpqc")
+	return hp
+}
+
+func TestAdoptPinsTheHPQCVersionTheTagRequires(t *testing.T) {
+	e, root := fixture(t)
+	hp := hpqcFixture(t, e, root, "module github.com/katzenpost/katzenpost\n\n"+
+		"require github.com/katzenpost/hpqc v0.0.95\n")
+	var calls []string
+	o := Options{Env: e, Tag: "v0.0.110", Out: io.Discard}
+	if _, err := Run(o, steps(t, &calls, "")); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(filepath.Join(e.Repo, "thirdparty", "pins.env"))
+	want := "HPQC_REF=v0.0.95\nHPQC_SHA=" +
+		gitT(t, hp, "rev-parse", "v0.0.95^{commit}") + "\n"
+	if !strings.Contains(string(b), want) {
+		t.Errorf("pins.env is\n%s\nwant\n%s", b, want)
+	}
+}
+
+func TestAdoptRefusesATagThatReplacesHPQC(t *testing.T) {
+	e, root := fixture(t)
+	hpqcFixture(t, e, root, "module github.com/katzenpost/katzenpost\n\n"+
+		"require github.com/katzenpost/hpqc v0.0.95\n\n"+
+		"replace github.com/katzenpost/hpqc => ../hpqc\n")
+	var calls []string
+	o := Options{Env: e, Tag: "v0.0.110", Out: io.Discard}
+	if _, err := Run(o, steps(t, &calls, "")); err == nil ||
+		!strings.Contains(err.Error(), "replace") {
+		t.Fatalf("adopt took a tag that replaces hpqc: %v", err)
+	}
+	if strings.Join(calls, ", ") != "fetch" {
+		t.Errorf("steps = %v, want no build", calls)
+	}
+}

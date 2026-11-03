@@ -17,6 +17,27 @@ const (
 
 var PinModes = []string{PinTag, PinTip}
 
+const HPQCModule = "github.com/katzenpost/hpqc"
+
+func GoModRequire(gomod, module string) (version string, replaced bool) {
+	for _, line := range strings.Split(gomod, "\n") {
+		line, _, _ = strings.Cut(line, "//")
+		f := strings.Fields(line)
+		if len(f) > 0 && (f[0] == "require" || f[0] == "replace") {
+			f = f[1:]
+		}
+		if len(f) < 2 || f[0] != module {
+			continue
+		}
+		if f[1] == "=>" || (len(f) > 2 && f[2] == "=>") {
+			replaced = true
+			continue
+		}
+		version = f[1]
+	}
+	return version, replaced
+}
+
 func ResolveSHA(ref, url, src string) (string, error) {
 	if !track.SafeRef(ref) {
 		return "", fmt.Errorf("pinned ref %q is not a ref git can be given safely", ref)
@@ -129,11 +150,15 @@ func pinRef(pinsPath string, pins map[string]string, ref, mode string) (string, 
 	if err != nil {
 		return "", err
 	}
-	updated, err := setPins(string(body), map[string]string{
+	set := map[string]string{
 		"KATZENPOST_REF":      ref,
 		"KATZENPOST_SHA":      sha,
 		"KATZENPOST_PIN_MODE": mode,
-	})
+	}
+	if err := pinHPQC(set, pins, sha); err != nil {
+		return "", err
+	}
+	updated, err := setPins(string(body), set)
 	if err != nil {
 		return "", err
 	}
@@ -151,6 +176,30 @@ func pinRef(pinsPath string, pins map[string]string, ref, mode string) (string, 
 		return "", err
 	}
 	return ref, nil
+}
+
+func pinHPQC(set, pins map[string]string, sha string) error {
+	src := pins["KATZENPOST_SRC"]
+	if src == "" || !isGitDir(src) {
+		return nil
+	}
+	gomod, err := output("git", "-C", src, "show", sha+":go.mod")
+	if err != nil {
+		return nil
+	}
+	ref, replaced := GoModRequire(gomod, HPQCModule)
+	if replaced {
+		return fmt.Errorf("katzenpost %s replaces %s in go.mod", sha, HPQCModule)
+	}
+	if ref == "" || ref == pins["HPQC_REF"] {
+		return nil
+	}
+	hsha, err := ResolveSHA(ref, pins["HPQC_URL"], pins["HPQC_SRC"])
+	if err != nil {
+		return fmt.Errorf("resolve the commit for hpqc %s: %w", ref, err)
+	}
+	set["HPQC_REF"], set["HPQC_SHA"] = ref, hsha
+	return nil
 }
 
 func setPins(body string, set map[string]string) (string, error) {
