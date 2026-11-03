@@ -1,0 +1,20 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.110",
+  "written": "2026-11-03T19:58:15Z",
+  "packages": [
+    {
+      "name": "namenlos-config-gnunet-pq-gatewaynode_0.0.110-1+20261031161543.gc39606d_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.110-1+20261031161543.gc39606d",
+      "sha256": "f797dcdcf9f7dce50d350af751b24f23eeae83af3d9b65cd68bbf0f745f60f13",
+      "bytes": 13800,
+      "content": "ca3f41972a0ce195bd4a7e828a3e0b23",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}
