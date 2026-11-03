@@ -4,12 +4,12 @@
   "written": "2026-11-03T19:58:15Z",
   "packages": [
     {
-      "name": "namenlos-config-windfall-pq-authority_0.0.110-1+20261031161543.gc39606d_amd64.deb",
+      "name": "namenlos-config-windfall-pq-authority_0.0.110-1+20261103211100.g245a1c5_amd64.deb",
       "arch": "amd64",
-      "version": "0.0.110-1+20261031161543.gc39606d",
-      "sha256": "f96b64b53e0e7c6d20eeb2560b58bf81df170ce7ed2ddce3c0b699e1fb97a15b",
-      "bytes": 14364,
-      "content": "83610cc024476ec203cfebfd0cbdb0c3",
+      "version": "0.0.110-1+20261103211100.g245a1c5",
+      "sha256": "e3b54653501e3e06a9d0558baabe093088b1355c0e7224cbd39e71615bf49369",
+      "bytes": 14384,
+      "content": "978c38143397d97eef162a3aa4eca3ef",
       "scripts": [
         "postinst",
         "preinst",
