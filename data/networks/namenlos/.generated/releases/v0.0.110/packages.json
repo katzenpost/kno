@@ -1,0 +1,132 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.110",
+  "written": "2026-11-03T19:58:15Z",
+  "source_date_epoch": "1793735895",
+  "tool_revision": "1",
+  "build": "cross",
+  "inputs": {
+    "katzenpost_ref": "v0.0.110",
+    "katzenpost_sha": "bd15cab2f568167667478f7ac225576e4a993a94",
+    "hpqc_ref": "v0.0.95",
+    "hpqc_sha": "18966deffd49383a3685a89b6a0ebddc9b9e26cd",
+    "go_version": "1.26.10",
+    "build_image": "docker.io/library/golang@sha256:ee3901c61e423732605a51f1b8157c849ec01194ea0a274213b5202b2c11e7bf",
+    "deb_image": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+    "tool": "(devel)"
+  },
+  "packages": [
+    {
+      "name": "katzenpost-0.0.110+20261031161543.gc39606d-debian13-amd64.tar.gz",
+      "sha256": "27aebe6c3dac39b318ca2bdbda8343fa3214d1ef4dda8cb4e588833405a909b3",
+      "bytes": 131854642
+    },
+    {
+      "name": "katzenpost-0.0.110+20261031161543.gc39606d-debian13-arm64.tar.gz",
+      "sha256": "fc8fd350139bc464ca533dff04c0eeecfaca00afe151baf3d6f412039c6074d3",
+      "bytes": 109212076
+    },
+    {
+      "name": "katzenpost-0.0.110+20261031161543.gc39606d-freebsd-amd64.tar.gz",
+      "sha256": "de724b2a07e0c9a35fe36fcccdd56c30c8e1d70b61af01811b61e7e0cfa5deaa",
+      "bytes": 113391822
+    },
+    {
+      "name": "katzenpost-0.0.110+20261031161543.gc39606d-ubuntu24.04-amd64.tar.gz",
+      "sha256": "3d7a333ea2a5be154399e23a8098314e86970431cd083be6c4860c4d7632bb61",
+      "bytes": 134289871
+    },
+    {
+      "name": "katzenpost-0.0.110+20261031161543.gc39606d-ubuntu25.04-amd64.tar.gz",
+      "sha256": "80e4ea383c6e255f2a4f248186480238e84d196edcdeb6e21828eb9543037154",
+      "bytes": 131981754
+    },
+    {
+      "name": "katzenpost-0.0.110+20261031161543.gc39606d-ubuntu26.04-ppc64el.tar.gz",
+      "sha256": "ee78a0b54b708b0ec157a560d07f78cc01fd1afaf7038bee5a73a17d4a06e054",
+      "bytes": 122300284
+    },
+    {
+      "name": "katzenpost-0.0.110-hpqc-src.tar.gz",
+      "sha256": "034b9040257e0de5cee7761c8b28588c4b6a71b915cc0b2a861c0af7365bb576",
+      "bytes": 1284357
+    },
+    {
+      "name": "katzenpost-0.0.110-src.tar.gz",
+      "sha256": "d6e181cc181bde4f27e78e68ce9cc3c7b0add31c9f32baa75ef3f6399d3d6a88",
+      "bytes": 2992022
+    },
+    {
+      "name": "katzenpost-0.0.110.20261031161543.pkg",
+      "version": "0.0.110.20261031161543",
+      "sha256": "136013164d27ba8da2d1356f49557d81dec716036d2d304daf065bdfa2d68000",
+      "bytes": 105230340
+    },
+    {
+      "name": "katzenpost_0.0.110+debian13_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.110",
+      "sha256": "8505bcbac3b5963c9c258a8996bb0ae9f5754f87bed3c457ce7f2a264c562863",
+      "bytes": 95335452,
+      "content": "8505bcbac3b5963c9c258a8996bb0ae9f5754f87bed3c457ce7f2a264c562863",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    },
+    {
+      "name": "katzenpost_0.0.110+debian13_arm64.deb",
+      "arch": "arm64",
+      "version": "0.0.110",
+      "sha256": "56c8876e808900e75ae9441989eb195fa57132f5efcb8428ed732c890f4bf553",
+      "bytes": 73096288,
+      "content": "56c8876e808900e75ae9441989eb195fa57132f5efcb8428ed732c890f4bf553",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    },
+    {
+      "name": "katzenpost_0.0.110+ubuntu24.04_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.110",
+      "sha256": "17f3d530ee84a3189e13c9c65f1e3915beaf2c5a49c856d5f9c9463b1057cd2f",
+      "bytes": 105146452,
+      "content": "17f3d530ee84a3189e13c9c65f1e3915beaf2c5a49c856d5f9c9463b1057cd2f",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    },
+    {
+      "name": "katzenpost_0.0.110+ubuntu25.04_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.110",
+      "sha256": "44c006fc49d3d32722764b214a3785fd253be354d2ad23657a205d74218f8944",
+      "bytes": 103342850,
+      "content": "44c006fc49d3d32722764b214a3785fd253be354d2ad23657a205d74218f8944",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    },
+    {
+      "name": "katzenpost_0.0.110+ubuntu26.04_ppc64el.deb",
+      "arch": "ppc64el",
+      "version": "0.0.110",
+      "sha256": "fc1b6fda3f907de90f2c9824d57e3f753c5bd6402f4a9354442a4ab93c3f6d54",
+      "bytes": 93309536,
+      "content": "fc1b6fda3f907de90f2c9824d57e3f753c5bd6402f4a9354442a4ab93c3f6d54",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}
