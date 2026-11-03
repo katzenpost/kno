@@ -6,6 +6,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/katzenpost/kno/internal/config"
+	"github.com/katzenpost/kno/internal/fsutil"
+	"github.com/katzenpost/kno/internal/knopath"
 )
 
 func Command() *cobra.Command {
@@ -20,6 +22,13 @@ func Command() *cobra.Command {
 			repo := config.RepoDir()
 			if repo == "" {
 				return fmt.Errorf("cannot locate the network repo (set KNO_REPO)")
+			}
+			if apply || out != "" {
+				unlock, err := fsutil.Lock(fsutil.NetworkLockPath(knopath.NetworkDir(repo, network)), nil)
+				if err != nil {
+					return err
+				}
+				defer unlock()
 			}
 			p, err := Propose(Options{Repo: repo, Network: network, Ask: ask, In: cmd.InOrStdin(), Log: cmd.ErrOrStderr()})
 			if err != nil {

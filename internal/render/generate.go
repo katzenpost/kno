@@ -41,6 +41,12 @@ func Generate(netDir, gen string) error {
 	if gen == "" {
 		gen = knopath.GeneratedIn(netDir)
 	}
+	return stageDirectory(gen, func(candidate string) error {
+		return generateInto(netDir, candidate, gen)
+	})
+}
+
+func generateInto(netDir, gen, shown string) error {
 	configs := filepath.Join(gen, "configs")
 	stale, err := filepath.Glob(filepath.Join(configs, "*.toml"))
 	if err != nil {
@@ -51,7 +57,7 @@ func Generate(netDir, gen string) error {
 			return err
 		}
 	}
-	if err := Render(netDir, configs); err != nil {
+	if err := renderInto(netDir, configs, filepath.Join(shown, "configs")); err != nil {
 		return err
 	}
 	if err := writeServices(netDir, configs, knopath.ServicesIn(gen)); err != nil {
@@ -61,6 +67,137 @@ func Generate(netDir, gen string) error {
 		return err
 	}
 	return writeNetworkFile(netDir, knopath.NetworkFileIn(gen))
+}
+
+func stageDirectory(out string, build func(string) error) error {
+	unlock, err := fsutil.Lock(fsutil.PublicationLockPath(out), nil)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if err := recoverDirectory(out); err != nil {
+		return err
+	}
+	stageParent := filepath.Dir(out)
+	if filepath.Base(out) == knopath.GeneratedName {
+		stageParent = filepath.Dir(stageParent)
+	}
+	if err := os.MkdirAll(stageParent, 0o755); err != nil {
+		return err
+	}
+	stage, err := os.MkdirTemp(stageParent, ".kno-render-stage-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(stage)
+	if err := os.Chmod(stage, 0o755); err != nil {
+		return err
+	}
+	if err := copyDirectory(out, stage); err != nil {
+		return err
+	}
+	if err := build(stage); err != nil {
+		return err
+	}
+	if err := rejectPrivateKeyMaterial(stage); err != nil {
+		return err
+	}
+	return replaceDirectory(stage, out)
+}
+
+func editorFile(name string) bool {
+	return strings.HasPrefix(name, ".#") || strings.HasSuffix(name, "~") ||
+		len(name) > 1 && strings.HasPrefix(name, "#") && strings.HasSuffix(name, "#") ||
+		strings.HasPrefix(name, ".") && (strings.HasSuffix(name, ".swp") || strings.HasSuffix(name, ".swx"))
+}
+
+func rejectPrivateKeyMaterial(root string) error {
+	return filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if entry.Type()&fs.ModeSymlink != 0 {
+			return fmt.Errorf("generated output contains a symlink: %s", path)
+		}
+		if fsutil.IsSecretKeyFile(path) {
+			return fmt.Errorf("generated file contains private key material: %s", path)
+		}
+		return nil
+	})
+}
+
+func backupPath(out string) string { return out + ".kno-render-backup" }
+
+func recoverDirectory(out string) error {
+	backup := backupPath(out)
+	if info, err := os.Lstat(backup); os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	} else if !info.IsDir() {
+		return fmt.Errorf("unsafe generated backup directory: %s", backup)
+	}
+	info, err := os.Lstat(out)
+	if os.IsNotExist(err) {
+		return os.Rename(backup, out)
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("unsafe generated output directory: %s", out)
+	}
+	return os.RemoveAll(backup)
+}
+
+func copyDirectory(src, dst string) error {
+	info, err := os.Lstat(src)
+	if os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("cannot stage generated output that is not a directory: %s", src)
+	}
+	return filepath.WalkDir(src, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+		switch {
+		case info.IsDir():
+			return os.MkdirAll(target, info.Mode().Perm())
+		case !info.Mode().IsRegular():
+			return fmt.Errorf("cannot stage non-regular generated file %s", path)
+		}
+		return fsutil.CopyFile(path, target)
+	})
+}
+
+func replaceDirectory(stage, out string) error {
+	backup := backupPath(out)
+	if err := os.Rename(out, backup); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Rename(stage, out); err != nil {
+		if restoreErr := os.Rename(backup, out); restoreErr != nil && !os.IsNotExist(restoreErr) {
+			return fmt.Errorf("publish generated files: %v; restore previous files: %w", err, restoreErr)
+		}
+		return err
+	}
+	return os.RemoveAll(backup)
 }
 
 func writeServices(netDir, configs, out string) error {
@@ -111,7 +248,7 @@ func writeKeys(netDir, out string) error {
 		return err
 	}
 	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || filepath.Ext(p) != ".pem" {
+		if err != nil || d.IsDir() || filepath.Ext(p) != ".pem" || editorFile(d.Name()) {
 			return err
 		}
 		if fsutil.IsSecretKeyFile(p) {

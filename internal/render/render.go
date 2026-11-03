@@ -73,11 +73,12 @@ type cborPluginT struct {
 	Command        string
 	MaxConcurrency int
 	Disable        bool
-	Config         map[string]string
+	Config         map[string]any
 }
 
 type nodeT struct {
 	CommentedPlugins    string `toml:"-"`
+	PluginTables        string `toml:"-"`
 	Name                string
 	Role                string
 	Addresses           []string
@@ -173,6 +174,12 @@ func Render(dir, out string) error {
 	if out == "" {
 		out = knopath.ConfigsIn(dir)
 	}
+	return stageDirectory(out, func(candidate string) error {
+		return renderInto(dir, candidate, out)
+	})
+}
+
+func renderInto(dir, out, shown string) error {
 
 	src := knopath.EditableIn(dir)
 	var m manifestT
@@ -186,11 +193,21 @@ func Render(dir, out string) error {
 		if err := decode(filepath.Join(src, ref.Config), &n); err != nil {
 			return err
 		}
+		if !validFilenameComponent(n.Name) {
+			return fmt.Errorf("bad filename %q in %s: node name must be one filename component", n.Name, ref.Config)
+		}
+		if n.ConfigName != "" && !validFilenameComponent(n.ConfigName) {
+			return fmt.Errorf("bad filename %q in %s: config name must be one filename component", n.ConfigName, ref.Config)
+		}
 		body, err := os.ReadFile(filepath.Join(src, ref.Config))
 		if err != nil {
 			return err
 		}
 		n.CommentedPlugins = commentedPlugins(string(body))
+		n.PluginTables, err = renderPluginTables(body)
+		if err != nil {
+			return fmt.Errorf("service plugins in %s: %w", ref.Config, err)
+		}
 		if !nodefile.KnownRole(n.Role) {
 			return fmt.Errorf("%s: role %q is not one of %s", ref.Config, n.Role,
 				strings.Join(nodefile.Roles, ", "))
@@ -304,17 +321,21 @@ func Render(dir, out string) error {
 		return fmt.Errorf("write thinclient: %v", err)
 	}
 
-	fmt.Printf("%s: %d mix + %d gw + %d svc + %d storage\n", out,
+	fmt.Printf("%s: %d mix + %d gw + %d svc + %d storage\n", shown,
 		len(nodes["mix"]), len(nodes["gateway"]), len(nodes["servicenode"]), len(nodes["storagenode"]))
 	return nil
 }
 
-func addrs(a []string) string {
-	q := make([]string, len(a))
-	for i, s := range a {
-		q[i] = "\"" + s + "\""
+func validFilenameComponent(name string) bool {
+	return name != "" && name != "." && name != ".." &&
+		!strings.ContainsAny(name, `/\`)
+}
+
+func addrs(a []string) (string, error) {
+	if a == nil {
+		a = []string{}
 	}
-	return "[" + strings.Join(q, ", ") + "]"
+	return tomlValue(a)
 }
 
 func noonion(a []string) []string {
@@ -329,29 +350,29 @@ func noonion(a []string) []string {
 
 func pem(s string) string { return "\"\"\"" + s + "\"\"\"" }
 
-var mixTmpl = template.Must(template.New("mix").Funcs(template.FuncMap{"addrs": addrs, "pem": pem}).Parse(
+var mixTmpl = template.Must(template.New("mix").Funcs(template.FuncMap{"addrs": addrs, "pem": pem, "str": tomlValue}).Parse(
 	`[Server]
-  Identifier = "{{.Node.Name}}"
-  PKISignatureScheme = "{{.PKI}}"
-  WireKEM = "{{.WireKEM}}"
+  Identifier = {{str .Node.Name}}
+  PKISignatureScheme = {{str .PKI}}
+  WireKEM = {{str .WireKEM}}
   Addresses = {{addrs .Node.Addresses}}
 {{if .Node.BindAddresses}}  BindAddresses = {{addrs .Node.BindAddresses}}
-{{end}}  DataDir = "{{.Node.DataDir}}"
-{{if .Node.MetricsAddress}}  MetricsAddress = "{{.Node.MetricsAddress}}"
+{{end}}  DataDir = {{str .Node.DataDir}}
+{{if .Node.MetricsAddress}}  MetricsAddress = {{str .Node.MetricsAddress}}
 {{end}}  IsGatewayNode = false
   IsServiceNode = false
 
 [Logging]
   Disable = {{.Node.Logging.Disable}}
-  File = "{{.Node.Logging.File}}"
-  Level = "{{.Node.Logging.Level}}"
+  File = {{str .Node.Logging.File}}
+  Level = {{str .Node.Logging.Level}}
 
 [PKI]
   [PKI.Voting]
 {{range .Authorities}}    [[PKI.Voting.Authorities]]
-      Identifier = "{{.Name}}"
-      PKISignatureScheme = "{{$.PKI}}"
-      WireKEMScheme = "{{$.WireKEM}}"
+      Identifier = {{str .Name}}
+      PKISignatureScheme = {{str $.PKI}}
+      WireKEMScheme = {{str $.WireKEM}}
       Addresses = {{addrs .Addresses}}
 {{if .BindAddresses}}      BindAddresses = {{addrs .BindAddresses}}
 {{end}}      IdentityPublicKey = {{pem .IdentityPublicKey}}
@@ -383,39 +404,39 @@ var mixTmpl = template.Must(template.New("mix").Funcs(template.FuncMap{"addrs": 
   UserForwardPayloadLength = {{.Sphinx.UserForwardPayloadLength}}
   NextNodeHopLength = {{.Sphinx.NextNodeHopLength}}
   SPRPKeyMaterialLength = {{.Sphinx.SPRPKeyMaterialLength}}
-  NIKEName = "{{.Sphinx.NIKEName}}"
-  KEMName = "{{.Sphinx.KEMName}}"
+  NIKEName = {{str .Sphinx.NIKEName}}
+  KEMName = {{str .Sphinx.KEMName}}
 `))
 
-var gatewayTmpl = template.Must(template.New("gw").Funcs(template.FuncMap{"addrs": addrs, "pem": pem}).Parse(
+var gatewayTmpl = template.Must(template.New("gw").Funcs(template.FuncMap{"addrs": addrs, "pem": pem, "str": tomlValue}).Parse(
 	`[Server]
-  Identifier = "{{.Node.Name}}"
-  PKISignatureScheme = "{{.PKI}}"
-  WireKEM = "{{.WireKEM}}"
+  Identifier = {{str .Node.Name}}
+  PKISignatureScheme = {{str .PKI}}
+  WireKEM = {{str .WireKEM}}
   Addresses = {{addrs .Node.Addresses}}
 {{if .Node.BindAddresses}}  BindAddresses = {{addrs .Node.BindAddresses}}
-{{end}}  DataDir = "{{.Node.DataDir}}"
-{{if .Node.MetricsAddress}}  MetricsAddress = "{{.Node.MetricsAddress}}"
+{{end}}  DataDir = {{str .Node.DataDir}}
+{{if .Node.MetricsAddress}}  MetricsAddress = {{str .Node.MetricsAddress}}
 {{end}}  IsGatewayNode = true
   IsServiceNode = false
 
 [Logging]
   Disable = {{.Node.Logging.Disable}}
-  File = "{{.Node.Logging.File}}"
-  Level = "{{.Node.Logging.Level}}"
+  File = {{str .Node.Logging.File}}
+  Level = {{str .Node.Logging.Level}}
 
 [Gateway]
   [Gateway.SpoolDB]
     Backend = "bolt"
     [Gateway.SpoolDB.Bolt]
-      SpoolDB = "{{.Node.DataDir}}/spool.db"
+      SpoolDB = {{str (printf "%s/spool.db" .Node.DataDir)}}
 
 [PKI]
   [PKI.Voting]
 {{range .Authorities}}    [[PKI.Voting.Authorities]]
-      Identifier = "{{.Name}}"
-      PKISignatureScheme = "{{$.PKI}}"
-      WireKEMScheme = "{{$.WireKEM}}"
+      Identifier = {{str .Name}}
+      PKISignatureScheme = {{str $.PKI}}
+      WireKEMScheme = {{str $.WireKEM}}
       Addresses = {{addrs .Addresses}}
 {{if .BindAddresses}}      BindAddresses = {{addrs .BindAddresses}}
 {{end}}      IdentityPublicKey = {{pem .IdentityPublicKey}}
@@ -448,58 +469,50 @@ var gatewayTmpl = template.Must(template.New("gw").Funcs(template.FuncMap{"addrs
   UserForwardPayloadLength = {{.Sphinx.UserForwardPayloadLength}}
   NextNodeHopLength = {{.Sphinx.NextNodeHopLength}}
   SPRPKeyMaterialLength = {{.Sphinx.SPRPKeyMaterialLength}}
-  NIKEName = "{{.Sphinx.NIKEName}}"
-  KEMName = "{{.Sphinx.KEMName}}"
+  NIKEName = {{str .Sphinx.NIKEName}}
+  KEMName = {{str .Sphinx.KEMName}}
 `))
 
-var serviceTmpl = template.Must(template.New("svc").Funcs(template.FuncMap{"addrs": addrs, "pem": pem}).Parse(
+var serviceTmpl = template.Must(template.New("svc").Funcs(template.FuncMap{"addrs": addrs, "pem": pem, "str": tomlValue}).Parse(
 	`[Server]
-  Identifier = "{{.Node.Name}}"
-  PKISignatureScheme = "{{.PKI}}"
-  WireKEM = "{{.WireKEM}}"
+  Identifier = {{str .Node.Name}}
+  PKISignatureScheme = {{str .PKI}}
+  WireKEM = {{str .WireKEM}}
   Addresses = {{addrs .Node.Addresses}}
 {{if .Node.BindAddresses}}  BindAddresses = {{addrs .Node.BindAddresses}}
-{{end}}  DataDir = "{{.Node.DataDir}}"
-{{if .Node.MetricsAddress}}  MetricsAddress = "{{.Node.MetricsAddress}}"
+{{end}}  DataDir = {{str .Node.DataDir}}
+{{if .Node.MetricsAddress}}  MetricsAddress = {{str .Node.MetricsAddress}}
 {{end}}  IsGatewayNode = false
   IsServiceNode = true
 
 [Logging]
   Disable = {{.Node.Logging.Disable}}
-  File = "{{.Node.Logging.File}}"
-  Level = "{{.Node.Logging.Level}}"
+  File = {{str .Node.Logging.File}}
+  Level = {{str .Node.Logging.Level}}
 
 [ServiceNode]
 {{range .Node.Kaetzchen}}  [[ServiceNode.Kaetzchen]]
-    Capability = "{{.}}"
-    Endpoint = "+{{.}}"
+    Capability = {{str .}}
+    Endpoint = {{str (printf "+%s" .)}}
     Disable = false
 {{end}}{{if .Node.Courier}}  [[ServiceNode.CBORPluginKaetzchen]]
     Capability = "courier"
     Endpoint = "courier"
-    Command = "{{.Node.CourierCommand}}"
+    Command = {{str .Node.CourierCommand}}
     MaxConcurrency = 1
     Disable = false
     [ServiceNode.CBORPluginKaetzchen.PKIAdvertizedData]
       [ServiceNode.CBORPluginKaetzchen.PKIAdvertizedData.courier]
         linkPublicKey = {{pem .Node.CourierLinkPublicKey}}
     [ServiceNode.CBORPluginKaetzchen.Config]
-        c = "{{.Node.CourierConfig}}"
-{{end}}{{range .Node.ServiceNode.CBORPluginKaetzchen}}  [[ServiceNode.CBORPluginKaetzchen]]
-    Capability = {{printf "%q" .Capability}}
-    Endpoint = {{printf "%q" .Endpoint}}
-    Command = {{printf "%q" .Command}}
-    MaxConcurrency = {{.MaxConcurrency}}
-    Disable = {{.Disable}}
-    [ServiceNode.CBORPluginKaetzchen.Config]
-{{range $key, $value := .Config}}      {{printf "%q" $key}} = {{printf "%q" $value}}
-{{end}}{{end}}{{.Node.CommentedPlugins}}
+        c = {{str .Node.CourierConfig}}
+{{end}}{{.Node.PluginTables}}{{.Node.CommentedPlugins}}
 [PKI]
   [PKI.Voting]
 {{range .Authorities}}    [[PKI.Voting.Authorities]]
-      Identifier = "{{.Name}}"
-      PKISignatureScheme = "{{$.PKI}}"
-      WireKEMScheme = "{{$.WireKEM}}"
+      Identifier = {{str .Name}}
+      PKISignatureScheme = {{str $.PKI}}
+      WireKEMScheme = {{str $.WireKEM}}
       Addresses = {{addrs .Addresses}}
 {{if .BindAddresses}}      BindAddresses = {{addrs .BindAddresses}}
 {{end}}      IdentityPublicKey = {{pem .IdentityPublicKey}}
@@ -533,21 +546,21 @@ var serviceTmpl = template.Must(template.New("svc").Funcs(template.FuncMap{"addr
   UserForwardPayloadLength = {{.Sphinx.UserForwardPayloadLength}}
   NextNodeHopLength = {{.Sphinx.NextNodeHopLength}}
   SPRPKeyMaterialLength = {{.Sphinx.SPRPKeyMaterialLength}}
-  NIKEName = "{{.Sphinx.NIKEName}}"
-  KEMName = "{{.Sphinx.KEMName}}"
+  NIKEName = {{str .Sphinx.NIKEName}}
+  KEMName = {{str .Sphinx.KEMName}}
 `))
 
-var storageTmpl = template.Must(template.New("st").Funcs(template.FuncMap{"addrs": addrs, "pem": pem}).Parse(
-	`DataDir = "{{.Node.DataDir}}"
-Identifier = "{{.Node.Name}}"
+var storageTmpl = template.Must(template.New("st").Funcs(template.FuncMap{"addrs": addrs, "pem": pem, "str": tomlValue}).Parse(
+	`DataDir = {{str .Node.DataDir}}
+Identifier = {{str .Node.Name}}
 ReplicaID = {{.Node.ReplicaID}}
-WireKEMScheme = "{{.WireKEM}}"
-PKISignatureScheme = "{{.PKI}}"
-ReplicaNIKEScheme = "{{.ReplicaNIKE}}"
+WireKEMScheme = {{str .WireKEM}}
+PKISignatureScheme = {{str .PKI}}
+ReplicaNIKEScheme = {{str .ReplicaNIKE}}
 Addresses = {{addrs .Node.Addresses}}
 {{if .Node.BindAddresses}}BindAddresses = {{addrs .Node.BindAddresses}}
-{{end}}{{if .Node.BridgeSocket}}BridgeSocket = "{{.Node.BridgeSocket}}"
-{{end}}MetricsAddress = "{{.Node.MetricsAddress}}"
+{{end}}{{if .Node.BridgeSocket}}BridgeSocket = {{str .Node.BridgeSocket}}
+{{end}}MetricsAddress = {{str .Node.MetricsAddress}}
 ConnectTimeout = 60000
 HandshakeTimeout = 300000
 ReauthInterval = 300000
@@ -567,9 +580,9 @@ MinFreeStorageMiB = 1024
 [PKI]
   [PKI.Voting]
 {{range .Authorities}}    [[PKI.Voting.Authorities]]
-      Identifier = "{{.Name}}"
-      PKISignatureScheme = "{{$.PKI}}"
-      WireKEMScheme = "{{$.WireKEM}}"
+      Identifier = {{str .Name}}
+      PKISignatureScheme = {{str $.PKI}}
+      WireKEMScheme = {{str $.WireKEM}}
       Addresses = {{addrs .Addresses}}
 {{if .BindAddresses}}      BindAddresses = {{addrs .BindAddresses}}
 {{end}}      IdentityPublicKey = {{pem .IdentityPublicKey}}
@@ -588,29 +601,29 @@ MinFreeStorageMiB = 1024
   UserForwardPayloadLength = {{.Sphinx.UserForwardPayloadLength}}
   NextNodeHopLength = {{.Sphinx.NextNodeHopLength}}
   SPRPKeyMaterialLength = {{.Sphinx.SPRPKeyMaterialLength}}
-  NIKEName = "{{.Sphinx.NIKEName}}"
-  KEMName = "{{.Sphinx.KEMName}}"
+  NIKEName = {{str .Sphinx.NIKEName}}
+  KEMName = {{str .Sphinx.KEMName}}
 `))
 
-var authorityTmpl = template.Must(template.New("auth").Funcs(template.FuncMap{"addrs": addrs, "pem": pem}).Parse(
+var authorityTmpl = template.Must(template.New("auth").Funcs(template.FuncMap{"addrs": addrs, "pem": pem, "str": tomlValue}).Parse(
 	`[Server]
-  Identifier = "{{.Node.Name}}"
-  PKISignatureScheme = "{{.PKI}}"
-  WireKEMScheme = "{{.WireKEM}}"
+  Identifier = {{str .Node.Name}}
+  PKISignatureScheme = {{str .PKI}}
+  WireKEMScheme = {{str .WireKEM}}
   Addresses = {{addrs .Node.Addresses}}
 {{if .Node.ServerBindAddresses}}  BindAddresses = {{addrs .Node.ServerBindAddresses}}
-{{end}}  DataDir = "{{.Node.DataDir}}"
-{{if .Node.MetricsAddress}}  MetricsAddress = "{{.Node.MetricsAddress}}"
+{{end}}  DataDir = {{str .Node.DataDir}}
+{{if .Node.MetricsAddress}}  MetricsAddress = {{str .Node.MetricsAddress}}
 {{end}}
 [Logging]
   Disable = {{.Node.Logging.Disable}}
-  File = "{{.Node.Logging.File}}"
-  Level = "{{.Node.Logging.Level}}"
+  File = {{str .Node.Logging.File}}
+  Level = {{str .Node.Logging.Level}}
 {{range .Authorities}}
 [[Authorities]]
-Identifier = "{{.Name}}"
-PKISignatureScheme = "{{$.PKI}}"
-WireKEMScheme = "{{$.WireKEM}}"
+Identifier = {{str .Name}}
+PKISignatureScheme = {{str $.PKI}}
+WireKEMScheme = {{str $.WireKEM}}
 Addresses = {{addrs .Addresses}}
 {{if .BindAddresses}}BindAddresses = {{addrs .BindAddresses}}
 {{end}}IdentityPublicKey = {{pem .IdentityPublicKey}}
@@ -628,27 +641,27 @@ LinkPublicKey = {{pem .LinkPublicKey}}
   LambdaR = {{.Params.LambdaR}}
 {{range .Mixes}}
 [[Mixes]]
-  Identifier = "{{.Name}}"
-  IdentityPublicKeyPem = "{{.KeyFile}}"
+  Identifier = {{str .Name}}
+  IdentityPublicKeyPem = {{str .KeyFile}}
 {{end}}{{range .Gateways}}
 [[GatewayNodes]]
-  Identifier = "{{.Name}}"
-  IdentityPublicKeyPem = "{{.KeyFile}}"
+  Identifier = {{str .Name}}
+  IdentityPublicKeyPem = {{str .KeyFile}}
 {{end}}{{range .Services}}
 [[ServiceNodes]]
-  Identifier = "{{.Name}}"
-  IdentityPublicKeyPem = "{{.KeyFile}}"
+  Identifier = {{str .Name}}
+  IdentityPublicKeyPem = {{str .KeyFile}}
 {{end}}{{range .Storage}}
 [[StorageReplicas]]
-  Identifier = "{{.Name}}"
-  IdentityPublicKeyPem = "{{.KeyFile}}"
+  Identifier = {{str .Name}}
+  IdentityPublicKeyPem = {{str .KeyFile}}
   ReplicaID = {{.ReplicaID}}
 {{end}}
 [Topology]
 {{range .TopoLayers}}  [[Topology.Layers]]
 {{range .}}    [[Topology.Layers.Nodes]]
-      Identifier = "{{.Name}}"
-      IdentityPublicKeyPem = "{{.KeyFile}}"
+      Identifier = {{str .Name}}
+      IdentityPublicKeyPem = {{str .KeyFile}}
 {{end}}{{end}}
 [SphinxGeometry]
   PacketLength = {{.Sphinx.PacketLength}}
@@ -663,8 +676,8 @@ LinkPublicKey = {{pem .LinkPublicKey}}
   UserForwardPayloadLength = {{.Sphinx.UserForwardPayloadLength}}
   NextNodeHopLength = {{.Sphinx.NextNodeHopLength}}
   SPRPKeyMaterialLength = {{.Sphinx.SPRPKeyMaterialLength}}
-  NIKEName = "{{.Sphinx.NIKEName}}"
-  KEMName = "{{.Sphinx.KEMName}}"
+  NIKEName = {{str .Sphinx.NIKEName}}
+  KEMName = {{str .Sphinx.KEMName}}
 `))
 
 const thinclient = `[Dial]
@@ -673,9 +686,9 @@ const thinclient = `[Dial]
 `
 
 var authPeers = `{{range .Authorities}}    [[PKI.Voting.Authorities]]
-Identifier = "{{.Name}}"
-PKISignatureScheme = "{{$.PKI}}"
-WireKEMScheme = "{{$.WireKEM}}"
+Identifier = {{str .Name}}
+PKISignatureScheme = {{str $.PKI}}
+WireKEMScheme = {{str $.WireKEM}}
 Addresses = {{addrs .Addresses}}
 {{if .BindAddresses}}BindAddresses = {{addrs .BindAddresses}}
 {{end}}IdentityPublicKey = {{pem .IdentityPublicKey}}
@@ -683,9 +696,9 @@ LinkPublicKey = {{pem .LinkPublicKey}}
 {{end}}`
 
 var votingPeers = `{{range .Authorities}}  [[VotingAuthority.Peers]]
-Identifier = "{{.Name}}"
-PKISignatureScheme = "{{$.PKI}}"
-WireKEMScheme = "{{$.WireKEM}}"
+Identifier = {{str .Name}}
+PKISignatureScheme = {{str $.PKI}}
+WireKEMScheme = {{str $.WireKEM}}
 Addresses = {{addrs .Addresses}}
 {{if .BindAddresses}}BindAddresses = {{addrs .BindAddresses}}
 {{end}}IdentityPublicKey = {{pem .IdentityPublicKey}}
@@ -705,19 +718,19 @@ var sphinxBlock = `[SphinxGeometry]
   UserForwardPayloadLength = {{.Sphinx.UserForwardPayloadLength}}
   NextNodeHopLength = {{.Sphinx.NextNodeHopLength}}
   SPRPKeyMaterialLength = {{.Sphinx.SPRPKeyMaterialLength}}
-  NIKEName = "{{.Sphinx.NIKEName}}"
-  KEMName = "{{.Sphinx.KEMName}}"
+  NIKEName = {{str .Sphinx.NIKEName}}
+  KEMName = {{str .Sphinx.KEMName}}
 `
 
 func mktmpl(name, body string) *template.Template {
-	return template.Must(template.New(name).Funcs(template.FuncMap{"addrs": addrs, "pem": pem, "noonion": noonion}).Parse(body))
+	return template.Must(template.New(name).Funcs(template.FuncMap{"addrs": addrs, "pem": pem, "noonion": noonion, "str": tomlValue}).Parse(body))
 }
 
 var pkiTmpl = mktmpl("pki", "[PKI]\n  [PKI.Voting]\n"+authPeers)
 
-var courierTmpl = mktmpl("courier", `WireKEMScheme = "{{.WireKEM}}"
+var courierTmpl = mktmpl("courier", `WireKEMScheme = {{str .WireKEM}}
 PKIScheme = "Ed25519 SPHINCS+"
-EnvelopeScheme = "{{.ReplicaNIKE}}"
+EnvelopeScheme = {{str .ReplicaNIKE}}
 DataDir = "/var/lib/katzenpost/courier/"
 ConnectTimeout = 60000
 HandshakeTimeout = 300000
@@ -751,8 +764,8 @@ var catshadowTmpl = mktmpl("catshadow", `DataDir = "./testdata/"
 [VotingAuthority]
 `+votingPeers+"\n"+sphinxBlock)
 
-var clientTmpl = mktmpl("client", `PKISignatureScheme = "{{.PKI}}"
-WireKEMScheme = "{{.WireKEM}}"
+var clientTmpl = mktmpl("client", `PKISignatureScheme = {{str .PKI}}
+WireKEMScheme = {{str .WireKEM}}
 
 [Listen]
   [Listen.Unix]
@@ -779,9 +792,9 @@ WireKEMScheme = "{{.WireKEM}}"
 
 [PinnedGateways]
 {{range .Gateways}}  [[PinnedGateways.Gateways]]
-    WireKEMScheme = "{{$.WireKEM}}"
-    PKISignatureScheme = "{{$.PKI}}"
-    Name = "{{.Name}}"
+    WireKEMScheme = {{str $.WireKEM}}
+    PKISignatureScheme = {{str $.PKI}}
+    Name = {{str .Name}}
     Addresses = {{addrs (noonion .Addresses)}}
     IdentityKey = {{pem .IdentityPublicKey}}
     LinkKey = {{pem .LinkPublicKey}}

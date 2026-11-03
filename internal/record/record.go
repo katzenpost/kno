@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
 
 	"github.com/BurntSushi/toml"
@@ -135,16 +136,42 @@ func WriteFile(p string, r Record) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if old, err := os.ReadFile(p); err == nil && sameExceptTimes(string(old), text) {
+	unlock, err := fsutil.Lock(fsutil.PublicationLockPath(p), nil)
+	if err != nil {
+		return false, err
+	}
+	defer unlock()
+	if err := validateWritePath(p); err != nil {
+		return false, err
+	}
+	old, err := os.ReadFile(p)
+	if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+	if err == nil && sameExceptTimes(string(old), text) {
 		return false, nil
 	}
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return false, err
 	}
-	if err := os.WriteFile(p, []byte(text), 0o644); err != nil {
+	if err := fsutil.WriteFileAtomic(p, []byte(text), 0o644); err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+func validateWritePath(path string) error {
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("unsafe record path: %s", path)
+	}
+	return nil
 }
 
 var timeKeys = []string{"sampled", "started", "finished", "deadline"}

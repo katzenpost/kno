@@ -11,6 +11,7 @@ import (
 
 	"github.com/katzenpost/kno/internal/cli"
 	"github.com/katzenpost/kno/internal/config"
+	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/nodefile"
 	"github.com/katzenpost/kno/internal/render"
@@ -88,18 +89,22 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.Join(addrs, " ") == strings.Join(now, " ") {
-				fmt.Fprintf(w, "%s already announces that. Nothing written\n",
-					n.File)
-				return nil
-			}
 			if cli.DryRun() {
+				if strings.Join(addrs, " ") == strings.Join(now, " ") {
+					fmt.Fprintf(w, "%s already announces that. Nothing written\n", n.File)
+					return nil
+				}
 				fmt.Fprintf(w, "--dry-run: would set %s to %s\n", n.File,
 					strings.Join(addrs, " "))
 				return nil
 			}
-			if err := nodefile.SetAddresses(n.Path, addrs); err != nil {
+			wrote, err := setNodeAddresses(repo, network, n.Path, addrs)
+			if err != nil {
 				return err
+			}
+			if !wrote {
+				fmt.Fprintf(w, "%s already announces that. Nothing written\n", n.File)
+				return nil
 			}
 			fmt.Fprintf(w, "wrote %s\n", n.File)
 			for _, a := range addrs {
@@ -118,6 +123,25 @@ func Command() *cobra.Command {
 		" repo, from this directory")
 	f.Lookup("keys").NoOptDefVal = "dataDir"
 	return cmd
+}
+
+func setNodeAddresses(repo, network, path string, addrs []string) (bool, error) {
+	unlock, err := fsutil.Lock(fsutil.NetworkLockPath(knopath.NetworkDir(repo, network)), nil)
+	if err != nil {
+		return false, err
+	}
+	defer unlock()
+	now, err := nodefile.Addresses(path)
+	if err != nil {
+		return false, err
+	}
+	if strings.Join(addrs, " ") == strings.Join(now, " ") {
+		return false, nil
+	}
+	if err := nodefile.SetAddresses(path, addrs); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func rendered(w io.Writer, repo, network string) error {
