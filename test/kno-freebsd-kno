@@ -8,7 +8,8 @@ src="${1:?usage: kno-freebsd-kno <scratch checkout> <kno.toml>}"
 cfg="${2:?usage: kno-freebsd-kno <scratch checkout> <kno.toml>}"
 W="${KNO_FBSD_KNO_DIR:-/var/tmp/kno-fbsd-kno}"
 host="${KNO_FBSD_KNO_HOST:-pietje}"
-tag="${KNO_FBSD_KNO_TAG:-v0.0.107}"
+pins="$src/data/thirdparty/pins.env"
+tag="${KNO_FBSD_KNO_TAG:-$(sed -n 's/^KATZENPOST_REF=//p' "$pins")}"
 log="$W/run.log"
 J=/usr/jails
 KJ=$J/kno
