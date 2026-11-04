@@ -25,6 +25,8 @@ var dynamicPrograms = map[string][]string{
 
 	"internal/activate/activate.go: engine": {"podman"},
 
+	"internal/nodeedit/geometry_tool.go: tool": {"kpgeometry"},
+
 	"internal/hostsetup/hostsetup.go: s.Argv[0]": {"apt", "env", "pkg", "useradd", "install", "git", "chown", "sudo", "systemctl", "rm", "rmdir"},
 
 	"internal/push/run.go: s.Argv[0]":     {"ssh", "scp", "rsync", "kno"},

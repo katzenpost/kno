@@ -94,6 +94,8 @@ func newRootCommand() *cobra.Command {
 		topology.Command(),
 		contribute.Command(),
 		nodeedit.Command(),
+		nodeedit.NodesCommand(),
+		nodeedit.EditorCommand(),
 		push.Command(),
 		schedule.Command(),
 		verify.Command(),
@@ -113,12 +115,15 @@ func newRootCommand() *cobra.Command {
 	honoured := []string{
 		"activate", "adopt", "attest", "backup-keys", "bootstrap", "build", "build warped",
 		"clean", "contribute", "deps", "doctor", "edit", "push",
+		"node create", "node retire", "node edit", "node recover", "node topology move", "node topology unplace",
+		"node topology add-layer", "node topology remove-layer", "node plugin edit", "node terminal",
 		"schedule",
 		"update",
 	}
 	readOnly := []string{
+		"node plugin", "node topology",
 		"build compare", "build epoch", "build version", "config", "doctor package", "doctor tools", "peers",
-		"preflight", "probe", "release", "release signers", "release verify",
+		"preflight", "probe", "release", "release signers", "release verify", "nodes", "node", "node show", "node plugin list",
 		"sim", "sim validate", "status", "track", "verify",
 	}
 

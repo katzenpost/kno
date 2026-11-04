@@ -84,6 +84,11 @@ func (t Tool) wantedOn(goos string) bool {
 
 var Tools = []Tool{
 	{
+		Name: "kpgeometry", Scope: ScopeNode, For: "kno node topology layer changes",
+		Why:     "computes packet geometry with the selected Katzenpost release before changing the number of layers",
+		Version: []string{"--version"},
+	},
+	{
 		Name: "apt-get", GOOS: "linux", Package: "apt", Scope: ScopeNode,
 		For:     "kno activate (install = apt)",
 		Why:     "installs a release by name and version out of the local repository, which resolves dependencies and removes a conflicting package where dpkg -i only reports the conflict",
