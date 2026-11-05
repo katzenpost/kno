@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/katzenpost/kno/internal/contribute"
+	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/nodefile"
 	"github.com/katzenpost/kno/internal/nodekeys"
@@ -110,6 +111,11 @@ func ParseAddresses(in string) ([]string, error) {
 }
 
 func ImportKeys(repo, network string, n Node, dir string) error {
+	unlock, err := fsutil.Lock(fsutil.NetworkLockPath(knopath.NetworkDir(repo, network)), nil)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	if dir == "" {
 		lines, err := nodekeys.ReadLines(n.Path)
 		if err != nil {

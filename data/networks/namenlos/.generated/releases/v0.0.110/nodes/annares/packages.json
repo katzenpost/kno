@@ -4,12 +4,12 @@
   "written": "2026-11-03T19:58:15Z",
   "packages": [
     {
-      "name": "namenlos-config-annares-pq-authority_0.0.110-1+20261031161543.gc39606d_ppc64el.deb",
+      "name": "namenlos-config-annares-pq-authority_0.0.110-1+20261103211100.g245a1c5_ppc64el.deb",
       "arch": "ppc64el",
-      "version": "0.0.110-1+20261031161543.gc39606d",
-      "sha256": "83de55fc07ca9c16d245cc4414bec6154bca040be847da86e02005089919b80d",
-      "bytes": 14360,
-      "content": "341d7ed994a10302ff1f87c468857854",
+      "version": "0.0.110-1+20261103211100.g245a1c5",
+      "sha256": "5d9d120e69ad9b39c0cba9422a691eb2c1ef4de17d83417fc4c65c1236964afb",
+      "bytes": 14368,
+      "content": "427876c36e081a7c53188a85b0925605",
       "scripts": [
         "postinst",
         "preinst",
