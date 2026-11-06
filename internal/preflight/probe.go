@@ -73,7 +73,7 @@ func Probe(stateDirs map[string]string, units []string) string {
 	for _, u := range units {
 		fmt.Fprintf(&b, "p %s \"$(systemctl is-active %s 2>/dev/null || true)\"\n", shq("unit:"+u), shq(u))
 	}
-	b.WriteString(`p pkgs "$(dpkg-query -W -f '${Package}=${Version};' katzenpost kno 'namenlos-config-*' 'kno-host-config*' 2>/dev/null)"` + "\n")
+	b.WriteString(`p pkgs "$(dpkg-query -W -f '${Package}=${Version};' katzenpost kpclientd kno 'namenlos-config-*' 'kno-host-config*' 2>/dev/null)"` + "\n")
 	b.WriteString("m=\n")
 	dirs := make([]string, 0, len(stateDirs))
 	for _, dir := range stateDirs {

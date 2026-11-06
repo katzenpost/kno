@@ -176,3 +176,25 @@ func arMember(f *os.File, prefix string) (string, io.Reader, error) {
 		}
 	}
 }
+
+// ClientDeb is the kpclientd deb beside the katzenpost deb kp. From 0.0.111
+// katzenpost builds kpclientd as its own package; before that it is "".
+func ClientDeb(kp string) string {
+	base := filepath.Base(kp)
+	if !strings.HasPrefix(base, "katzenpost_") {
+		return ""
+	}
+	c := filepath.Join(filepath.Dir(kp), "kpclientd_"+strings.TrimPrefix(base, "katzenpost_"))
+	if _, err := os.Stat(c); err != nil {
+		return ""
+	}
+	return c
+}
+
+// WithClient is kp and, when there is one, its kpclientd deb.
+func WithClient(kp string) []string {
+	if c := ClientDeb(kp); c != "" {
+		return []string{kp, c}
+	}
+	return []string{kp}
+}

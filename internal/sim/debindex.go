@@ -55,16 +55,18 @@ func newDebIndex(entries []string) debIndex {
 	return ix
 }
 
-func readDebIndex(deb string) (debIndex, error) {
-	out, err := exec.Command("dpkg-deb", "-c", deb).Output()
-	if err != nil {
-		return debIndex{}, fmt.Errorf("dpkg-deb -c %s: %w", filepath.Base(deb), err)
-	}
+func readDebIndex(debs ...string) (debIndex, error) {
 	var entries []string
-	for _, l := range strings.Split(string(out), "\n") {
-		f := strings.Fields(l)
-		if len(f) >= 6 {
-			entries = append(entries, f[5])
+	for _, deb := range debs {
+		out, err := exec.Command("dpkg-deb", "-c", deb).Output()
+		if err != nil {
+			return debIndex{}, fmt.Errorf("dpkg-deb -c %s: %w", filepath.Base(deb), err)
+		}
+		for _, l := range strings.Split(string(out), "\n") {
+			f := strings.Fields(l)
+			if len(f) >= 6 {
+				entries = append(entries, f[5])
+			}
 		}
 	}
 	return newDebIndex(entries), nil
@@ -89,11 +91,11 @@ func (r *run) index() (debIndex, error) {
 	if r.ix != nil {
 		return *r.ix, nil
 	}
-	deb, err := r.debFor(r.clientPlatform())
+	name, err := r.debFor(r.clientPlatform())
 	if err != nil {
 		return debIndex{}, err
 	}
-	ix, err := readDebIndex(filepath.Join(r.pkgs, deb))
+	ix, err := readDebIndex(deb.WithClient(filepath.Join(r.pkgs, name))...)
 	if err != nil {
 		return debIndex{}, err
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
+	kpdeb "github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/source"
 )
 
@@ -131,8 +132,10 @@ func (r *run) provisionPackages() error {
 				p, len(have), debPattern(p))
 		}
 		if !inPlace {
-			if err := copyFile(deb, filepath.Join(r.pkgs, filepath.Base(deb)), 0o644); err != nil {
-				return err
+			for _, d := range kpdeb.WithClient(deb) {
+				if err := copyFile(d, filepath.Join(r.pkgs, filepath.Base(d)), 0o644); err != nil {
+					return err
+				}
 			}
 		}
 		r.log.Logf("  %s runs %s", p, filepath.Base(deb))
@@ -209,8 +212,10 @@ func (r *run) provisionTools() error {
 	if err := os.RemoveAll(ex); err != nil {
 		return err
 	}
-	if out, err := exec.Command("dpkg-deb", "-x", filepath.Join(r.pkgs, deb), ex).CombinedOutput(); err != nil {
-		return fmt.Errorf("dpkg-deb -x %s: %v\n%s", deb, err, out)
+	for _, d := range kpdeb.WithClient(filepath.Join(r.pkgs, deb)) {
+		if out, err := exec.Command("dpkg-deb", "-x", d, ex).CombinedOutput(); err != nil {
+			return fmt.Errorf("dpkg-deb -x %s: %v\n%s", filepath.Base(d), err, out)
+		}
 	}
 	gk, err := r.binOf("", roleGenkey)
 	if err != nil {

@@ -555,9 +555,9 @@ func Build(o Options) ([]string, error) {
 	}
 
 	ids := &contentIDs{}
-	pkgs := make([]string, len(platforms))
+	var pkgs []string
 	for i, pf := range platforms {
-		dst, err := placeUpstream(built[i], filepath.Join(rel, "pkgs"), o.Tag, pf.OS, pf.Arch, binDir(o.work(), pf))
+		placed, err := placeUpstream(built[i], filepath.Join(rel, "pkgs"), o.Tag, pf.OS, pf.Arch, binDir(o.work(), pf))
 		if err != nil {
 			return nil, fmt.Errorf("katzenpost deb (%s): %w", pf, err)
 		}
@@ -567,12 +567,15 @@ func Build(o Options) ([]string, error) {
 				return nil, err
 			}
 		}
-		sum, _, err := fsutil.SHA256File(dst)
-		if err != nil {
-			return nil, err
+		for _, dst := range placed {
+			sum, _, err := fsutil.SHA256File(dst)
+			if err != nil {
+				return nil, err
+			}
+			name, _, _ := strings.Cut(filepath.Base(dst), "_")
+			ids.note(deb.PkgID{Name: name, Arch: pf.Arch, OS: compile.OSToken(pf.OS)}, sum)
 		}
-		ids.note(deb.PkgID{Name: "katzenpost", Arch: pf.Arch, OS: compile.OSToken(pf.OS)}, sum)
-		pkgs[i] = dst
+		pkgs = append(pkgs, placed...)
 	}
 
 	stable := NewStablePreferring(
@@ -737,16 +740,20 @@ func reusableUpstream(o Options, rel string, pf compile.Platform, recorded map[s
 	if o.Force || o.ToolRevision != "" {
 		return ""
 	}
-	name := "katzenpost_" + deb.OSVersion(o.Tag, "", pf.OS) + "_" + pf.Arch + ".deb"
-	want, ok := recorded[name]
-	if !ok {
+	rest := "_" + deb.OSVersion(o.Tag, "", pf.OS) + "_" + pf.Arch + ".deb"
+	if _, ok := recorded["katzenpost"+rest]; !ok {
 		return ""
 	}
-	p := filepath.Join(rel, "pkgs", name)
-	if got, _, err := fsutil.SHA256File(p); err != nil || got != want {
-		return ""
+	for _, name := range []string{"katzenpost" + rest, "kpclientd" + rest} {
+		want, ok := recorded[name]
+		if !ok {
+			continue
+		}
+		if got, _, err := fsutil.SHA256File(filepath.Join(rel, "pkgs", name)); err != nil || got != want {
+			return ""
+		}
 	}
-	return p
+	return filepath.Join(rel, "pkgs", "katzenpost"+rest)
 }
 
 func needEngine() error {

@@ -273,6 +273,28 @@ func TestOnlyThisHostsPackages(t *testing.T) {
 	}
 }
 
+func TestTheKpclientdDebTravelsWithKatzenpost(t *testing.T) {
+	rel := staged(t,
+		"katzenpost_0.0.104+ubuntu26.04_ppc64el.deb",
+		"kpclientd_0.0.104+ubuntu26.04_ppc64el.deb",
+		"kpclientd_0.0.104+debian13_ppc64el.deb",
+		"namenlos-config-annares-pq-authority_0.0.104_ppc64el.deb",
+	)
+	p, err := PlanFor(opts(t, rel, ModeInstall, "annares-pq-authority"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, pk := range p.Packages {
+		names = append(names, filepath.Base(pk))
+	}
+	want := "katzenpost_0.0.104+ubuntu26.04_ppc64el.deb kpclientd_0.0.104+ubuntu26.04_ppc64el.deb" +
+		" namenlos-config-annares-pq-authority_0.0.104_ppc64el.deb " + knoPkg
+	if got := strings.Join(names, " "); got != want {
+		t.Errorf("pushes %s\nwant   %s", got, want)
+	}
+}
+
 func TestFullRestartsResolvedUnits(t *testing.T) {
 	rel := staged(t,
 		"katzenpost_0.0.107+ubuntu26.04_amd64.deb",

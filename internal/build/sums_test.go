@@ -444,12 +444,71 @@ func TestPlaceUpstreamNeedsNoDpkgDeb(t *testing.T) {
 	if err != nil {
 		t.Fatalf("placeUpstream without dpkg-deb: %v", err)
 	}
-	if _, err := os.Stat(dst); err != nil {
+	if len(dst) != 1 {
+		t.Fatalf("placed %v, want the katzenpost deb only", dst)
+	}
+	if _, err := os.Stat(dst[0]); err != nil {
 		t.Errorf("the deb was not placed: %v", err)
 	}
 	ents, err := os.ReadDir(bindir)
 	if err != nil || len(ents) != 1 || ents[0].Name() != "kpclientd" {
 		t.Errorf("bindir holds %v (%v), want kpclientd only", ents, err)
+	}
+}
+
+func TestPlaceUpstreamSplit(t *testing.T) {
+	if _, err := exec.LookPath("dpkg-deb"); err != nil {
+		t.Skip("no dpkg-deb to build the package with")
+	}
+	root := t.TempDir()
+	dist := filepath.Join(root, "dist")
+	for name, bin := range map[string]string{"katzenpost": "kpserver", "kpclientd": "kpclientd"} {
+		pkg := filepath.Join(root, name)
+		for _, d := range []string{"DEBIAN", "usr/bin"} {
+			if err := os.MkdirAll(filepath.Join(pkg, d), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		control := "Package: " + name + "\nVersion: 0.0.111\nArchitecture: amd64\nMaintainer: t <t@example.invalid>\nDescription: t\n"
+		if err := os.WriteFile(filepath.Join(pkg, "DEBIAN/control"), []byte(control), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(pkg, "usr/bin", bin), []byte(bin), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(dist, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if b, err := exec.Command("dpkg-deb", "-Zxz", "--root-owner-group", "--build", pkg, filepath.Join(dist, name+"_0.0.111_amd64.deb")).CombinedOutput(); err != nil {
+			t.Skipf("could not build a test package: %v: %s", err, b)
+		}
+	}
+	built, err := builtDeb(root, "amd64")
+	if err != nil || filepath.Base(built) != "katzenpost_0.0.111_amd64.deb" {
+		t.Fatalf("builtDeb = %q, %v", built, err)
+	}
+	bindir := filepath.Join(root, "bin")
+	dst, err := placeUpstream(built, filepath.Join(root, "pkgs"), "v0.0.111", "debian-13", "amd64", bindir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, d := range dst {
+		if _, err := os.Stat(d); err != nil {
+			t.Error(err)
+		}
+		names = append(names, filepath.Base(d))
+	}
+	if want := "katzenpost_0.0.111+debian13_amd64.deb kpclientd_0.0.111+debian13_amd64.deb"; strings.Join(names, " ") != want {
+		t.Errorf("placed %v, want %s", names, want)
+	}
+	ents, _ := os.ReadDir(bindir)
+	var bins []string
+	for _, e := range ents {
+		bins = append(bins, e.Name())
+	}
+	if strings.Join(bins, " ") != "kpclientd kpserver" {
+		t.Errorf("bindir holds %v, want kpclientd and kpserver", bins)
 	}
 }
 
