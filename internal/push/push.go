@@ -354,7 +354,9 @@ func planInstall(o Options, p Plan) (Plan, error) {
 				binArch, o.OS, strings.Join(baseNames(other), " "), o.Label)
 		}
 	}
-	p.Packages = append(p.Packages, bins...)
+	for _, b := range bins {
+		p.Packages = append(p.Packages, deb.WithClient(b)...)
+	}
 
 	for _, svc := range o.Services {
 		pat := filepath.Join(pkgs, configPkgPrefix+svc+"_*_"+configArch(o)+".deb")

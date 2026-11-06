@@ -69,7 +69,7 @@ func jailPackages() map[string]string {
 
 func localPackages() map[string]string {
 	out, err := exec.Command("dpkg-query", "-W", "-f", "${Package} ${Version}\n",
-		"katzenpost", "kno", "namenlos-config-*").Output()
+		"katzenpost", "kpclientd", "kno", "namenlos-config-*").Output()
 	if err != nil && len(out) == 0 {
 		return nil
 	}

@@ -5,6 +5,7 @@ import "strings"
 var OurPackages = []string{
 	"katzenpost",
 	"katzenpost-warped",
+	"kpclientd",
 	"kno",
 	"kno-host-config",
 	"kno-host-config-*",
