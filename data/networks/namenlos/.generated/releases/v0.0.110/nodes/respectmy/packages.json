@@ -1,0 +1,14 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.110",
+  "written": "2026-11-03T19:58:15Z",
+  "packages": [
+    {
+      "name": "namenlos-config-respectmy-pq-authority-0.0.110.20261103211100.pkg",
+      "version": "0.0.110.20261103211100",
+      "sha256": "842c0719466563a1b8d350765027b9ade7fc2fc2014f66eeb176d6bfdc41e179",
+      "bytes": 13610,
+      "content": "50316385e6427597868c8043d39deab1"
+    }
+  ]
+}

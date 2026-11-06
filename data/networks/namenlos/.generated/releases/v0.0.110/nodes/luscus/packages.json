@@ -1,0 +1,20 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.110",
+  "written": "2026-11-03T19:58:15Z",
+  "packages": [
+    {
+      "name": "namenlos-config-luscus-pq-authority_0.0.110-1+20261103211100.g245a1c5_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.110-1+20261103211100.g245a1c5",
+      "sha256": "ec2c92d03edc50c74f17d807b19dfb11cd4b4e7eb237a7d5d8a4664fe73d41c2",
+      "bytes": 14372,
+      "content": "c4de1b98f3bae0fe2ddfba69d0cdd5a2",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.110",
+  "written": "2026-11-03T19:58:15Z",
+  "packages": [
+    {
+      "name": "namenlos-config-lilly-pq-servicenode_0.0.110-1+20261031161543.gc39606d_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.110-1+20261031161543.gc39606d",
+      "sha256": "078f18feb6308a1a31bba04eabbaacd967f9921bc9862d4c2616fef84ed577cc",
+      "bytes": 13732,
+      "content": "3037f4fa5e756b91b99b603a80d5bd94",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}

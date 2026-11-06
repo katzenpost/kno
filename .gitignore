@@ -5,3 +5,5 @@
 /.ci-local/
 /bin/
 .DS_Store
+*.kno-lock
+.kno-render-stage-*
