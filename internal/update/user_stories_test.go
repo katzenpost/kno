@@ -14,6 +14,7 @@ import (
 	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/push"
+	"github.com/katzenpost/kno/internal/source"
 	"github.com/katzenpost/kno/internal/testutil"
 	"github.com/katzenpost/kno/internal/track"
 )
@@ -26,7 +27,13 @@ type operatorStoryRunner struct {
 func (r *operatorStoryRunner) Track() (string, int) { return r.tag, 0 }
 
 func TestOperatorStoryBuildSeveralHostsThenUpdateOneAndResume(t *testing.T) {
-	const tag = "v0.0.107"
+	pins, err := source.ParsePins(filepath.Join(testutil.RepoRoot(t),
+		"thirdparty", "pins.env"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tag := pins["KATZENPOST_REF"]
+	ver := deb.Version(tag, "")
 	home := t.TempDir()
 	checkout := filepath.Join(home, "checkout")
 	c := exec.Command("git", "clone", "--shared", "-q", testutil.ModuleRoot(t), checkout)
@@ -64,7 +71,17 @@ func TestOperatorStoryBuildSeveralHostsThenUpdateOneAndResume(t *testing.T) {
 		t.Fatal("no tool version")
 	}
 	pkgs := filepath.Join(e.ReleasesDir, tag, "pkgs")
-	for _, name := range []string{"katzenpost_0.0.107+ubuntu24.04_amd64.deb", "katzenpost_0.0.107+ubuntu25.04_amd64.deb", "kno_" + tool + "_amd64.deb", "kno-host-config-lilly_" + tool + "_amd64.deb", "kno-host-config-mixy_" + tool + "_amd64.deb", "namenlos-config-lilly-pq-servicenode_0.0.107-1" + deb.ConfigStamp(repo, "namenlos", "lilly-pq-servicenode") + "_amd64.deb", "namenlos-config-mixy-pq-mixserver_0.0.107-1" + deb.ConfigStamp(repo, "namenlos", "mixy-pq-mixserver") + "_amd64.deb"} {
+	for _, name := range []string{
+		"katzenpost_" + ver + "+ubuntu24.04_amd64.deb",
+		"katzenpost_" + ver + "+ubuntu25.04_amd64.deb",
+		"kno_" + tool + "_amd64.deb",
+		"kno-host-config-lilly_" + tool + "_amd64.deb",
+		"kno-host-config-mixy_" + tool + "_amd64.deb",
+		"namenlos-config-lilly-pq-servicenode_" + ver + "-1" +
+			deb.ConfigStamp(repo, "namenlos", "lilly-pq-servicenode") + "_amd64.deb",
+		"namenlos-config-mixy-pq-mixserver_" + ver + "-1" +
+			deb.ConfigStamp(repo, "namenlos", "mixy-pq-mixserver") + "_amd64.deb",
+	} {
 		p := filepath.Join(pkgs, name)
 		write(t, p, "fixture package "+name)
 		sum, n, err := fsutil.SHA256File(p)
@@ -90,7 +107,11 @@ func TestOperatorStoryBuildSeveralHostsThenUpdateOneAndResume(t *testing.T) {
 	if err := st.ensure(tag); err != nil {
 		t.Fatalf("whole-operator build did not cover one host: %v\n%s", err, out.String())
 	}
-	ssh := fakeSSH(t, 0, fmt.Sprintf("katzenpost 0.0.107\nkno %s\nkno-host-config-lilly %s\nnamenlos-config-lilly-pq-servicenode 0.0.107-1%s\n#units\nactive\n", tool, tool, deb.ConfigStamp(repo, "namenlos", "lilly-pq-servicenode")))
+	ssh := fakeSSH(t, 0, fmt.Sprintf("katzenpost %s\nkno %s\n"+
+		"kno-host-config-lilly %s\n"+
+		"namenlos-config-lilly-pq-servicenode %s-1%s\n#units\nactive\n",
+		ver, tool, tool, ver,
+		deb.ConfigStamp(repo, "namenlos", "lilly-pq-servicenode")))
 	he := hostEnv(e, h)
 	r := &RemoteRunner{Env: he, Host: h, Stage: st, SSH: ssh, Out: &out, Log: track.Logger{Tool: "update", W: &out}}
 	r.Before = r.sample("already installed by push")

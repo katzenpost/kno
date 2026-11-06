@@ -3,12 +3,14 @@ package update
 import (
 	"bytes"
 	"maps"
+	"path/filepath"
 	"strings"
 
 	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/push"
 	"github.com/katzenpost/kno/internal/record"
+	"github.com/katzenpost/kno/internal/source"
 	"github.com/katzenpost/kno/internal/testutil"
 	"github.com/katzenpost/kno/internal/track"
 	"testing"
@@ -37,7 +39,12 @@ func TestOnlyTheRecordedPackagesMatchTheRecord(t *testing.T) {
 
 func TestAlreadyInstalledPackagesAreVerifiedWithoutAnotherPush(t *testing.T) {
 	repo := testutil.RepoRoot(t)
-	const tag = "v0.0.107"
+	pins, err := source.ParsePins(filepath.Join(repo, "thirdparty", "pins.env"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tag := pins["KATZENPOST_REF"]
+	ver := deb.Version(tag, "")
 	const svc = "lilly-pq-servicenode"
 	wantKno := push.KnoVersionFor(repo, tag)
 	stamp := deb.ConfigStamp(repo, "namenlos", svc)
@@ -46,7 +53,8 @@ func TestAlreadyInstalledPackagesAreVerifiedWithoutAnotherPush(t *testing.T) {
 	}
 	var out bytes.Buffer
 	r := &RemoteRunner{Env: track.Env{Repo: repo, Network: "namenlos", Config: config.Config{}}, Host: remoteHost{Label: "lilly", Services: []string{svc}}, Log: track.Logger{Tool: "update", W: &out}, Out: &out, Before: &record.Sample{Packages: map[string]string{
-		"katzenpost": "0.0.107", "kno": wantKno, "kno-host-config-lilly": wantKno, "namenlos-config-" + svc: "0.0.107-1" + stamp,
+		"katzenpost": ver, "kno": wantKno, "kno-host-config-lilly": wantKno,
+		"namenlos-config-" + svc: ver + "-1" + stamp,
 	}}}
 	if !r.alreadyInstalled(tag) {
 		t.Fatal("identical installed packages would be reinstalled")
@@ -62,11 +70,11 @@ func TestAlreadyInstalledPackagesAreVerifiedWithoutAnotherPush(t *testing.T) {
 		t.Fatal("--force cannot reinstall")
 	}
 	r.Force = false
-	r.Before.Packages["namenlos-config-"+svc] = "0.0.107-1+old"
+	r.Before.Packages["namenlos-config-"+svc] = ver + "-1+old"
 	if r.alreadyInstalled(tag) {
 		t.Fatal("an old config was accepted")
 	}
-	r.Before.Packages["namenlos-config-"+svc] = "0.0.107-1" + stamp
+	r.Before.Packages["namenlos-config-"+svc] = ver + "-1" + stamp
 	delete(r.Before.Packages, "kno-host-config-lilly")
 	if r.alreadyInstalled(tag) {
 		t.Fatal("missing host config was accepted")
