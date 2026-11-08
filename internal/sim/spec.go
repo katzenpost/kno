@@ -416,7 +416,8 @@ func (r *run) prepOne(s daemon, shared bool) error {
 	if err := copyTree(src, state); err != nil {
 		return err
 	}
-	if prefix, _ := rolePrefixBin(s.Base); prefix == "authority" {
+	prefix, _ := rolePrefixBin(s.Base)
+	if prefix == "authority" {
 		for _, kd := range authorityKeyKinds {
 			if err := copyGlob(filepath.Join(r.keys, kd, "*.pem"), state); err != nil {
 				return err
@@ -429,6 +430,9 @@ func (r *run) prepOne(s daemon, shared bool) error {
 	out := transformServerConfig(lines, bind, "/data/"+s.Base, r.LogLevel)
 	if r.NoCourier && containsAny(out, "CBORPluginKaetzchen") {
 		out = disableCourierBlock(out)
+	}
+	if prefix == "replica" && r.Emulate {
+		out = append([]string{"ProxyRequestTimeout = 120"}, out...)
 	}
 	return writeLines(filepath.Join(r.sim, s.Base+".toml"), out, 0o644)
 }
