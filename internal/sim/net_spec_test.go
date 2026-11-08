@@ -302,6 +302,41 @@ func TestPrepConfigsFlattensSharedBindsAndWritesNAT(t *testing.T) {
 	}
 }
 
+func TestEmulatedReplicasWaitLongerForProxiedReplies(t *testing.T) {
+	for _, emulate := range []bool{false, true} {
+		r := testRun(t)
+		r.Emulate = emulate
+		svcs, err := r.deriveSpec()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, s := range svcs {
+			if err := os.MkdirAll(filepath.Join(r.dd, s.DataSrc), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		courier := filepath.Join(r.dd, "courier-wauland")
+		if err := os.MkdirAll(courier, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := r.prepConfigs(svcs); err != nil {
+			t.Fatal(err)
+		}
+		for _, base := range []string{"annares-pq-storagenode-0",
+			"wauland-pq-storagenode", "luscus-pq-authority"} {
+			lines, err := readLines(filepath.Join(r.sim, base+".toml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := emulate && strings.Contains(base, "storagenode")
+			if got := containsAny(lines, "ProxyRequestTimeout = 120"); got != want {
+				t.Errorf("emulate=%v: %s sets the 120 second proxy limit: %v",
+					emulate, base, got)
+			}
+		}
+	}
+}
+
 func simBind(t *testing.T, r *run, base string) string {
 	t.Helper()
 	lines, err := readLines(filepath.Join(r.sim, base+".toml"))

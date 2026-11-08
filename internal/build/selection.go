@@ -81,9 +81,10 @@ func SelectKatzenpostMode(e track.Env, tag, ref string, refresh bool, l track.Lo
 	if err != nil {
 		return nil, fmt.Errorf("selected source has no dependency checksum lock: %w", err)
 	}
-	hpqc, replaced := goModRequire(string(gmod), hpqcModule)
+	hpqc, replaced := source.GoModRequire(string(gmod), source.HPQCModule)
 	if hpqc == "" || replaced {
-		return nil, fmt.Errorf("selected go.mod must name a version of %s without a replace directive", hpqcModule)
+		return nil, fmt.Errorf("selected go.mod must name a version of %s"+
+			" without a replace directive", source.HPQCModule)
 	}
 	if err := selectedToolchain(string(gmod), pins["GO_VERSION"]); err != nil {
 		return nil, err
