@@ -27,6 +27,12 @@ var simCommands = map[string][2]string{
 	roleGenkey:    {"genkeypair", "kpgenkeypair"},
 }
 
+// pluginCommands are built only for a service node whose config names them, so older tags without them still build.
+var pluginCommands = map[string][2]string{
+	"kpvoucher-router":    {"voucher-router", "kpvoucher-router"},
+	"kpservice-directory": {"service-directory", "kpservice-directory"},
+}
+
 func (r *run) simBuildPlan(ds []daemon) (map[platform][]string, error) {
 	want := map[platform]map[string]bool{}
 	add := func(p platform, role string) {
@@ -45,13 +51,20 @@ func (r *run) simBuildPlan(ds []daemon) (map[platform][]string, error) {
 		}
 		p := r.platformOf(d)
 		add(p, role)
-		if strings.HasSuffix(d.Base, "-pq-servicenode") && !r.NoCourier {
+		if strings.HasSuffix(d.Base, "-pq-servicenode") {
 			lines, err := readLines(ConfigPath(r.Repo, r.Network, d.Base))
 			if err != nil {
 				return nil, err
 			}
-			if containsAny(lines, "CBORPluginKaetzchen") {
+			if containsAny(lines, "CBORPluginKaetzchen") && !r.NoCourier {
 				add(p, roleCourier)
+			}
+			for _, l := range lines {
+				if m := reIdent.FindStringSubmatch(l); m != nil && keyLine(l, "Command") {
+					if _, ok := pluginCommands[filepath.Base(m[1])]; ok {
+						add(p, filepath.Base(m[1]))
+					}
+				}
 			}
 		}
 	}
@@ -76,6 +89,9 @@ func simCompileArgs(src, root, mod, cache, image, tag string, p platform, roles 
 	var script strings.Builder
 	for _, role := range roles {
 		cmd, ok := simCommands[role]
+		if !ok {
+			cmd, ok = pluginCommands[role]
+		}
 		if !ok {
 			return nil, fmt.Errorf("no sim command for %s", role)
 		}

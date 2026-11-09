@@ -237,6 +237,7 @@ func keyLine(l, key string) bool {
 func transformServerConfig(lines []string, bind, ddir, level string) []string {
 	out := make([]string, 0, len(lines))
 	inPeers := false
+	orig := ""
 	for _, l := range lines {
 		if rePeers.MatchString(l) {
 			inPeers = true
@@ -248,7 +249,17 @@ func transformServerConfig(lines []string, bind, ddir, level string) []string {
 		case keyLine(l, "BindAddresses") && !inPeers:
 			l = ind + "BindAddresses = " + bind
 		case keyLine(l, "DataDir"):
+			if m := reIdent.FindStringSubmatch(l); m != nil {
+				orig = m[1]
+			}
 			l = ind + `DataDir = "` + ddir + `"`
+		case keyLine(l, `"data_dir"`) && orig != "":
+			// a plugin's state under the server's DataDir moves with it into the container
+			if m := reIdent.FindStringSubmatch(l); m != nil && strings.HasPrefix(m[1], orig) {
+				l = ind + `"data_dir" = "` + ddir + strings.TrimPrefix(m[1], orig) + `"`
+			}
+		case keyLine(l, `"log_dir"`):
+			l = ind + `"log_dir" = "` + ddir + `"`
 		case keyLine(l, "Level"):
 			l = ind + `Level = "` + level + `"`
 		case keyLine(l, "SpoolDB"):
@@ -428,6 +439,14 @@ func (r *run) prepOne(s daemon, shared bool) error {
 		return err
 	}
 	out := transformServerConfig(lines, bind, "/data/"+s.Base, r.LogLevel)
+	for _, l := range out {
+		// CBOR plugins refuse to start unless their data_dir exists
+		if m := reIdent.FindStringSubmatch(l); m != nil && keyLine(l, `"data_dir"`) && strings.HasPrefix(m[1], "/data/"+s.Base+"/") {
+			if err := os.MkdirAll(filepath.Join(state, strings.TrimPrefix(m[1], "/data/"+s.Base)), 0o700); err != nil {
+				return err
+			}
+		}
+	}
 	if r.NoCourier && containsAny(out, "CBORPluginKaetzchen") {
 		out = disableCourierBlock(out)
 	}

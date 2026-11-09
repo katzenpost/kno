@@ -166,6 +166,21 @@ func TestTransformServerConfigBlanksMetricsAndSpool(t *testing.T) {
 	}
 }
 
+func TestTransformServerConfigMovesPluginDirsIntoTheContainer(t *testing.T) {
+	lines := []string{
+		`  DataDir = "/var/lib/katzenpost/server/s"`,
+		`      "data_dir" = "/var/lib/katzenpost/server/s/voucher_router"`,
+		`      "log_dir" = "/var/log/katzenpost"`,
+	}
+	out := transformServerConfig(lines, "[]", "/data/s", "DEBUG")
+	if out[1] != `      "data_dir" = "/data/s/voucher_router"` {
+		t.Errorf("data_dir = %q", out[1])
+	}
+	if out[2] != `      "log_dir" = "/data/s"` {
+		t.Errorf("log_dir = %q", out[2])
+	}
+}
+
 func TestDisableCourierBlock(t *testing.T) {
 	lines := fixtureLines(t, "wauland-pq-servicenode.toml")
 	if !containsAny(lines, "CBORPluginKaetzchen") {

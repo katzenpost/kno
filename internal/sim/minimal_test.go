@@ -31,8 +31,14 @@ func TestSimBuildSelectsOnlyTheRuntimePlatformsAndRoles(t *testing.T) {
 	if !reflect.DeepEqual(plan[ppc], []string{roleAuthority, roleCourier, roleReplica, roleServer}) {
 		t.Fatalf("annares runtime binaries: %v", plan[ppc])
 	}
-	if len(plan[r.clientPlatform()]) != len(simCommands) {
-		t.Fatal("native validation validation and client tools were omitted")
+	// windfall's service node shares the client platform and names both pigeonservice plugins
+	if len(plan[r.clientPlatform()]) != len(simCommands)+len(pluginCommands) {
+		t.Fatalf("native validation and client tools or plugins were omitted: %v", plan[r.clientPlatform()])
+	}
+	for bin := range pluginCommands {
+		if !strings.Contains(strings.Join(plan[r.clientPlatform()], " "), bin) {
+			t.Fatalf("plugin %s named by windfall's service node is not built", bin)
+		}
 	}
 	for p, roles := range plan {
 		for _, role := range roles {
