@@ -209,6 +209,7 @@ if tail -n +"$lines" "$con" | grep -q 'Starting jails: kno' &&
 	mark BOOT_CONSOLE 0
 else
 	mark BOOT_CONSOLE 1
+	tail -n +"$lines" "$con" | tr -d '\033' | tail -n 80 | tee -a "$log"
 fi
 keys KEYS_REBOOT
 say "the pietje partial upgrade keeps keys and state and cleans stale mounts"
