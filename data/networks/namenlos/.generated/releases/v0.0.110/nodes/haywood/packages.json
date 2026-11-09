@@ -1,0 +1,20 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.110",
+  "written": "2026-11-03T19:58:15Z",
+  "packages": [
+    {
+      "name": "namenlos-config-haywood-pq-gatewaynode_0.0.110-1+20261031161543.gc39606d_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.110-1+20261031161543.gc39606d",
+      "sha256": "e0b3edd2b6673d2a5d48777c7ad1361cc8214da404234acb0edf7a42aff579de",
+      "bytes": 13772,
+      "content": "e63142f1adb4a3d04899fc353529d7be",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}

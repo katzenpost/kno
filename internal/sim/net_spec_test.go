@@ -156,6 +156,7 @@ func TestTransformServerConfigBlanksMetricsAndSpool(t *testing.T) {
 		"[Server]",
 		`  MetricsAddress = "127.0.0.1:6543"`,
 		`  SpoolDB = "/var/lib/katzenpost/spool.db"`,
+		`  BridgeSocket = "/var/lib/katzenpost/replica/x/bridge.sock"`,
 	}
 	out := transformServerConfig(lines, "[]", "/data/x", "DEBUG")
 	if out[1] != `  MetricsAddress = ""` {
@@ -163,6 +164,24 @@ func TestTransformServerConfigBlanksMetricsAndSpool(t *testing.T) {
 	}
 	if out[2] != `  SpoolDB = "/data/x/spool.db"` {
 		t.Errorf("spool = %q", out[2])
+	}
+	if out[3] != `  BridgeSocket = "/data/x/bridge.sock"` {
+		t.Errorf("bridge socket = %q", out[3])
+	}
+}
+
+func TestTransformServerConfigMovesPluginDirsIntoTheContainer(t *testing.T) {
+	lines := []string{
+		`  DataDir = "/var/lib/katzenpost/server/s"`,
+		`      "data_dir" = "/var/lib/katzenpost/server/s/voucher_router"`,
+		`      "log_dir" = "/var/log/katzenpost"`,
+	}
+	out := transformServerConfig(lines, "[]", "/data/s", "DEBUG")
+	if out[1] != `      "data_dir" = "/data/s/voucher_router"` {
+		t.Errorf("data_dir = %q", out[1])
+	}
+	if out[2] != `      "log_dir" = "/data/s"` {
+		t.Errorf("log_dir = %q", out[2])
 	}
 }
 
