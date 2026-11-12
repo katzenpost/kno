@@ -66,7 +66,7 @@ func (b Build) Kinds() (configs int, katzenpost, kno, hostconfig bool) {
 		switch {
 		case strings.HasPrefix(p, ConfigPkgPrefix):
 			configs++
-		case strings.HasPrefix(p, "katzenpost"):
+		case strings.HasPrefix(p, "katzenpost"), strings.HasPrefix(p, "kpclientd_"):
 			katzenpost = true
 		case strings.HasPrefix(p, "kno-host-config"):
 			hostconfig = true

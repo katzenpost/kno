@@ -16,6 +16,7 @@ import (
 	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/knopath"
+	kpdeb "github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/render"
 	"github.com/katzenpost/kno/internal/service"
 	"github.com/katzenpost/kno/internal/track"
@@ -695,8 +696,10 @@ func (r *run) previousRelease(u upgradeEnv, hs []rehearsal) error {
 		if err != nil {
 			return fmt.Errorf("the %s release: %w", u.prev, err)
 		}
-		if err := copyFile(kp, filepath.Join(pkgs, filepath.Base(kp)), 0o644); err != nil {
-			return err
+		for _, d := range kpdeb.WithClient(kp) {
+			if err := copyFile(d, filepath.Join(pkgs, filepath.Base(d)), 0o644); err != nil {
+				return err
+			}
 		}
 		for _, pat := range []string{
 			"kno_*_" + arch + ".deb",
@@ -1070,7 +1073,7 @@ func (r *run) installPrevious(u upgradeEnv, h rehearsal) error {
 	if err != nil {
 		return err
 	}
-	names := []string{kp}
+	names := kpdeb.WithClient(kp)
 	for _, pat := range []string{
 		"kno_*_" + arch + ".deb",
 		"kno-host-config-" + h.Node + "_*_" + arch + ".deb",

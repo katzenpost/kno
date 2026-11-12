@@ -9,6 +9,7 @@ import (
 
 	"github.com/katzenpost/kno/internal/activate"
 	"github.com/katzenpost/kno/internal/knopath"
+	kpdeb "github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/service"
 )
 
@@ -25,10 +26,12 @@ func FindBinaries(repo, network, tag string) (dir, how string, cleanup func(), e
 	if err != nil {
 		return "", "", noop, err
 	}
-	if out, err := exec.Command("dpkg-deb", "-x", deb, tmp).CombinedOutput(); err != nil {
-		os.RemoveAll(tmp)
-		return "", "", noop, fmt.Errorf("extracting %s: %v: %s",
-			filepath.Base(deb), err, strings.TrimSpace(string(out)))
+	for _, d := range kpdeb.WithClient(deb) {
+		if out, err := exec.Command("dpkg-deb", "-x", d, tmp).CombinedOutput(); err != nil {
+			os.RemoveAll(tmp)
+			return "", "", noop, fmt.Errorf("extracting %s: %v: %s",
+				filepath.Base(d), err, strings.TrimSpace(string(out)))
+		}
 	}
 
 	return daemonDir(tmp),

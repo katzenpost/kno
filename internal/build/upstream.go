@@ -183,12 +183,14 @@ func (u upstreamDeb) Build(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	ver, err := debField(built, "Version")
-	if err != nil {
-		return "", err
-	}
-	if want := strings.TrimPrefix(u.Tag, "v"); ver != want {
-		return "", fmt.Errorf("katzenpost %s built version %s: its debian/changelog does not name the tag", u.Tag, ver)
+	for _, d := range deb.WithClient(built) {
+		ver, err := debField(d, "Version")
+		if err != nil {
+			return "", err
+		}
+		if want := strings.TrimPrefix(u.Tag, "v"); ver != want {
+			return "", fmt.Errorf("katzenpost %s built %s version %s: its debian/changelog does not name the tag", u.Tag, filepath.Base(d), ver)
+		}
 	}
 	return built, nil
 }
@@ -267,20 +269,30 @@ func debField(path, field string) (string, error) {
 	return deb.Field(control, field), nil
 }
 
-func placeUpstream(built, pkgs, tag, osName, arch, bindir string) (string, error) {
+// placeUpstream copies the katzenpost deb, and its kpclientd deb when the tag
+// has one, into pkgs, and extracts their binaries into bindir.
+func placeUpstream(built, pkgs, tag, osName, arch, bindir string) ([]string, error) {
 	if err := os.MkdirAll(pkgs, 0o755); err != nil {
-		return "", err
-	}
-	dst := filepath.Join(pkgs, "katzenpost_"+deb.OSVersion(tag, "", osName)+"_"+arch+".deb")
-	if built != dst {
-		if err := fsutil.CopyFile(built, dst); err != nil {
-			return "", err
-		}
+		return nil, err
 	}
 	if err := os.RemoveAll(bindir); err != nil {
-		return "", err
+		return nil, err
 	}
-	return dst, deb.ExtractDir(built, "usr/bin", bindir)
+	var out []string
+	for _, src := range deb.WithClient(built) {
+		name, _, _ := strings.Cut(filepath.Base(src), "_")
+		dst := filepath.Join(pkgs, name+"_"+deb.OSVersion(tag, "", osName)+"_"+arch+".deb")
+		if src != dst {
+			if err := fsutil.CopyFile(src, dst); err != nil {
+				return nil, err
+			}
+		}
+		if err := deb.ExtractDir(src, "usr/bin", bindir); err != nil {
+			return nil, err
+		}
+		out = append(out, dst)
+	}
+	return out, nil
 }
 
 var labelMu sync.Mutex

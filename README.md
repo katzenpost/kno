@@ -71,7 +71,8 @@ kno build --node mixy
 The nodes set the OS and the arch of each package. A build of all nodes
 makes these packages:
 
-- `katzenpost_*.deb` and `katzenpost-*.pkg`: the katzenpost binaries.
+- `katzenpost_*.deb` and `katzenpost-*.pkg`: the katzenpost binaries. From
+  katzenpost 0.0.111, the client daemon is in its own `kpclientd_*.deb`.
 - `namenlos-config-*.deb` and `namenlos-config-*.pkg`: the config of one
   service.
 - `kno_*.deb` and `kno-host-config_*.deb`: the kno tool and its config.

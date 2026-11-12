@@ -17,6 +17,7 @@ import (
 	"github.com/katzenpost/kno/internal/compile"
 	"github.com/katzenpost/kno/internal/fsutil"
 	"github.com/katzenpost/kno/internal/parallel"
+	kpdeb "github.com/katzenpost/kno/internal/pkg/deb"
 )
 
 const runnerPackages = "coreutils iproute2 iptables iputils-ping netcat-openbsd ca-certificates procps systemd"
@@ -114,21 +115,33 @@ func (r *run) installedImage(p platform) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sum, _, err := fsutil.SHA256File(filepath.Join(r.pkgs, deb))
-	if err != nil {
-		return "", err
+	debs := kpdeb.WithClient(filepath.Join(r.pkgs, deb))
+	var id []string
+	var names []string
+	for _, d := range debs {
+		sum, _, err := fsutil.SHA256File(d)
+		if err != nil {
+			return "", err
+		}
+		id, names = append(id, sum[:12]), append(names, filepath.Base(d))
 	}
 	img := "localhost/kno-sim-" + compile.OSToken(p.OS) + "-" + p.Goarch +
-		"-kp:" + sum[:12]
+		"-kp:" + strings.Join(id, "-")
 	if podmanQuiet("image", "exists", img) == nil {
 		return img, nil
 	}
-	r.log.Logf("installing %s into the image %s", deb, img)
+	run := "RUN"
+	var targets []string
+	for i, n := range names {
+		t := fmt.Sprintf("/tmp/kp%d.deb", i)
+		run += " --mount=type=bind,source=" + n + ",target=" + t
+		targets = append(targets, t)
+	}
+	r.log.Logf("installing %s into the image %s", strings.Join(names, " "), img)
 	cmd := podmanCmd(context.Background(), "build",
 		"--platform", "linux/"+p.Goarch, "-t", img, "-f", "-", r.pkgs)
 	cmd.Stdin = strings.NewReader("FROM " + runnerImage(p) + "\n" +
-		"RUN --mount=type=bind,source=" + deb + ",target=/tmp/kp.deb" +
-		" dpkg -i /tmp/kp.deb\n")
+		run + " dpkg -i " + strings.Join(targets, " ") + "\n")
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
 	if err := cmd.Run(); err != nil {

@@ -157,6 +157,10 @@ func systemdPlan(o Options, backend string) (Plan, error) {
 	}
 
 	debs := []string{kp}
+	if c := deb.ClientDeb(kp); c != "" && (o.WantClient || installedVersion("kpclientd") != "" || clientEnabled()) {
+		debs = append(debs, c)
+	}
+	bins := len(debs)
 	for _, svc := range o.Services {
 		c, err := configPkg(pkgs, svc, ver, arch)
 		if err != nil {
@@ -183,12 +187,12 @@ func systemdPlan(o Options, backend string) (Plan, error) {
 	fresh := notInstalled(debs)
 	switch {
 	case len(fresh) == 0:
-	case fresh[0] == kp:
+	case slices.Contains(debs[:bins], fresh[0]):
 		p.Steps = append(p.Steps, installStep(o, fresh), kpclientdStep(o.WantClient))
 	default:
 		p.Steps = append(p.Steps, installStep(o, fresh))
 	}
-	if len(fresh) == 0 || fresh[0] != kp {
+	if len(fresh) == 0 || !slices.Contains(debs[:bins], fresh[0]) {
 		if s, ok := kpclientdStart(o.WantClient); ok {
 			p.Steps = append(p.Steps, s)
 		}
@@ -244,6 +248,12 @@ var installedVersion = func(name string) string {
 		return ""
 	}
 	return strings.TrimSpace(v)
+}
+
+// clientEnabled keeps kpclientd on a host that enabled it outside kno.toml,
+// where it came with the katzenpost package before 0.0.111.
+var clientEnabled = func() bool {
+	return exec.Command("systemctl", "is-enabled", "--quiet", "kpclientd.service").Run() == nil
 }
 
 func notInstalled(debs []string) []string {
