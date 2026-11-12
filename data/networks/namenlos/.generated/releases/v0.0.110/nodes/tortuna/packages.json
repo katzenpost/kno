@@ -1,0 +1,20 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.110",
+  "written": "2026-11-03T19:58:15Z",
+  "packages": [
+    {
+      "name": "namenlos-config-gnunet-pq-authority_0.0.110-1+20261031161543.gc39606d_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.110-1+20261031161543.gc39606d",
+      "sha256": "6714dabbeffbef08d9370e1b6dadedd9a707932abef96d893c641536b1a24fc0",
+      "bytes": 14364,
+      "content": "670e3c8cd76e080b9f158d5764130a64",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}

@@ -253,6 +253,9 @@ func transformServerConfig(lines []string, bind, ddir, level string) []string {
 			l = ind + `Level = "` + level + `"`
 		case keyLine(l, "SpoolDB"):
 			l = ind + `SpoolDB = "` + ddir + `/spool.db"`
+		case keyLine(l, "BridgeSocket"):
+			// The replica binds it at startup, and the host path is absent in the container.
+			l = ind + `BridgeSocket = "` + ddir + `/bridge.sock"`
 		}
 		out = append(out, stripV6(l))
 	}
