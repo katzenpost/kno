@@ -20,7 +20,7 @@ func TestWindfallSetupKeepsServicesOnTheHostsOfTheirAddresses(t *testing.T) {
 		ip       string
 		services []string
 	}{
-		"windfall1": {"74.50.67.182", []string{"windfall-pq-authority", "windfall-pq-mixserver"}},
+		"windfall1": {"162.35.41.202", []string{"windfall-pq-authority", "windfall-pq-mixserver"}},
 		"windfall2": {"162.220.11.225", []string{"windfall-pq-servicenode", "windfall-pq-storagenode-2"}},
 	}
 	c := config.Config{Network: "namenlos", Nodes: []string{"windfall1", "windfall2"},
