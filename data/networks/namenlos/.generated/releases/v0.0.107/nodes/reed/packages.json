@@ -4,12 +4,12 @@
   "written": "2026-10-20T07:12:37Z",
   "packages": [
     {
-      "name": "namenlos-config-reed-pq-mixserver_0.0.107-1+20261029214512.gbd368cf_amd64.deb",
+      "name": "namenlos-config-reed-pq-mixserver_0.0.107-1+20261112111011.g3d8eddb_amd64.deb",
       "arch": "amd64",
-      "version": "0.0.107-1+20261029214512.gbd368cf",
-      "sha256": "3d97fbf51eb917ed4391f2ddb9e558cdd8d4e397dfe7001612e34168073e52f0",
-      "bytes": 13708,
-      "content": "6aaacf3bf25c8b382aa0f02c748d25d8",
+      "version": "0.0.107-1+20261112111011.g3d8eddb",
+      "sha256": "40e628947440715411eaee8dc0a806d82cd4ae03f613150ec6b6bac0ffaf362d",
+      "bytes": 13712,
+      "content": "a57929e1d6987edfb7e01ec627866295",
       "scripts": [
         "postinst",
         "preinst",

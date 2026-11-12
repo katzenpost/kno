@@ -4,12 +4,12 @@
   "written": "2026-10-20T07:12:37Z",
   "packages": [
     {
-      "name": "namenlos-config-lilly-pq-servicenode_0.0.107-1+20261029214512.gbd368cf_amd64.deb",
+      "name": "namenlos-config-lilly-pq-servicenode_0.0.107-1+20261112111011.g3d8eddb_amd64.deb",
       "arch": "amd64",
-      "version": "0.0.107-1+20261029214512.gbd368cf",
-      "sha256": "29a6d7d625cbfad7a6acc28853f174e11d9896b546895b7cfd381912827fc517",
+      "version": "0.0.107-1+20261112111011.g3d8eddb",
+      "sha256": "1ce7dd942f2b770cbcca2720b4b829cfa4e6afa23199206b0cda79f70232fea1",
       "bytes": 13728,
-      "content": "32b278c5e304864d4d0e0755f763abe6",
+      "content": "0c474e3142ca097164328b0deed4107e",
       "scripts": [
         "postinst",
         "preinst",
