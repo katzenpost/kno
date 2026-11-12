@@ -13,38 +13,38 @@
     "go_version": "1.26.10",
     "build_image": "docker.io/library/golang@sha256:ee3901c61e423732605a51f1b8157c849ec01194ea0a274213b5202b2c11e7bf",
     "deb_image": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
-    "tool": "(devel)"
+    "tool": "v0.0.0-20261112171620-2c43c43533c7"
   },
   "packages": [
     {
-      "name": "katzenpost-0.0.107+20261029223246.g134cc4b-debian13-amd64.tar.gz",
-      "sha256": "f56ac08db6c99f33ba23105d72f034aae2049d537a0221a74423aea2a8405afa",
-      "bytes": 115918062
+      "name": "katzenpost-0.0.107+20261112111011.g3d8eddb-debian13-amd64.tar.gz",
+      "sha256": "dc7881a72a02e9d867ad8fb5de1824f3e1e78ef19ad3f98dfab5b80d7d6fec6e",
+      "bytes": 115918039
     },
     {
-      "name": "katzenpost-0.0.107+20261029223246.g134cc4b-debian13-arm64.tar.gz",
-      "sha256": "bef5ca9fd5edb5df9ac1e2e8edf419667382b454fa78a22966ffca13fc77c5d0",
-      "bytes": 96281212
+      "name": "katzenpost-0.0.107+20261112111011.g3d8eddb-debian13-arm64.tar.gz",
+      "sha256": "6a4028aae2f2605f88552655f79d078bf65bebc918798998ca49891f9628af68",
+      "bytes": 96281166
     },
     {
-      "name": "katzenpost-0.0.107+20261029223246.g134cc4b-freebsd-amd64.tar.gz",
-      "sha256": "31b468fa3eb3b13948efd98715f655590821f25ceca413ff2364cc5cbc06facb",
-      "bytes": 99790371
+      "name": "katzenpost-0.0.107+20261112111011.g3d8eddb-freebsd-amd64.tar.gz",
+      "sha256": "39ef4d61825629981b95d9c189e93389d24153057e25e5bda2010360eb9537f6",
+      "bytes": 99790278
     },
     {
-      "name": "katzenpost-0.0.107+20261029223246.g134cc4b-ubuntu24.04-amd64.tar.gz",
-      "sha256": "09c9d4a6231c0cb038957b8bc41c6f7c45ac18b3e3542127c1721926a967dd6c",
-      "bytes": 118075630
+      "name": "katzenpost-0.0.107+20261112111011.g3d8eddb-ubuntu24.04-amd64.tar.gz",
+      "sha256": "719f9003a839e62ae53052c58f33f4edbf7c71d631c85080289f541d66cea2ac",
+      "bytes": 118075609
     },
     {
-      "name": "katzenpost-0.0.107+20261029223246.g134cc4b-ubuntu25.04-amd64.tar.gz",
-      "sha256": "9598f2cb874db21ab4152309f50e079be593fddc81c3d45b7227d05746f854f2",
-      "bytes": 116020742
+      "name": "katzenpost-0.0.107+20261112111011.g3d8eddb-ubuntu25.04-amd64.tar.gz",
+      "sha256": "589eb86386e7523e23a4e483afa06a5f869fd302178157381d815e08c7392b6d",
+      "bytes": 116020741
     },
     {
-      "name": "katzenpost-0.0.107+20261029223246.g134cc4b-ubuntu26.04-ppc64el.tar.gz",
-      "sha256": "88199f69365be48d7a25a432f9f8edca4e7d25a996d7d62eae2021477229befa",
-      "bytes": 107936483
+      "name": "katzenpost-0.0.107+20261112111011.g3d8eddb-ubuntu26.04-ppc64el.tar.gz",
+      "sha256": "6541ddbea7e60f5054498c5172789c7bb98a4dec900008a78b64c76adbe5cc14",
+      "bytes": 107936445
     },
     {
       "name": "katzenpost-0.0.107-hpqc-src.tar.gz",
@@ -57,10 +57,10 @@
       "bytes": 2911313
     },
     {
-      "name": "katzenpost-0.0.107.20261029223246.pkg",
-      "version": "0.0.107.20261029223246",
-      "sha256": "3fb73559fb346022c7db7ca9ba51183c9ae2bcf0916cde681930c05f5e93e2a4",
-      "bytes": 92423622
+      "name": "katzenpost-0.0.107.20261112111011.pkg",
+      "version": "0.0.107.20261112111011",
+      "sha256": "bc6695f127222b98dfa7fa39078dbd2e2d46f95f165d44f6e8a77723501a467d",
+      "bytes": 92423613
     },
     {
       "name": "katzenpost_0.0.107+debian13_amd64.deb",

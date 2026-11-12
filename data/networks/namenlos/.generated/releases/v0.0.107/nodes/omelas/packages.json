@@ -4,12 +4,12 @@
   "written": "2026-10-20T07:12:37Z",
   "packages": [
     {
-      "name": "namenlos-config-omelas-pq-mixserver_0.0.107-1+20261029214512.gbd368cf_amd64.deb",
+      "name": "namenlos-config-omelas-pq-mixserver_0.0.107-1+20261112111011.g3d8eddb_amd64.deb",
       "arch": "amd64",
-      "version": "0.0.107-1+20261029214512.gbd368cf",
-      "sha256": "65608d3a58ac02f74048198b2ec091d0b29ebfc88140c82637ae406cd54988eb",
+      "version": "0.0.107-1+20261112111011.g3d8eddb",
+      "sha256": "3bdcbd8ce98178412068a0998917519f10aba5e912253a5fa858517b42235920",
       "bytes": 13688,
-      "content": "667702689a7e7a545741305ced939bdd",
+      "content": "6050af7cc5f1b16e2a69f4fcd8148414",
       "scripts": [
         "postinst",
         "preinst",

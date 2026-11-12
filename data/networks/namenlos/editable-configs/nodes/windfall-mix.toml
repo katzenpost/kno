@@ -2,7 +2,7 @@ name = "windfall"
 role = "mix"
 configName = "windfall-pq-mixserver"
 
-addresses = ["tcp://74.50.67.182:30002"]
+addresses = ["tcp://162.35.41.202:30002"]
 dataDir = "/var/lib/katzenpost/server/windfall-pq-mixserver"
 metricsAddress = "127.0.0.1:31002"
 identityKeyFile = "windfall_mix_id_pub_key.pem"

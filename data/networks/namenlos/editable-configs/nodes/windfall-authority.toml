@@ -2,7 +2,7 @@ name = "windfall"
 role = "authority"
 configName = "windfall-pq-authority"
 
-addresses = ["tcp://74.50.67.182:40002"]
+addresses = ["tcp://162.35.41.202:40002"]
 dataDir = "/var/lib/katzenpost/authority/windfall-pq-authority"
 metricsAddress = "127.0.0.1:41002"
 identityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----

@@ -4,12 +4,12 @@
   "written": "2026-10-20T07:12:37Z",
   "packages": [
     {
-      "name": "namenlos-config-mixy-pq-mixserver_0.0.107-1+20261029214512.gbd368cf_amd64.deb",
+      "name": "namenlos-config-mixy-pq-mixserver_0.0.107-1+20261112111011.g3d8eddb_amd64.deb",
       "arch": "amd64",
-      "version": "0.0.107-1+20261029214512.gbd368cf",
-      "sha256": "5daed7b58acacb9460bdeaa144407e88f4adef50379173846b3bca4257f8a44d",
+      "version": "0.0.107-1+20261112111011.g3d8eddb",
+      "sha256": "2494bd4cb26746fc052ac9ab30dd3b54f5ea5780bf05bc8f77dc17453b21baa8",
       "bytes": 13696,
-      "content": "a4bc063984ea8c4331be8671ed07f429",
+      "content": "ad597b1640bd8c694d9ef6f38e2b4889",
       "scripts": [
         "postinst",
         "preinst",

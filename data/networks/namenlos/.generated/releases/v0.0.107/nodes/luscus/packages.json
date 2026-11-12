@@ -4,12 +4,12 @@
   "written": "2026-10-20T07:12:37Z",
   "packages": [
     {
-      "name": "namenlos-config-luscus-pq-authority_0.0.107-1+20261029214512.gbd368cf_amd64.deb",
+      "name": "namenlos-config-luscus-pq-authority_0.0.107-1+20261112111011.g3d8eddb_amd64.deb",
       "arch": "amd64",
-      "version": "0.0.107-1+20261029214512.gbd368cf",
-      "sha256": "a8d4b00948582c334f6ca8c4d72ece80e9904c2cce44e5e82122410a84508e87",
-      "bytes": 14352,
-      "content": "a1e0c19b9154cccde5752ba6029b539d",
+      "version": "0.0.107-1+20261112111011.g3d8eddb",
+      "sha256": "b70b67c52b0d3b5a3c7ac1d056a7bd1eeab02d1f88376858df5c4a23e9c3f550",
+      "bytes": 14356,
+      "content": "2662fc7236bb059f2fa2f41db4331406",
       "scripts": [
         "postinst",
         "preinst",
