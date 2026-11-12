@@ -282,7 +282,7 @@ xdjIiFZLivym1DKLBX6A2w==
       Identifier = "windfall"
       PKISignatureScheme = "Ed25519 Sphincs+"
       WireKEMScheme = "KYBER768-X25519"
-      Addresses = ["tcp://74.50.67.182:40002"]
+      Addresses = ["tcp://162.35.41.202:40002"]
       IdentityPublicKey = """-----BEGIN ED25519 SPHINCS+ PUBLIC KEY-----
 +oxlrZurSc3JD/eJsRmSabtFVsbFB/N1fSZSHTEajndgX/rGGZTCiBqMDqXC/qTS
 dfvVb+yOmo+pnbnEeWuCecXFplODH92p83pp+nzmMadGUprzadL9smufJlb7+GkD
