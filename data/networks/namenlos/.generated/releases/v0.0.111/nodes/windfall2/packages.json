@@ -1,0 +1,33 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.111",
+  "written": "2026-11-14T14:53:03Z",
+  "packages": [
+    {
+      "name": "namenlos-config-windfall-pq-servicenode_0.0.111-1+20261112111011.g3d8eddb_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.111-1+20261112111011.g3d8eddb",
+      "sha256": "7bb6f2ea5fadcd5d4cad9596b856abbd3c7d24f2dc6a07dca83b5e92fec712e6",
+      "bytes": 15664,
+      "content": "715ef032cab9d44bf69a22340a7b14a1",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    },
+    {
+      "name": "namenlos-config-windfall-pq-storagenode-2_0.0.111-1+20261112111011.g3d8eddb_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.111-1+20261112111011.g3d8eddb",
+      "sha256": "21e2daf25896de04893ecd04eb0f0de66facde032a8d23c2576a91b9c58c3e51",
+      "bytes": 12276,
+      "content": "882b84a037166038d91492aba8594ca9",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}

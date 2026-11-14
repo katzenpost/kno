@@ -1,0 +1,14 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.111",
+  "written": "2026-11-14T14:53:03Z",
+  "packages": [
+    {
+      "name": "namenlos-config-allmixedup-pq-gatewaynode-0.0.111.20261112111011.pkg",
+      "version": "0.0.111.20261112111011",
+      "sha256": "64bc2e4ae960c1b5cdca97864f07401ad406cf7631b3ced1f168e0d341f1629c",
+      "bytes": 9912,
+      "content": "d09ae11ba2694b41fedac31d0190a6d7"
+    }
+  ]
+}

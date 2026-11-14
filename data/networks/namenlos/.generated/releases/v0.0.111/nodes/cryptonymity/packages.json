@@ -1,0 +1,20 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.111",
+  "written": "2026-11-14T14:53:03Z",
+  "packages": [
+    {
+      "name": "namenlos-config-cryptonymity-pq-mixserver_0.0.111-1+20261112111011.g3d8eddb_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.111-1+20261112111011.g3d8eddb",
+      "sha256": "a6efa1ef9c954b4ce0fbbee9a34863b2eba6fed7569d654b1cb97a509f7e0fe4",
+      "bytes": 13704,
+      "content": "c78ec5401145908d7542a50d9d7e1a52",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}
