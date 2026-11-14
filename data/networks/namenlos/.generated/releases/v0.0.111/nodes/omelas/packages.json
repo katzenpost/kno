@@ -1,0 +1,20 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.111",
+  "written": "2026-11-14T14:53:03Z",
+  "packages": [
+    {
+      "name": "namenlos-config-omelas-pq-mixserver_0.0.111-1+20261112111011.g3d8eddb_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.111-1+20261112111011.g3d8eddb",
+      "sha256": "3ba30d7f7a12d22dd134835ce80a7064de7592122edeb65e563f997e0d5514bd",
+      "bytes": 13688,
+      "content": "11ac52f5ad8659a7e7c13a96f962a6fc",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}

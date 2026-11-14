@@ -1,0 +1,20 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.111",
+  "written": "2026-11-14T14:53:03Z",
+  "packages": [
+    {
+      "name": "namenlos-config-reed-pq-mixserver_0.0.111-1+20261112111011.g3d8eddb_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.111-1+20261112111011.g3d8eddb",
+      "sha256": "8f39d3ee31c20fd5db9bb4b52ca60a657045099140a4b324ce7bc3cab320024a",
+      "bytes": 13716,
+      "content": "b7d9d92db8a94935e3d4cda859fbfa8d",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}

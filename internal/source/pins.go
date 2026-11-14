@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/katzenpost/kno/internal/cli"
@@ -18,6 +19,9 @@ const (
 var PinModes = []string{PinTag, PinTip}
 
 const HPQCModule = "github.com/katzenpost/hpqc"
+
+// PseudoVersion matches a Go pseudo-version and captures its 12-hex commit prefix.
+var PseudoVersion = regexp.MustCompile(`[-.][0-9]{14}-([0-9a-f]{12})$`)
 
 func GoModRequire(gomod, module string) (version string, replaced bool) {
 	for _, line := range strings.Split(gomod, "\n") {
@@ -194,12 +198,40 @@ func pinHPQC(set, pins map[string]string, sha string) error {
 	if ref == "" || ref == pins["HPQC_REF"] {
 		return nil
 	}
-	hsha, err := ResolveSHA(ref, pins["HPQC_URL"], pins["HPQC_SRC"])
+	resolve := ResolveSHA
+	if PseudoVersion.MatchString(ref) {
+		resolve = resolvePseudo
+	}
+	hsha, err := resolve(ref, pins["HPQC_URL"], pins["HPQC_SRC"])
 	if err != nil {
 		return fmt.Errorf("resolve the commit for hpqc %s: %w", ref, err)
 	}
 	set["HPQC_REF"], set["HPQC_SHA"] = ref, hsha
 	return nil
+}
+
+// resolvePseudo finds the commit of a pseudo-version, which names no tag or branch
+// that ls-remote could resolve, only a 12-hex commit prefix.
+func resolvePseudo(ref, url, src string) (string, error) {
+	short := PseudoVersion.FindStringSubmatch(ref)[1]
+	if src != "" && isGitDir(src) {
+		if out, err := output("git", "-C", src, "rev-parse", "--verify", short+"^{commit}"); err == nil {
+			return firstLine(out), nil
+		}
+	}
+	dir, err := os.MkdirTemp("", "kno-hpqc-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(dir)
+	if err := run("", "git", "clone", "-q", "--bare", "--filter=blob:none", "--", url, dir); err != nil {
+		return "", err
+	}
+	out, err := output("git", "-C", dir, "rev-parse", "--verify", short+"^{commit}")
+	if err != nil {
+		return "", fmt.Errorf("no commit %s at %s", short, url)
+	}
+	return firstLine(out), nil
 }
 
 func setPins(body string, set map[string]string) (string, error) {

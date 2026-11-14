@@ -198,6 +198,33 @@ func TestAdoptPinsTheHPQCVersionTheTagRequires(t *testing.T) {
 	}
 }
 
+func TestAdoptPinsAnHPQCPseudoVersion(t *testing.T) {
+	e, root := fixture(t)
+	hp := t.TempDir()
+	gitT(t, hp, "init", "-q", "-b", "main")
+	commit(t, hp, "b", "1", "one")
+	gitT(t, hp, "tag", "v0.0.93")
+	commit(t, hp, "b", "2", "two")
+	sha := gitT(t, hp, "rev-parse", "HEAD")
+	pseudo := "v0.0.96-0.20261103140420-" + sha[:12]
+	commit(t, e.KatzenpostRepo, "go.mod", "module github.com/katzenpost/katzenpost\n\n"+
+		"require github.com/katzenpost/hpqc "+pseudo+"\n", "go.mod")
+	gitT(t, e.KatzenpostRepo, "tag", "v0.0.110")
+	commit(t, root, "data/thirdparty/pins.env",
+		"KATZENPOST_URL=https://example.invalid/katzenpost\n"+
+			"KATZENPOST_REF=v0.0.107\nKATZENPOST_SHA=old\n"+
+			"KATZENPOST_PIN_MODE=tag\nHPQC_URL="+hp+"\nHPQC_REF=v0.0.93\n"+
+			"HPQC_SHA="+gitT(t, hp, "rev-parse", "v0.0.93")+"\n", "hpqc")
+	var calls []string
+	if _, err := Run(Options{Env: e, Tag: "v0.0.110", Out: io.Discard}, steps(t, &calls, "")); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(filepath.Join(e.Repo, "thirdparty", "pins.env"))
+	if want := "HPQC_REF=" + pseudo + "\nHPQC_SHA=" + sha + "\n"; !strings.Contains(string(b), want) {
+		t.Errorf("pins.env is\n%s\nwant\n%s", b, want)
+	}
+}
+
 func TestAdoptRefusesATagThatReplacesHPQC(t *testing.T) {
 	e, root := fixture(t)
 	hpqcFixture(t, e, root, "module github.com/katzenpost/katzenpost\n\n"+

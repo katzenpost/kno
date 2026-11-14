@@ -1,0 +1,59 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.111",
+  "written": "2026-11-14T14:53:03Z",
+  "packages": [
+    {
+      "name": "namenlos-config-annares-pq-authority_0.0.111-1+20261112111011.g3d8eddb_ppc64el.deb",
+      "arch": "ppc64el",
+      "version": "0.0.111-1+20261112111011.g3d8eddb",
+      "sha256": "02bc010467a2a545d44ca772c7440cd981928d4b4d6c70f2c64673792bea2d14",
+      "bytes": 14348,
+      "content": "73f997f220801728bdc854cf19e5eaa3",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    },
+    {
+      "name": "namenlos-config-annares-pq-servicenode_0.0.111-1+20261112111011.g3d8eddb_ppc64el.deb",
+      "arch": "ppc64el",
+      "version": "0.0.111-1+20261112111011.g3d8eddb",
+      "sha256": "004d4e93954fdb75177bae590a86985763fbb3d7c2e698478a2cbd56b9c90e18",
+      "bytes": 15500,
+      "content": "110634a78397b1d3ba73650e83613a9c",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    },
+    {
+      "name": "namenlos-config-annares-pq-storagenode-0_0.0.111-1+20261112111011.g3d8eddb_ppc64el.deb",
+      "arch": "ppc64el",
+      "version": "0.0.111-1+20261112111011.g3d8eddb",
+      "sha256": "a9f4993fcfa7a757d7cd21f3c28e1114a0a0fe1394f6f2acc479f564ae32054f",
+      "bytes": 12276,
+      "content": "f9ae8e84c5f374d56986421ab87b50eb",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    },
+    {
+      "name": "namenlos-config-annares-pq-storagenode-1_0.0.111-1+20261112111011.g3d8eddb_ppc64el.deb",
+      "arch": "ppc64el",
+      "version": "0.0.111-1+20261112111011.g3d8eddb",
+      "sha256": "125374e2e971894b15b266634e3e8494ca15e4e5bd820671afbfe027d94b0454",
+      "bytes": 12276,
+      "content": "f235ade0b3a4569530f08563ee18210a",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}
