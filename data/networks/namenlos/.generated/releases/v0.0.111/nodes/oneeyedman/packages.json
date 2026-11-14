@@ -1,0 +1,20 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.111",
+  "written": "2026-11-14T14:53:03Z",
+  "packages": [
+    {
+      "name": "namenlos-config-oneeyedman-pq-mixserver_0.0.111-1+20261112111011.g3d8eddb_arm64.deb",
+      "arch": "arm64",
+      "version": "0.0.111-1+20261112111011.g3d8eddb",
+      "sha256": "efcead74cc0abde8ae6f2b88f0f13bf9c6d0e54fa7955c27a7cf8bb32d711e29",
+      "bytes": 13696,
+      "content": "69ee57638723da5817dabffeb15e9b8c",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}
