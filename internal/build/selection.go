@@ -34,7 +34,6 @@ type SourceSelection struct {
 }
 
 var changelogVersion = regexp.MustCompile(`^katzenpost \(([0-9][0-9A-Za-z.+:~-]*)\)`)
-var pseudoVersion = regexp.MustCompile(`-[0-9]{14}-([0-9a-f]{12})$`)
 var releaseTag = regexp.MustCompile(`^v?[0-9][0-9A-Za-z.+:~-]*$`)
 
 func SelectKatzenpost(e track.Env, tag, ref string, l track.Logger) (*SourceSelection, error) {
@@ -91,18 +90,18 @@ func SelectKatzenpostMode(e track.Env, tag, ref string, refresh bool, l track.Lo
 	}
 	hdir := filepath.Join(e.StateDir, "hpqc-source")
 	htag, href := hpqc, ""
-	if pseudoVersion.MatchString(hpqc) {
+	if source.PseudoVersion.MatchString(hpqc) {
 		htag, href = "", "main"
 	}
 	hExpected := ""
-	if pins["HPQC_REF"] == hpqc && !pseudoVersion.MatchString(hpqc) {
+	if pins["HPQC_REF"] == hpqc && !source.PseudoVersion.MatchString(hpqc) {
 		hExpected = pins["HPQC_SHA"]
 	}
 	dependency, err := track.ResolveSource(track.SourceRequest{Dir: hdir, URL: pins["HPQC_URL"], Tag: htag, Ref: href, Refresh: refresh, ExpectedCommit: hExpected}, l)
 	if err != nil {
 		return nil, fmt.Errorf("fetch selected hpqc %s: %w", hpqc, err)
 	}
-	if m := pseudoVersion.FindStringSubmatch(hpqc); len(m) == 2 {
+	if m := source.PseudoVersion.FindStringSubmatch(hpqc); len(m) == 2 {
 		sha, ok := track.GitOutput(hdir, "rev-parse", "--verify", m[1]+"^{commit}")
 		if !ok {
 			return nil, fmt.Errorf("hpqc %s is unavailable in its fetched main history", hpqc)

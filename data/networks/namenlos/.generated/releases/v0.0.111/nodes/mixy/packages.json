@@ -1,0 +1,20 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.111",
+  "written": "2026-11-14T14:53:03Z",
+  "packages": [
+    {
+      "name": "namenlos-config-mixy-pq-mixserver_0.0.111-1+20261112111011.g3d8eddb_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.111-1+20261112111011.g3d8eddb",
+      "sha256": "31edfbe98240f27d7fcfde4ec4122e448bef47ea7233a0a7e7281106ec1d0ccd",
+      "bytes": 13704,
+      "content": "4b318f66e80c939f293f2c0267a6bf87",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    }
+  ]
+}
