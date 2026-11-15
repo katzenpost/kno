@@ -3,6 +3,7 @@ name: kno-packages
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -34,6 +35,8 @@ jobs:
 
       - name: reuse successful matching job
         id: reuse
+        # a release builds its own packages
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 ci/reuse.py --workflow kno-packages.yml --job "package (${{ matrix.builder.runner }}, ${{ matrix.builder.arch }}, ${{ matrix.target }})"
@@ -70,6 +73,18 @@ jobs:
           PY
         env:
           TARGET: ${{ matrix.target }}
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: stage debs
+        run: |
+          mkdir -p "$RUNNER_TEMP/debs"
+          cp dist/kno/*.deb dist/host-config/*.deb "$RUNNER_TEMP/debs/"
+          cd "$RUNNER_TEMP/debs" && sha256sum *.deb > SHA256SUMS
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: kno-debs-${{ matrix.target }}-on-${{ matrix.builder.arch }}
+          path: ${{ runner.temp }}/debs
+          if-no-files-found: error
       - name: FreeBSD host packages
         if: ${{ steps.reuse.outputs.reused != 'true' && (matrix.target == 'amd64') }}
         env:
@@ -89,3 +104,31 @@ jobs:
         if: ${{ success() && steps.reuse.outputs.reused != 'true' }}
         continue-on-error: true
         run: python3 ci/images.py save
+
+  release:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    needs: package
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: kno-debs-*-on-amd64
+          path: ${{ runner.temp }}/debs
+          merge-multiple: true
+      - name: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cd "$RUNNER_TEMP/debs"
+          rm -f SHA256SUMS
+          sha256sum *.deb > SHA256SUMS-kno
+          # the other workflow may create the release first
+          gh release view "$TAG" >/dev/null 2>&1 ||
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes "" ||
+            gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" --clobber *.deb SHA256SUMS-kno

@@ -3,6 +3,7 @@ name: ci
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   merge_group:
   workflow_dispatch:
@@ -132,6 +133,8 @@ jobs:
 
       - name: reuse successful matching job
         id: reuse
+        # a release builds its own packages
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 ci/reuse.py --workflow ci.yml --job "build" --sums
@@ -170,6 +173,22 @@ jobs:
             done
             echo EOF
           } >> "$GITHUB_OUTPUT"
+
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        name: stage debs
+        id: debs
+        run: |
+          mkdir -p "$RUNNER_TEMP/debs"
+          cp "$PKGS"/*.deb "$RUNNER_TEMP/debs/"
+          (cd "$RUNNER_TEMP/debs" && sha256sum *.deb > SHA256SUMS)
+          echo "name=katzenpost-debs-$(sed -n 's/^KATZENPOST_REF=//p' data/thirdparty/pins.env)" >> "$GITHUB_OUTPUT"
+
+      - if: ${{ steps.reuse.outputs.reused != 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.debs.outputs.name }}
+          path: ${{ runner.temp }}/debs
+          if-no-files-found: error
 
       - name: selected source package
         if: ${{ steps.reuse.outputs.reused != 'true' }}
@@ -370,3 +389,31 @@ jobs:
           awk '{ print $2 }' "$RUNNER_TEMP/built" | sort -u > "$RUNNER_TEMP/got"
           missing=$(comm -23 "$RUNNER_TEMP/want" "$RUNNER_TEMP/got")
           [ -z "$missing" ] || { echo "not built: $missing"; exit 1; }
+
+  release:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    needs: [build, gate]
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: katzenpost-debs-*
+          path: ${{ runner.temp }}/debs
+          merge-multiple: true
+      - name: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cd "$RUNNER_TEMP/debs"
+          rm -f SHA256SUMS
+          sha256sum *.deb > SHA256SUMS-katzenpost
+          # the other workflow may create the release first
+          gh release view "$TAG" >/dev/null 2>&1 ||
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes "" ||
+            gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" --clobber *.deb SHA256SUMS-katzenpost
