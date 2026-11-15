@@ -1,0 +1,47 @@
+{
+  "network": "namenlos",
+  "tag": "v0.0.111",
+  "written": "2026-11-14T14:53:03Z",
+  "source_date_epoch": "1794667983",
+  "tool_revision": "1",
+  "inputs": {
+    "katzenpost_ref": "v0.0.111",
+    "katzenpost_sha": "0d63f976002b08ace53b882af1fbe72791ed7940",
+    "hpqc_ref": "v0.0.96-0.20261103140420-62a4e238dbf4",
+    "hpqc_sha": "62a4e238dbf41f1963d2567a90c48f7fb2507f8e",
+    "go_version": "1.26.10",
+    "build_image": "docker.io/library/golang@sha256:ee3901c61e423732605a51f1b8157c849ec01194ea0a274213b5202b2c11e7bf",
+    "deb_image": "docker.io/library/debian@sha256:5ae3c39ebd15e229dcedd5cee596b2497182493d41ff162e824ba13fc1b2b867",
+    "tool": "0.0.111-1+20261115155008.ga314954"
+  },
+  "packages": [
+    {
+      "name": "katzenpost-0.0.111+20261112111011.g3d8eddb-debian13-amd64.tar.gz",
+      "sha256": "4804288a8b0e034c015fe41e8400b0f994c6e1c74dcdfff258bdda9b1b0672af",
+      "bytes": 131787443
+    },
+    {
+      "name": "katzenpost-0.0.111-hpqc-src.tar.gz",
+      "sha256": "a3ad9fc338448c116a7c7a590af835d25971f7dd4b1357ae4e60f1879c248425",
+      "bytes": 1294358
+    },
+    {
+      "name": "katzenpost-0.0.111-src.tar.gz",
+      "sha256": "78702434728cc3763e9310473991bbf103d522b533cc9765a4cdcf650c80c3c9",
+      "bytes": 3000956
+    },
+    {
+      "name": "katzenpost_0.0.111+debian13_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.111",
+      "sha256": "a5e79c156e7a669ee552729101a0df1c92ee99b22d9fea5dec4f4db0eb46aacb",
+      "bytes": 95355576,
+      "content": "a5e79c156e7a669ee552729101a0df1c92ee99b22d9fea5dec4f4db0eb46aacb",
+      "scripts": [
+        "postinst",
+        "postrm",
+        "preinst"
+      ]
+    }
+  ]
+}
