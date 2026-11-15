@@ -17,12 +17,38 @@
       ]
     },
     {
+      "name": "namenlos-config-windfall-pq-servicenode_0.0.111-1+20261115155008.gee62995_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.111-1+20261115155008.gee62995",
+      "sha256": "89629ec2dd011fc2d960532947730f204ff85ca551f788843216348dc42fea55",
+      "bytes": 15636,
+      "content": "d7be0b1af5551e641c63faa07808376a",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    },
+    {
       "name": "namenlos-config-windfall-pq-storagenode-2_0.0.111-1+20261112111011.g3d8eddb_amd64.deb",
       "arch": "amd64",
       "version": "0.0.111-1+20261112111011.g3d8eddb",
       "sha256": "21e2daf25896de04893ecd04eb0f0de66facde032a8d23c2576a91b9c58c3e51",
       "bytes": 12276,
       "content": "882b84a037166038d91492aba8594ca9",
+      "scripts": [
+        "postinst",
+        "preinst",
+        "prerm"
+      ]
+    },
+    {
+      "name": "namenlos-config-windfall-pq-storagenode-2_0.0.111-1+20261115154402.ga8e6a1e_amd64.deb",
+      "arch": "amd64",
+      "version": "0.0.111-1+20261115154402.ga8e6a1e",
+      "sha256": "fa6ba5740c94642cdd1d33fd5121511a2e7af400b0048c97a53131a4d6d2b9a8",
+      "bytes": 12296,
+      "content": "3a8ff8ea06eca67acd8d4850b2254502",
       "scripts": [
         "postinst",
         "preinst",
