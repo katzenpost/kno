@@ -156,6 +156,7 @@ func TestTransformServerConfigBlanksMetricsAndSpool(t *testing.T) {
 		"[Server]",
 		`  MetricsAddress = "127.0.0.1:6543"`,
 		`  SpoolDB = "/var/lib/katzenpost/spool.db"`,
+		`  BridgeSocket = "/var/lib/katzenpost/replica/x/bridge.sock"`,
 	}
 	out := transformServerConfig(lines, "[]", "/data/x", "DEBUG")
 	if out[1] != `  MetricsAddress = ""` {
@@ -163,6 +164,9 @@ func TestTransformServerConfigBlanksMetricsAndSpool(t *testing.T) {
 	}
 	if out[2] != `  SpoolDB = "/data/x/spool.db"` {
 		t.Errorf("spool = %q", out[2])
+	}
+	if out[3] != `  BridgeSocket = "/data/x/bridge.sock"` {
+		t.Errorf("bridge socket = %q", out[3])
 	}
 }
 
