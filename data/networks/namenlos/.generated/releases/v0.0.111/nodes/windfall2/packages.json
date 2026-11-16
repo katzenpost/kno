@@ -17,12 +17,12 @@
       ]
     },
     {
-      "name": "namenlos-config-windfall-pq-storagenode-2_0.0.111-1+20261115154402.ga8e6a1e_amd64.deb",
+      "name": "namenlos-config-windfall-pq-storagenode-2_0.0.111-1+20261116124159.gf5db8f8_amd64.deb",
       "arch": "amd64",
-      "version": "0.0.111-1+20261115154402.ga8e6a1e",
-      "sha256": "fa6ba5740c94642cdd1d33fd5121511a2e7af400b0048c97a53131a4d6d2b9a8",
-      "bytes": 12296,
-      "content": "3a8ff8ea06eca67acd8d4850b2254502",
+      "version": "0.0.111-1+20261116124159.gf5db8f8",
+      "sha256": "a86b16b7bde7d680302e9b96d9c99b6b1e9597a28636178851a68b165d5d12ef",
+      "bytes": 12316,
+      "content": "ed68bc81be5006488cb6641d086309eb",
       "scripts": [
         "postinst",
         "preinst",
