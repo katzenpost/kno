@@ -2,6 +2,8 @@
 pkiSignatureScheme = "Ed25519 Sphincs+"
 wireKEMScheme = "KYBER768-X25519"
 replicaNIKEScheme = "CTIDH1024-X25519"
+# Box payload lengths every replica takes besides the default 1549: the Reticulum mesh's 256, carried in by the bridge
+boxPayloadLengths = [256]
 
   [network.parameters]
   Mu = 0.001

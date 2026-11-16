@@ -50,6 +50,7 @@ type networkT struct {
 	PKISignatureScheme string
 	WireKEMScheme      string
 	ReplicaNIKEScheme  string
+	BoxPayloadLengths  []int
 	Parameters         paramsT
 	Layout             struct {
 		Layers           int
@@ -145,6 +146,7 @@ type mixCtx struct {
 	Debug       mixDebugT
 	Sphinx      sphinxT
 	ReplicaNIKE string
+	BoxLengths  []int
 }
 
 func decode(path string, v interface{}) error {
@@ -211,7 +213,7 @@ func Render(dir, out string) error {
 		return mixCtx{
 			Node: n, PKI: m.Network.PKISignatureScheme, WireKEM: m.Network.WireKEMScheme,
 			Authorities: auths, Debug: m.Network.MixDebug, Sphinx: m.Network.Sphinx,
-			ReplicaNIKE: m.Network.ReplicaNIKEScheme,
+			ReplicaNIKE: m.Network.ReplicaNIKEScheme, BoxLengths: m.Network.BoxPayloadLengths,
 		}
 	}
 	render := func(t *template.Template, n nodeT, suffix string) error {
@@ -547,6 +549,7 @@ ReplicaNIKEScheme = "{{.ReplicaNIKE}}"
 Addresses = {{addrs .Node.Addresses}}
 {{if .Node.BindAddresses}}BindAddresses = {{addrs .Node.BindAddresses}}
 {{end}}{{if .Node.BridgeSocket}}BridgeSocket = "{{.Node.BridgeSocket}}"
+{{end}}{{if .BoxLengths}}BoxPayloadLengths = [{{range $i, $n := .BoxLengths}}{{if $i}}, {{end}}{{$n}}{{end}}]
 {{end}}MetricsAddress = "{{.Node.MetricsAddress}}"
 ConnectTimeout = 60000
 HandshakeTimeout = 300000

@@ -171,3 +171,22 @@ func TestRenderWritesTheBridgeSocketOfAStorageNodeThatHasOne(t *testing.T) {
 		t.Errorf("a node without a bridge socket got one:\n%s", b)
 	}
 }
+
+func TestRenderWritesTheNetworksBoxPayloadLengthsOnEveryStorageNode(t *testing.T) {
+	net := fixture(t)
+	nodes := append(fixtureNodes, fixtureNode{"sta", "storagenode", "sta-pq-storagenode-0"})
+	put(t, filepath.Join(net, "editable-configs", "nodes", "sta-storagenode.toml"), nodeBody(nodes[3]))
+	m := strings.Replace(manifest(nodes, twoLayers), "[network]\n", "[network]\nboxPayloadLengths = [256, 512]\n", 1)
+	put(t, filepath.Join(net, "editable-configs", "manifest.toml"), m)
+	out := t.TempDir()
+	if err := Render(net, out); err != nil {
+		t.Fatal(err)
+	}
+	a, err := os.ReadFile(filepath.Join(out, "sta-pq-storagenode-0.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "\nBoxPayloadLengths = [256, 512]\n"; !strings.Contains(string(a), want) {
+		t.Errorf("the storage node's config lacks %q:\n%s", want, a)
+	}
+}
