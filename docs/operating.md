@@ -179,6 +179,6 @@ kno update
 Or, from your machine, over ssh:
 
 ```sh
-kno push mixy v0.0.108
+kno push mixy v0.0.111
 ```
 
