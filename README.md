@@ -64,4 +64,5 @@ podman.
 
 ## Licence
 
-Public domain; see [LICENSE](LICENSE).
+kno is public domain; see [LICENSE](LICENSE). Its dependencies are Free
+Software: see [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES) for details.
