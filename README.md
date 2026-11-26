@@ -44,8 +44,9 @@ your hosts, and change or update a node, read
 
 ## Status
 
-kno pins katzenpost v0.0.107 and hpqc v0.0.93 in `pins.env`. It builds
-for Linux on amd64, arm64 and ppc64le, and for FreeBSD 14 on amd64.
+kno pins katzenpost v0.0.111 and hpqc commit 62a4e238dbf4 in `pins.env`.
+It builds for Linux on amd64, arm64 and ppc64le, and for FreeBSD 14 on
+amd64.
 `kno build compare` checks a build against the hashes recorded in this
 repository. kno does not yet check signatures on katzenpost releases,
 because katzenpost tags are not signed yet; until they are, its trust
