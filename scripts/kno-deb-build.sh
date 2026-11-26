@@ -37,7 +37,9 @@ command -v "$PODMAN" >/dev/null 2>&1 || { echo "kno-deb-build: $PODMAN not found
 root="$outdir/.root"
 rm -rf "$root"
 umask 022
-mkdir -p "$root/DEBIAN" "$root/usr/bin"
+mkdir -p "$root/DEBIAN" "$root/usr/bin" "$root/usr/share/doc/kno"
+{ cat "$REPO/LICENSE"; echo; cat "$REPO/THIRD_PARTY_LICENSES"; } \
+	>"$root/usr/share/doc/kno/copyright"
 
 cache="${KNO_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/katzenpost/kno}"
 mkdir -p "$cache/gomodcache" "$cache/gobuild"

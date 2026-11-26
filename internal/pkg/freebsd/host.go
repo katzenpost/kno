@@ -10,6 +10,7 @@ import (
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/pkg/deb"
 	"github.com/katzenpost/kno/internal/pkg/hostconfig"
+	"github.com/katzenpost/kno/internal/pkg/notices"
 )
 
 var KnoConfig = config.SystemConfigPathsFor("freebsd")[0]
@@ -47,12 +48,15 @@ func Version(debVersion string) string {
 	return v
 }
 
-func KnoPackage(bin, debVersion, outdir, abi string, epoch int64) (string, error) {
+func KnoPackage(bin, debVersion, outdir, abi string, epoch int64, license []byte) (string, error) {
 	root := filepath.Join(outdir, ".pkgbuild-kno")
 	if err := os.RemoveAll(root); err != nil {
 		return "", err
 	}
 	if err := install(bin, filepath.Join(root, strings.TrimPrefix(knopath.LocalBin, "/")), 0o755); err != nil {
+		return "", err
+	}
+	if err := notices.Install(root, "freebsd", license); err != nil {
 		return "", err
 	}
 	return writePkg(root, outdir, Meta{

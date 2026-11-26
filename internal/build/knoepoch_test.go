@@ -18,7 +18,7 @@ func TestTheKnoPkgOutsideABuildHasTheEpochOfTheRelease(t *testing.T) {
 	o := Options{Repo: t.TempDir(), Network: "namenlos", Tag: "v0.0.107"}
 	pkg := func() []byte {
 		t.Helper()
-		p, err := knoPkgOf(o, bin, t.TempDir(), "0.0.107", freebsd.DefaultABI)
+		p, err := knoPkgOf(o, bin, t.TempDir(), "0.0.107", freebsd.DefaultABI, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

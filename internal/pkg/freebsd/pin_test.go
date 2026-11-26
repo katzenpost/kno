@@ -48,7 +48,7 @@ func TestEveryPackageKeepsItsBytes(t *testing.T) {
 			}, repo, DefaultABI, nil)
 		},
 		"kno": func() (string, error) {
-			return KnoPackage(kno, "0.0.107-1+20261020123335.g4eca74c", t.TempDir(), "", 1600000000)
+			return KnoPackage(kno, "0.0.107-1+20261020123335.g4eca74c", t.TempDir(), "", 1600000000, nil)
 		},
 		"host-config": func() (string, error) {
 			return HostConfigPackage(freebsdHostConfig(), "jailhost", "0.0.107+20261020.gdef",

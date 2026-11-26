@@ -27,6 +27,7 @@ import (
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/pkg/hostconfig"
 	"github.com/katzenpost/kno/internal/pkg/knodeb"
+	"github.com/katzenpost/kno/internal/pkg/notices"
 	"github.com/katzenpost/kno/internal/release"
 	"github.com/katzenpost/kno/internal/service"
 	"github.com/katzenpost/kno/internal/source"
@@ -882,15 +883,15 @@ func knoPkg(o Options, rel, toolVer string, pins map[string]string, local bool) 
 	if err != nil {
 		return "", err
 	}
-	return knoPkgOf(o, filepath.Join(bindir, "kno"), rel, toolVer, pins["FREEBSD_ABI"])
+	return knoPkgOf(o, filepath.Join(bindir, "kno"), rel, toolVer, pins["FREEBSD_ABI"], notices.Read(ko.Src))
 }
 
-func knoPkgOf(o Options, bin, rel, toolVer, abi string) (string, error) {
+func knoPkgOf(o Options, bin, rel, toolVer, abi string, license []byte) (string, error) {
 	epoch, err := deb.Epoch(o.Repo, o.Tag)
 	if err != nil {
 		return "", err
 	}
-	p, err := freebsd.KnoPackage(bin, toolVer, filepath.Join(rel, "pkgs"), abi, epoch)
+	p, err := freebsd.KnoPackage(bin, toolVer, filepath.Join(rel, "pkgs"), abi, epoch, license)
 	if err != nil {
 		return "", fmt.Errorf("kno pkg: %w", err)
 	}

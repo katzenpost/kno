@@ -18,6 +18,7 @@ import (
 	"github.com/katzenpost/kno/internal/knopath"
 	"github.com/katzenpost/kno/internal/knover"
 	"github.com/katzenpost/kno/internal/pkg/deb"
+	"github.com/katzenpost/kno/internal/pkg/notices"
 	"github.com/katzenpost/kno/internal/source"
 )
 
@@ -269,6 +270,11 @@ func AssembleRoot(ctx context.Context, o Options) (string, error) {
 	}
 	bindir := filepath.Join(root, "usr/bin")
 	if err := compileKno(ctx, o, bindir); err != nil {
+		return "", err
+	}
+
+	src, _ := sourceRoot(o.source())
+	if err := notices.Install(root, "linux", notices.Read(src)); err != nil {
 		return "", err
 	}
 

@@ -12,6 +12,7 @@ import (
 	"github.com/katzenpost/kno/internal/config"
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/pkg/knodeb"
+	"github.com/katzenpost/kno/internal/pkg/notices"
 	"github.com/katzenpost/kno/internal/source"
 )
 
@@ -65,7 +66,7 @@ func run() error {
 		return fmt.Errorf("wrong executable target: %s %s", f.OSABI, f.Machine)
 	}
 	const epoch = 1792480357
-	kno, err := freebsd.KnoPackage(bin, *version, dir, abi, epoch)
+	kno, err := freebsd.KnoPackage(bin, *version, dir, abi, epoch, notices.Read(opts.Src))
 	if err != nil {
 		return err
 	}

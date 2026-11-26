@@ -117,7 +117,7 @@ func TestKnoPackage(t *testing.T) {
 	if err := os.WriteFile(bin, []byte("KNO\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	p, err := KnoPackage(bin, "0.0.107+20261020123335.g4eca74c", dir, DefaultABI, 1600000000)
+	p, err := KnoPackage(bin, "0.0.107+20261020123335.g4eca74c", dir, DefaultABI, 1600000000, []byte("NOTICES\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,8 +125,8 @@ func TestKnoPackage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the kno package does not validate: %v", err)
 	}
-	if rep.Name != "kno" || rep.Files != 1 {
-		t.Errorf("report = %+v, want kno with one file", rep)
+	if rep.Name != "kno" || rep.Files != 2 {
+		t.Errorf("report = %+v, want kno with two files", rep)
 	}
 }
 

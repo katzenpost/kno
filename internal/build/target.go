@@ -16,6 +16,7 @@ import (
 	"github.com/katzenpost/kno/internal/pkg/freebsd"
 	"github.com/katzenpost/kno/internal/pkg/hostconfig"
 	"github.com/katzenpost/kno/internal/pkg/knodeb"
+	"github.com/katzenpost/kno/internal/pkg/notices"
 	"github.com/katzenpost/kno/internal/source"
 	"github.com/katzenpost/kno/internal/track"
 )
@@ -106,7 +107,7 @@ func KnoPackagesForSelection(e track.Env, selected track.SourceCheckout, dataRep
 		if err != nil {
 			return nil, err
 		}
-		tool, err := freebsd.KnoPackage(bin, ko.Version, dir, pins["FREEBSD_ABI"], epoch)
+		tool, err := freebsd.KnoPackage(bin, ko.Version, dir, pins["FREEBSD_ABI"], epoch, notices.Read(ko.Src))
 		if err != nil {
 			return nil, err
 		}
