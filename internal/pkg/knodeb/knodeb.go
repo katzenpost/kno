@@ -134,7 +134,7 @@ func defaultOptions(repo, runningVersion, binary string) (Options, error) {
 		OutDir:       filepath.Join(repo, "dist", "kno"),
 		Maintainer:   deb.Maintainer(),
 		Image:        img,
-		Podman:       "podman",
+		Podman:       compile.Podman(),
 		Deb:          deb.EnvSettings(),
 		GoModCache:   gomod,
 		GoBuildCache: gocache,
