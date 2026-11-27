@@ -163,7 +163,9 @@ printf 'LILLY_UPGRADE_PASS\n'
 	if err := os.WriteFile(filepath.Join(dir, "upgrade.sh"), []byte(script), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	out, err := exec.Command(podman, "run", "--rm", "--network=none", "-v", dir+":/d:ro,Z", "debian:bookworm-slim", "sh", "/d/upgrade.sh").CombinedOutput()
+	out, err := exec.Command(podman, "run", "--rm", "--network=none",
+		"-v", dir+":/d:ro,Z", "docker.io/library/debian:bookworm-slim",
+		"sh", "/d/upgrade.sh").CombinedOutput()
 	if err != nil || !strings.Contains(string(out), "LILLY_UPGRADE_PASS") {
 		t.Fatalf("packaged lilly upgrade: %v\n%s", err, out)
 	}

@@ -1,4 +1,4 @@
-FROM catthehacker/ubuntu:act-latest
+FROM docker.io/catthehacker/ubuntu:act-latest
 RUN apt-get update && apt-get install -y --no-install-recommends \
       podman fuse-overlayfs uidmap iproute2 iptables slirp4netns shellcheck \
       passt \
