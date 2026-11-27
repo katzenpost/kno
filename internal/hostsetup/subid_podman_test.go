@@ -46,7 +46,10 @@ func TestSystemAccountNeedsASubidRange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, image := range []string{"ubuntu:24.04", "debian:bookworm-slim"} {
+	for _, image := range []string{
+		"docker.io/library/ubuntu:24.04",
+		"docker.io/library/debian:bookworm-slim",
+	} {
 		t.Run(image, func(t *testing.T) {
 
 			have, err := exec.Command(podman, "run", "--rm", "-v", script+":/s.sh:ro,Z",

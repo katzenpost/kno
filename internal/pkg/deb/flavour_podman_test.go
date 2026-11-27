@@ -53,7 +53,8 @@ func TestFlavoursReplaceEachOther(t *testing.T) {
 	}
 
 	out, err := exec.Command(podman, "run", "--rm", "--network=none",
-		"-v", dir+":/d:ro,Z", "debian:bookworm-slim", "sh", "/d/t.sh").CombinedOutput()
+		"-v", dir+":/d:ro,Z", "docker.io/library/debian:bookworm-slim",
+		"sh", "/d/t.sh").CombinedOutput()
 	t.Logf("container output:\n%s", out)
 	if err != nil {
 		t.Fatalf("podman run: %v", err)

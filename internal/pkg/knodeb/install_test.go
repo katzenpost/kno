@@ -102,7 +102,8 @@ func TestPackagesBootstrapAHost(t *testing.T) {
 			t.Parallel()
 			out, err := exec.Command(podman, "run", "--rm", "--network=none",
 				"-e", "BREAK="+c.brk, "-e", "NODE="+c.node, "-v", dir+":/d:ro,z",
-				"debian:bookworm-slim", "sh", "/d/check.sh").CombinedOutput()
+				"docker.io/library/debian:bookworm-slim",
+				"sh", "/d/check.sh").CombinedOutput()
 			t.Logf("container output:\n%s", out)
 			if err != nil {
 				t.Fatalf("podman run: %v", err)

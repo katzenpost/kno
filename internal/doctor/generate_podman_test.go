@@ -37,7 +37,7 @@ func TestDoctorsSubidAdviceDoesNotCollide(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const image = "ubuntu:24.04"
+	const image = "docker.io/library/ubuntu:24.04"
 	have, err := exec.Command(podman, "run", "--rm", image,
 		"sh", "-c", "cat /etc/subuid 2>/dev/null || true").Output()
 	if err != nil {

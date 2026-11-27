@@ -94,7 +94,8 @@ func TestConfigPackageMovesTheKeysOfAnOldLayoutHost(t *testing.T) {
 	}
 
 	res, err := exec.Command(podman, "run", "--rm", "--network=none",
-		"-v", dir+":/d:ro,Z", "debian:bookworm-slim", "sh", "/d/check.sh").CombinedOutput()
+		"-v", dir+":/d:ro,Z", "docker.io/library/debian:bookworm-slim",
+		"sh", "/d/check.sh").CombinedOutput()
 	t.Logf("container output:\n%s", res)
 	if err != nil {
 		t.Fatalf("podman run: %v", err)

@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const containerfile = `FROM debian:bookworm-slim
+const containerfile = `FROM docker.io/library/debian:bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
  && apt-get install -y --no-install-recommends systemd systemd-sysv sudo openssh-client \
